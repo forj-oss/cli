@@ -1,0 +1,95 @@
+#!/usr/bin/env ruby
+# encoding: UTF-8
+
+# (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+require 'rubygems'
+require 'require_relative'
+require 'thor'
+
+require_relative '../lib/boot.rb'
+include Boot
+require_relative '../lib/down.rb'
+include Down
+require_relative '../lib/setup.rb'
+include Setup
+
+
+class Forj < Thor
+  desc 'help', 'Display forj cli help'
+  def help
+    puts 'forj cli commands'
+    puts '    -action:'
+    puts '        boot: boot a Maestro box and instruct it to provision the blueprint'
+    puts '            -blueprint: which blueprint to use'
+    puts '            -on: just because :)'
+    puts '            -cloud_provider: cloud provider type to be used to provision the forge.'
+    puts '                - hpcloud: uses HP public cloud http://hpcloud.com/'
+    puts '                - openstack: OpenStack based private or public cloud'
+    puts '                - more to come'
+    puts '            -as: just because :)'
+    puts '            -name: name for the maestro box'
+    puts '            -test: this will delete everything after it finish to install the forge'
+    puts '            example: forj boot redstone on hpcloud as redstone01'
+    puts '        down: delete the Maestro box and all systems installed by the blueprint'
+    puts '            -name: name for the maestro box'
+    puts '        setup: set the credentials for forj cli'
+    puts '            -credentials:'
+    puts '              hpcloud:'
+    puts '                  access_key: access key from hpcloud'
+    puts '                  secret_key: secret key from hpcloud'
+    puts '                  auth_uri: identity endpoint'
+    puts '                  tenant_id: id for the tenant you want to use'
+    puts '                  availability_zone: which availability zone will be deployed'
+    puts ''
+  end
+
+  desc 'boot', 'boot a Maestro box and instruct it to provision the blueprint'
+
+  method_option :build,            :aliases => '-b',   :desc => 'Replace the default build.sh'
+  method_option :build_config_dir, :aliases => '-bcd', :desc => 'Defines the build configuration directory to load the build configuration file. You can set FORJ_BLD_CONF_DIR. By default, it will look in your current directory.'
+  method_option :build_config,     :aliases => '-bc',  :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
+  method_option :branch,           :aliases => '-gb',  :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
+  method_option :test_box,         :aliases => '-tb',  :desc => 'Create test-box meta from the repository path provided.'
+  method_option :git_repo,         :aliases => '-gr',  :desc => 'The box built will use a different git repository sent out to <user_data>. This repository needs to be read only. No keys are sent.'
+  method_option :boothook,         :aliases => '-b',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
+  method_option :box_name,         :aliases => '-bn',  :desc => 'Defines the name of the box or box image to build.'
+
+  def boot(blueprint, on, cloud_provider, as, name, test = false)
+      Boot.boot(blueprint, cloud_provider, name,
+                options[:build], options[:build_config_dir],
+                options[:build_config], options[:branch],
+                options[:git_repo], options[:boothook],
+                options[:box_name], test)
+  end
+
+  desc 'down', 'delete the Maestro box and all systems installed by the blueprint'
+  def down(name)
+    Down.down(name)
+  end
+
+  desc 'ssh', 'connect to your forge thru ssh'
+  def ssh
+    puts 'ssh'
+  end
+
+  desc 'setup', 'set the credentials for forj cli'
+  def setup
+    Setup.setup
+  end
+end
+
+
+Forj.start
