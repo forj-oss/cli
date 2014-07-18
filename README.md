@@ -6,9 +6,6 @@ How to use it
 =====================
 
 
-FORJ Team
-
-
 Contributing to Forj
 =====================
 We welcome all types of contributions.  Checkout our website (http://docs.forj.io/en/latest/dev/contribute.html)

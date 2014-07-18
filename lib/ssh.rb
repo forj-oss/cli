@@ -14,3 +14,25 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+
+require 'rubygems'
+require 'require_relative'
+
+#
+# ssh module
+#
+module Ssh
+  def connect(name, server)
+    current_dir = Dir.pwd
+    Dir.chdir(current_dir + '/lib')
+
+    update = './ssh.sh -u'
+    connection = './ssh.sh %s %s' % [name, server]
+
+    # update the list of servers
+    Kernel.system(update)
+
+    # connect to the server
+    Kernel.system(connection)
+  end
+end

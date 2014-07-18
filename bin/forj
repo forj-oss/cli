@@ -25,6 +25,8 @@ require_relative '../lib/down.rb'
 include Down
 require_relative '../lib/setup.rb'
 include Setup
+require_relative '../lib/ssh.rb'
+include Ssh
 
 
 class Forj < Thor
@@ -81,8 +83,8 @@ class Forj < Thor
   end
 
   desc 'ssh', 'connect to your forge thru ssh'
-  def ssh
-    puts 'ssh'
+  def ssh(name, server)
+    Ssh.connect(name, server)
   end
 
   desc 'setup', 'set the credentials for forj cli'
