@@ -36,9 +36,10 @@ include Helpers
 #
 module Boot
   def boot(blueprint, cloud_provider, name,
-           build, build_config_dir, build_config,
-           branch, git_repo, boothook, box_name,
-           test = false)
+      build, build_config_dir, build_config,
+      branch, git_repo, boothook, box_name,
+      key_name, key_path,
+      test = false)
     begin
       initial_msg = 'booting %s on %s' % [blueprint , cloud_provider]
 
@@ -60,6 +61,10 @@ module Boot
 
       security_group = SecurityGroup.create_security_group(blueprint)
 
+      key_name = 'nova' unless key_name
+      key_path = '~/.ssh/nova' unless key_path
+      SecurityGroup.upload_existing_key(key_name, key_path)
+
       ports = definitions['redstone']['ports']
 
       ports.each do|port|
@@ -68,8 +73,8 @@ module Boot
 
       ENV['FORJ_HPC_NETID'] = network.id
       ENV['FORJ_SECURITY_GROUP'] = security_group.name
-      #ENV['FORJ_KEYPAIR'] = definitions[blueprint]['keypair']
-      #ENV['FORJ_HPC_NOVA_KEYPUB'] = definitions[blueprint]['keypair']
+      ENV['FORJ_KEYPAIR'] = key_name
+      ENV['FORJ_HPC_NOVA_KEYPUB'] = key_name
 
       # run build.sh to boot maestro
       current_dir = Dir.pwd
@@ -98,9 +103,9 @@ module Boot
 
       if test
         puts 'test flag is on, deleting objects'
-          Network.delete_router_interface(subnet.id, router)
-          Network.delete_subnet(subnet.id)
-          Network.delete_network(network.name)
+        Network.delete_router_interface(subnet.id, router)
+        Network.delete_subnet(subnet.id)
+        Network.delete_network(network.name)
       end
 
     rescue SystemExit, Interrupt

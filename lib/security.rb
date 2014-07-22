@@ -89,4 +89,9 @@ module SecurityGroup
       Logging.error(e.message)
     end
   end
+
+  def upload_existing_key(key_name, key_path)
+    command = 'hpcloud keypairs:import %s %s' % [key_name, key_path]
+    Kernel.system(command)
+  end
 end

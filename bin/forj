@@ -74,21 +74,24 @@ class Forj < Thor
 
   desc 'boot', 'boot a Maestro box and instruct it to provision the blueprint'
 
-  method_option :build,            :aliases => '-b',   :desc => 'Replace the default build.sh'
-  method_option :build_config_dir, :aliases => '-bcd', :desc => 'Defines the build configuration directory to load the build configuration file. You can set FORJ_BLD_CONF_DIR. By default, it will look in your current directory.'
-  method_option :build_config,     :aliases => '-bc',  :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
-  method_option :branch,           :aliases => '-gb',  :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
-  method_option :test_box,         :aliases => '-tb',  :desc => 'Create test-box meta from the repository path provided.'
-  method_option :git_repo,         :aliases => '-gr',  :desc => 'The box built will use a different git repository sent out to <user_data>. This repository needs to be read only. No keys are sent.'
-  method_option :boothook,         :aliases => '-bh',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
-  method_option :box_name,         :aliases => '-bn',  :desc => 'Defines the name of the box or box image to build.'
+  method_option :build,            :aliases => '-u',   :desc => 'Replace the default build.sh'
+  method_option :build_config_dir, :aliases => '-d',   :desc => 'Defines the build configuration directory to load the build configuration file. You can set FORJ_BLD_CONF_DIR. By default, it will look in your current directory.'
+  method_option :build_config,     :aliases => '-c',   :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
+  method_option :branch,           :aliases => '-b',   :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
+  method_option :test_box,         :aliases => '-t',   :desc => 'Create test-box meta from the repository path provided.'
+  method_option :git_repo,         :aliases => '-r',   :desc => 'The box built will use a different git repository sent out to <user_data>. This repository needs to be read only. No keys are sent.'
+  method_option :boothook,         :aliases => '-h',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
+  method_option :box_name,         :aliases => '-x',   :desc => 'Defines the name of the box or box image to build.'
+  method_option :key_name,         :aliases => '-k',   :desc => 'Import a key pair.'
+  method_option :key_path,         :aliases => '-p',   :desc => 'Public key data'
 
   def boot(blueprint, on, cloud_provider, as, name, test = false)
       Boot.boot(blueprint, cloud_provider, name,
                 options[:build], options[:build_config_dir],
                 options[:build_config], options[:branch],
                 options[:git_repo], options[:boothook],
-                options[:box_name], test)
+                options[:box_name], options[:key_name],
+                options[:key_path], test)
   end
 
   desc 'down', 'delete the Maestro box and all systems installed by the blueprint'
