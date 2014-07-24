@@ -59,7 +59,7 @@ module Boot
 
       Repositories.clone_repo(maestro_url)
 
-      network = Network.create_network(name)
+      network = Network.get_or_create_network(name)
       subnet = Network.create_subnet(network.id, name)
       router = Network.get_router(definitions[blueprint]['router'])
       Network.create_router_interface(subnet.id, router)

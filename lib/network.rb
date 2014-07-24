@@ -27,6 +27,25 @@ include Logging
 # Network module
 #
 module Network
+  def get_or_create_network(name)
+    network = get_network(name)
+    if network == nil
+      network = create_network(name)
+    end
+    network
+  end
+
+  def get_network(name)
+    begin
+      info = 'getting network %s' % [name]
+      Logging.info(info)
+      Connection.network.networks.all(:name => name)[0]
+    rescue => e
+      puts e.message
+      Logging.error(e.message)
+    end
+  end
+
   def create_network(name)
     begin
       info = 'creating network %s' % [name]
@@ -39,7 +58,7 @@ module Network
 
   def delete_network(network_name)
     begin
-      network = Connection.network.networks.all(:name => network_name)[0]
+      network = get_network(network_name)
       Connection.network.networks.get(network.id).destroy
     rescue => e
       Logging.error(e.message)
