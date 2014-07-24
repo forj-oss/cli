@@ -84,6 +84,7 @@ class Forj < Thor
   method_option :box_name,         :aliases => '-x',   :desc => 'Defines the name of the box or box image to build.'
   method_option :key_name,         :aliases => '-k',   :desc => 'Import a key pair.'
   method_option :key_path,         :aliases => '-p',   :desc => 'Public key data'
+  method_option :catalog,          :aliases => '-y',   :desc => 'A path for the yaml file data about the blueprint'
 
   def boot(blueprint, on, cloud_provider, as, name, test = false)
       Boot.boot(blueprint, cloud_provider, name,
@@ -91,7 +92,8 @@ class Forj < Thor
                 options[:build_config], options[:branch],
                 options[:git_repo], options[:boothook],
                 options[:box_name], options[:key_name],
-                options[:key_path], test)
+                options[:key_path],options[:region],
+                options[:catalog], test)
   end
 
   desc 'down', 'delete the Maestro box and all systems installed by the blueprint'

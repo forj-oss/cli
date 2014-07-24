@@ -38,7 +38,7 @@ module Boot
   def boot(blueprint, cloud_provider, name,
       build, build_config_dir, build_config,
       branch, git_repo, boothook, box_name,
-      key_name, key_path,
+      key_name, key_path, region, catalog,
       test = false)
     begin
       initial_msg = 'booting %s on %s' % [blueprint , cloud_provider]
@@ -48,7 +48,12 @@ module Boot
 
       forj_dir = File.expand_path(File.dirname(__FILE__))
       Dir.chdir(forj_dir)
-      definitions = YamlParse.get_values('catalog.yaml')
+
+      if catalog
+        definitions = YamlParse.get_values(catalog)
+      else
+        definitions = YamlParse.get_values('catalog.yaml')
+      end
 
       maestro_url =  definitions['default']['maestro']
 
@@ -75,6 +80,9 @@ module Boot
       ENV['FORJ_SECURITY_GROUP'] = security_group.name
       ENV['FORJ_KEYPAIR'] = key_name
       ENV['FORJ_HPC_NOVA_KEYPUB'] = key_name
+      if region
+        ENV['FORJ_REGION'] = region
+      end
 
       # run build.sh to boot maestro
       current_dir = Dir.pwd
