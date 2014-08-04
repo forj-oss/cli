@@ -29,6 +29,7 @@ Gem::Specification.new do |s|
 
   s.executables = ['forj']
   s.files       = %w(bin/forj
+                     lib/compute.rb
                      lib/connection.rb
                      lib/network.rb
                      lib/security.rb

@@ -18,11 +18,16 @@
 require 'rubygems'
 require 'require_relative'
 
+require_relative 'log.rb'
+include Logging
+
 #
 # ssh module
 #
 module Ssh
   def connect(name, server)
+    msg = 'logging into %s : %s' % [name, server]
+    Logging.info(msg)
     current_dir = Dir.pwd
     Dir.chdir(current_dir + '/lib')
 

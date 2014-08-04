@@ -24,6 +24,12 @@ require_relative 'yaml_parse.rb'
 include YamlParse
 require_relative 'security.rb'
 include SecurityGroup
+require_relative 'log.rb'
+include Logging
+require_relative 'ssh.rb'
+include Ssh
+require_relative 'compute.rb'
+include Compute
 
 #
 # Down module
@@ -32,30 +38,25 @@ module Down
   def down(name)
     begin
 
-      puts 'deleting %s...' % [name]
+      initial_msg = 'deleting forge "%s"' % [name]
+      Logging.info(initial_msg)
+      puts (initial_msg)
 
-      definitions = YamlParse::get_values('catalog.yaml')
+      Compute.delete_forge(name)
 
-      # get the subnet
-      subnet = Network::get_subnet(name)
-
-      # delete the router interface
-      router = Network::get_router(definitions['redstone']['router'])
+      router = Network.get_router('private-ext')
+      subnet = Network.get_subnet(name)
       Network.delete_router_interface(subnet.id, router)
 
-      # delete subnet
       Network.delete_subnet(subnet.id)
-
-      # delete security group
-      # Network.delete_security_group(security_group.id)
-
-      # delete network
-      Network.delete_network(name)
+      network = Network.get_network(name)
+      Network.delete_network(network.name)
 
     rescue SystemExit, Interrupt
       puts 'process interrupted by user'
+      Logging.error('process interrupted by user')
     rescue Exception => e
-      puts e
+      Logging.error(e.message)
     end
   end
 end

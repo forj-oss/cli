@@ -22,9 +22,10 @@ GRE="\e[92m"
 OW=`date +%Y-%m-%d.%H%M%S`
 logpath=~/.ssh/
 DB=~/hosts
-key_path=~/.ssh/
+#key_path=~/.ssh/
+#key_path=~/.hpcloud/keypairs/
 init_config=~/ssh_init
-key="nova"
+key="nova.pem"
 
 if [ ! -f $DB ]; then
 	cat > $DB <<'EOF'

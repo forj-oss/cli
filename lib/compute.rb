@@ -1,3 +1,6 @@
+#!/usr/bin/env ruby
+# encoding: UTF-8
+
 # (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,26 +15,24 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-redstone:
-  image: proto2b
-  flavor: standard.xsmall
-  ports: [22, 80, 443, 3131, 3000, 3132, 3133, 3134, 3135, 4505, 4506, 5000, 5666, 8000, 8080, 8081, 8083, 8125, 8139, 8140, 8773, 8774, 8776, 9292, 29418, 35357]
-  keypair_path: ~/.hpcloud/keypairs/nova
-  keypair_name: nova
-  router: private-ext
-  security_group: default
-  network: private
-  # at this point you have to clone the infra project manually
-  build_config_dir: ~/.forj/maestro/build/conf
-  build_config: box
-  branch: master
-  box_name: maestro
+require 'rubygems'
+require 'require_relative'
 
+require_relative 'connection.rb'
+include Connection
+require_relative 'log.rb'
+include Logging
 
-modus:
-  ports: []
-  keypair: nova
-  router: private-ext
-
-default:
-  maestro: https://github.com/forj-oss/maestro.git
+#
+# compute module
+#
+module Compute
+  def delete_forge(name)
+    instances = Connection.compute.servers.all(:name => name)
+    instances.each do|instance|
+      # make sure we don't delete another forge because fog filters
+      # the name in a "like syntax" way
+      Connection.compute.servers.get(instance.id).destroy
+    end
+  end
+end

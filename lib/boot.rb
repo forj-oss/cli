@@ -57,29 +57,33 @@ module Boot
 
       maestro_url =  definitions['default']['maestro']
 
-      Repositories.clone_repo(maestro_url)
+      #Repositories.clone_repo(maestro_url)
 
-      network = Network.get_or_create_network(name)
-      subnet = Network.create_subnet(network.id, name)
-      router = Network.get_router(definitions[blueprint]['router'])
-      Network.create_router_interface(subnet.id, router)
+      network = Network.get_or_create_network(definitions[blueprint]['network'])
+      begin
+        subnet = Network.get_or_create_subnet(network.id, name)
+        router = Network.get_router(definitions[blueprint]['router'])
+        Network.create_router_interface(subnet.id, router)
+      rescue => e
+        puts e.message
+      end
 
-      security_group = SecurityGroup.create_security_group(blueprint)
+      security_group = SecurityGroup.get_or_create_security_group(definitions[blueprint]['security_group'])
 
-      key_name = 'nova' unless key_name
-      key_path = '~/.ssh/nova' unless key_path
+      key_name = definitions[blueprint]['keypair_name'] unless key_name
+      key_path = definitions[blueprint]['keypair_path'] unless key_path
       SecurityGroup.upload_existing_key(key_name, key_path)
 
-      ports = definitions['redstone']['ports']
+      ports = definitions[blueprint]['ports']
 
       ports.each do|port|
-        Network.create_security_group_rule(security_group.id, 'tcp', port, port)
+        Network.get_or_create_rule(security_group.id, 'tcp', port, port)
       end
 
       ENV['FORJ_HPC_NETID'] = network.id
       ENV['FORJ_SECURITY_GROUP'] = security_group.name
       ENV['FORJ_KEYPAIR'] = key_name
-      ENV['FORJ_HPC_NOVA_KEYPUB'] = key_name
+      ENV['FORJ_HPC_KEYPUB'] = key_path
       if region
         ENV['FORJ_REGION'] = region
       end
@@ -92,20 +96,19 @@ module Boot
 
       build = 'bin/build.sh' unless build
 
-      build_config_dir = '~/.forj/maestro/build/conf' unless build_config_dir
+      build_config_dir = definitions[blueprint]['build_config_dir'] unless build_config_dir
 
-      build_config = 'box' unless build_config
+      build_config = definitions[blueprint]['build_config'] unless build_config
 
-      branch = 'master' unless branch
+      branch = definitions[blueprint]['branch'] unless branch
 
-      git_repo = 'review:forj-oss/maestro' unless git_repo
+      box_name = definitions[blueprint]['box_name'] unless box_name
 
-      box_name = 'maestro' unless box_name
+      meta = '--meta blueprint=%s --meta HPCLOUD_PRIV=~/.cache/forj/master.forj-13.5.g64' % [blueprint]
 
-      boothook = '~/.forj/maestro/build/bin/build-tools/boothook.sh' unless boothook
+      command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, build_config_dir, build_config, branch, meta]
 
-      command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --gitRepo %s --boothook %s' % [build, name, box_name, build_config_dir, build_config, branch, git_repo, boothook]
-
+      Logging.info('using build.sh for %s' % [name])
       Kernel.system(command)
       Dir.chdir(current_dir)
 

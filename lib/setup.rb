@@ -22,6 +22,6 @@ module Setup
   def setup
     # delegate the initial configuration to hpcloud (unix_cli)
     Kernel.system('hpcloud account:setup')
-    Kernel.system('hpcloud keypairs:add nova')
+    #Kernel.system('hpcloud keypairs:add nova')
   end
 end

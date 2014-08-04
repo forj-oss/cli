@@ -28,6 +28,15 @@ include Logging
 #
 module SecurityGroup
 
+  def get_or_create_security_group(name)
+    Logging.info('getting or creating security group for %s' % [name])
+    security_group = get_security_group(name)
+    if security_group == nil
+      security_group = create_security_group(name)
+    end
+    security_group
+  end
+
   def create_security_group(name)
     sec_group = nil
     begin
@@ -46,6 +55,14 @@ module SecurityGroup
       Logging.error(e.message)
     end
     sec_group
+  end
+
+  def get_security_group(name)
+    begin
+      Connection.network.security_groups.all({:name => name})[0]
+    rescue => e
+      Logging.error(e.message)
+    end
   end
 
   def delete_security_group(security_group)
@@ -82,12 +99,21 @@ module SecurityGroup
     end
   end
 
-  def get_security_group(name)
+  def get_security_group_rule(port)
     begin
-      Connection.network.security_groups.all({:name => name})
+      Connection.network.security_group_rules.all({:port_range_min => port, :port_range_max => port})[0]
     rescue => e
       Logging.error(e.message)
     end
+  end
+
+  def get_or_create_rule(security_group_id, protocol, port_min, port_max)
+    Logging.info('getting or creating rule %s' % [port_min])
+    rule = get_security_group_rule(port_min)
+    if rule == nil
+      rule = create_security_group_rule(security_group_id, protocol, port_min, port_max)
+    end
+    rule
   end
 
   def upload_existing_key(key_name, key_path)

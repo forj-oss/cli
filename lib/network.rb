@@ -65,6 +65,18 @@ module Network
     end
   end
 
+  def get_or_create_subnet(network_id, name)
+    begin
+      subnet = get_subnet(name)
+      if subnet == nil
+        subnet = create_subnet(network_id, name)
+      end
+      subnet
+    rescue => e
+      Logging.error(e.message)
+    end
+  end
+
   def create_subnet(network_id, name)
     begin
       Connection.network.subnets.create(
