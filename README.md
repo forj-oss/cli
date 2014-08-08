@@ -4,6 +4,15 @@ Forj cli
 
 Installation
 =====================
+For ruby 2.0
+  Fedora/CentOS/Redhat/rpm like system : 
+    sudo yum install ruby-dev build-essential libopenssl-ruby libssl-dev zlib1g-dev -y
+    sudo gem install forj
+
+  Ubuntu/Debian/debian like system (not tested)
+    sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
+    sudo gem install forj
+
 For ruby 1.9
 
     sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
