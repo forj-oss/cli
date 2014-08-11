@@ -78,7 +78,7 @@ class Forj < Thor
   method_option :build_config_dir, :aliases => '-d',   :desc => 'Defines the build configuration directory to load the build configuration file. You can set FORJ_BLD_CONF_DIR. By default, it will look in your current directory.'
   method_option :build_config,     :aliases => '-c',   :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
   method_option :branch,           :aliases => '-b',   :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
-  method_option :test_box,         :aliases => '-t',   :desc => 'Create test-box meta from the repository path provided.'
+  method_option :test_box,         :aliases => '-t',   :desc => 'Create test.rb-box meta from the repository path provided.'
   method_option :git_repo,         :aliases => '-r',   :desc => 'The box built will use a different git repository sent out to <user_data>. This repository needs to be read only. No keys are sent.'
   method_option :boothook,         :aliases => '-h',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
   method_option :box_name,         :aliases => '-x',   :desc => 'Defines the name of the box or box image to build.'

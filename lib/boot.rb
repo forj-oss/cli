@@ -57,7 +57,20 @@ module Boot
 
       maestro_url =  definitions['default']['maestro']
 
-      #Repositories.clone_repo(maestro_url)
+      Repositories.clone_repo(maestro_url)
+      infra_exists = nil
+
+      begin
+        if File.directory?(definitions[blueprint]['infra'])
+          infra_exists = true
+        else
+          Repositories.create_infra
+        end
+      rescue => e
+        infra_exists = false
+        puts e.message
+      end
+
 
       network = Network.get_or_create_network(definitions[blueprint]['network'])
       begin
@@ -96,7 +109,11 @@ module Boot
 
       build = 'bin/build.sh' unless build
 
-      build_config_dir = definitions[blueprint]['build_config_dir'] unless build_config_dir
+      if infra_exists
+        build_config_dir = definitions[blueprint]['infra'] unless build_config_dir
+      else
+        build_config_dir = definitions[blueprint]['build_config_dir'] unless build_config_dir
+      end
 
       build_config = definitions[blueprint]['build_config'] unless build_config
 

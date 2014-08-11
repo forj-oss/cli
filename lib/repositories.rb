@@ -49,5 +49,23 @@ module Repositories
         Logging.error(e.message)
       end
       Dir.chdir(current_dir)
+  end
+  def create_infra
+    home = File.expand_path('~')
+    path = home + '/.forj/'
+    infra = path + 'infra/'
+
+    if File.directory?(infra)
+      FileUtils.rm_r(infra)
     end
+    Dir.mkdir(infra)
+
+    command = 'cp -rp ~/.forj/maestro/templates/infra/cloud-init ~/.forj/infra/'
+    Kernel.system(command)
+
+    Dir.chdir('build_tmpl')
+
+    fill_template = 'python build-env.py -p ~/.forj/infra --maestro-path ~/.forj/maestro'
+    Kernel.system(fill_template)
+  end
 end

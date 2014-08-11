@@ -22,10 +22,11 @@ redstone:
   security_group: default
   network: private
   # at this point you have to clone the infra project manually
-  build_config_dir: ~/.forj/maestro/build/conf
-  build_config: box
+  build_config_dir: ~/forj/infra/build/boxes/maestro
+  build_config: box-13.5
   branch: master
   box_name: maestro
+  infra: ~/.forj/infra
 
 
 modus:

@@ -42,6 +42,7 @@ Gem::Specification.new do |s|
                      lib/ssh.sh
                      lib/log.rb
                      lib/helpers.rb
+                     lib/build_tmpl/build-env.py
                      spec/boot_spec.rb
                      spec/connection_spec.rb
                      spec/down_spec.rb
