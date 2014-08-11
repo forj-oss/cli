@@ -17,6 +17,7 @@
 
 require 'rubygems'
 require 'require_relative'
+require 'highline/import'
 
 require_relative 'yaml_parse.rb'
 include YamlParse
@@ -36,14 +37,14 @@ end
 
 def setup_credentials
   puts 'Enter hpcloud username: '
-  hpcloud_os_user = $stdin.gets
-  puts 'Enter hpcloud password: '
-  hpcloud_os_key = $stdin.gets
+  hpcloud_os_user = ask('Enter hpcloud username: ')
+  hpcloud_os_key = ask('Enter hpcloud password: ') { |q| q.echo = '*'}
 
   home = File.expand_path('~')
   creds = '%s/.cache/forj/creds' % [home]
   File.open(creds, 'w') {|file|
     file.write('HPCLOUD_OS_USER=%s' % [hpcloud_os_user])
+    file.write("\n")
     file.write('HPCLOUD_OS_KEY=%s' % [hpcloud_os_key])
   }
 end
