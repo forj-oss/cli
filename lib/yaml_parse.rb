@@ -32,4 +32,14 @@ module YamlParse
       Logging.error(e.message)
     end
   end
+
+  def dump_values(string, path)
+    begin
+      File.open(path, 'w') do |out|
+        YAML.dump(string, out)
+      end
+    rescue => e
+      Logging.error(e.message)
+    end
+  end
 end

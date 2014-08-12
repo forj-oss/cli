@@ -130,7 +130,7 @@ module Boot
 
       box_name = definitions['default']['box_name'] unless box_name
 
-      meta = '--meta blueprint=%s' % [blueprint]
+      meta = '--meta blueprint=%s ' % [blueprint]
 
       command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, infra_dir, build_config, branch, meta]
 

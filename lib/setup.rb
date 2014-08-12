@@ -36,17 +36,16 @@ module Setup
 end
 
 def setup_credentials
-  puts 'Enter hpcloud username: '
   hpcloud_os_user = ask('Enter hpcloud username: ')
   hpcloud_os_key = ask('Enter hpcloud password: ') { |q| q.echo = '*'}
 
   home = File.expand_path('~')
   creds = '%s/.cache/forj/creds' % [home]
-  File.open(creds, 'w') {|file|
-    file.write('HPCLOUD_OS_USER=%s' % [hpcloud_os_user])
-    file.write("\n")
-    file.write('HPCLOUD_OS_KEY=%s' % [hpcloud_os_key])
-  }
+
+  values = {:credentials => {:hpcloud_os_user=> hpcloud_os_user, :hpcloud_os_key=> hpcloud_os_key}}
+
+  YamlParse.dump_values(values, creds)
+
 end
 
 
@@ -64,13 +63,13 @@ def save_cloud_fog
   access_key = template[:credentials][:account_id]
   secret_key = template[:credentials][:secret_key]
 
-  os_user = local_template['HPCLOUD_OS_USER']
-  os_key = local_template['HPCLOUD_OS_KEY']
+  os_user = local_template[:credentials][:hpcloud_os_user]
+  os_key = local_template[:credentials][:hpcloud_os_key]
 
   File.open(cloud_fog, 'w') {|file|
-    file.write('HPCLOUD_OS_USER=%s' % [os_user])
-    file.write('HPCLOUD_OS_KEY=%s' % [os_key])
-    file.write('DNS_KEY=%s' % [access_key])
+    file.write('HPCLOUD_OS_USER=%s' % [os_user] + "\n")
+    file.write('HPCLOUD_OS_KEY=%s' % [os_key] + "\n")
+    file.write('DNS_KEY=%s' % [access_key] + "\n")
     file.write('DNS_SECRET=%s' % [secret_key])
   }
 
