@@ -45,12 +45,10 @@ class Forj < Thor
     puts '  forj boot    # Boot a new forge with the following options'
     puts '    required:'
     puts '      blueprint: name of the blueprint (currently cli only supports redstone)'
-    puts '      on: just to have a natural description'
     puts '      cloud_provider: in which cloud provider to deploy the forge'
-    puts '      as: just to have a natural description'
     puts '      name: name of the forge'
     puts '    example:'
-    puts '      forj boot redstone on hpcloud as maestro_test'
+    puts '      forj boot redstone hpcloud maestro_test'
     puts '    optional:'
     puts '      -b build: replace the default build.sh'
     puts '      -bcd build_config_dir: defines the build configuration directory to load the build configuration file'
@@ -86,7 +84,7 @@ class Forj < Thor
   method_option :key_path,         :aliases => '-p',   :desc => 'Public key data'
   method_option :catalog,          :aliases => '-y',   :desc => 'A path for the yaml file data about the blueprint'
 
-  def boot(blueprint, on, cloud_provider, as, name, test = false)
+  def boot(blueprint, cloud_provider, name, test = false)
       Boot.boot(blueprint, cloud_provider, name,
                 options[:build], options[:build_config_dir],
                 options[:build_config], options[:branch],
