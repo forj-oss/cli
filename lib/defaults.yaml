@@ -12,7 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-redstone:
+default:
+  maestro_url: https://github.com/forj-oss/maestro.git
+  infra_repo: ~/.forj/infra
   image: proto2b
   flavor: standard.xsmall
   ports: [22, 80, 443, 3131, 3000, 3132, 3133, 3134, 3135, 4505, 4506, 5000, 5666, 8000, 8080, 8081, 8083, 8125, 8139, 8140, 8773, 8774, 8776, 9292, 29418, 35357]
@@ -26,14 +28,3 @@ redstone:
   build_config: box
   branch: master
   box_name: maestro
-  infra: ~/.forj/infra
-
-
-modus:
-  ports: []
-  keypair: nova
-  router: private-ext
-
-default:
-  maestro_url: https://github.com/forj-oss/maestro.git
-  infra_repo: ~/.forj/infra

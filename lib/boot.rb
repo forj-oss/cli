@@ -49,12 +49,13 @@ module Boot
       forj_dir = File.expand_path(File.dirname(__FILE__))
       Dir.chdir(forj_dir)
 
+      #TODO: Consider defaults.yaml as default variables, and load more from ~/.forj/forj-config.yaml, to change defaults on user need.
       if catalog
         definitions = YamlParse.get_values(catalog)
       else
-        definitions = YamlParse.get_values('catalog.yaml')
+        definitions = YamlParse.get_values('defaults.yaml')
       end
-
+      
       # Initialize defaults
       maestro_url =  definitions['default']['maestro_url']
 
@@ -82,25 +83,25 @@ module Boot
          Repositories.create_infra
       end
 
-      puts('INFO: Configuring network \'%s\'' % [definitions[blueprint]['network']])
-      network = Network.get_or_create_network(definitions[blueprint]['network'])
+      puts('INFO: Configuring network \'%s\'' % [definitions['default']['network']])
+      network = Network.get_or_create_network(definitions['default']['network'])
       begin
         subnet = Network.get_or_create_subnet(network.id, name)
-        router = Network.get_router(definitions[blueprint]['router'])
+        router = Network.get_router(definitions['default']['router'])
         Network.create_router_interface(subnet.id, router)
       rescue => e
         puts e.message
       end
 
 
-      puts('INFO: Configuring keypair \'%s\'' % [definitions[blueprint]['keypair_name']])
-      key_name = definitions[blueprint]['keypair_name'] unless key_name
-      key_path = definitions[blueprint]['keypair_path'] unless key_path
+      puts('INFO: Configuring keypair \'%s\'' % [definitions['default']['keypair_name']])
+      key_name = definitions['default']['keypair_name'] unless key_name
+      key_path = definitions['default']['keypair_path'] unless key_path
       SecurityGroup.upload_existing_key(key_name, key_path)
 
-      puts('INFO: Configuring Security Group \'%s\'' % [definitions[blueprint]['security_group']])
-      security_group = SecurityGroup.get_or_create_security_group(definitions[blueprint]['security_group'])
-      ports = definitions[blueprint]['ports']
+      puts('INFO: Configuring Security Group \'%s\'' % [definitions['default']['security_group']])
+      security_group = SecurityGroup.get_or_create_security_group(definitions['default']['security_group'])
+      ports = definitions['default']['ports']
 
       ports.each do|port|
         Network.get_or_create_rule(security_group.id, 'tcp', port, port)
@@ -123,11 +124,11 @@ module Boot
 
       build = 'bin/build.sh' unless build
 
-      build_config = definitions[blueprint]['build_config'] unless build_config
+      build_config = definitions['default']['build_config'] unless build_config
 
-      branch = definitions[blueprint]['branch'] unless branch
+      branch = definitions['default']['branch'] unless branch
 
-      box_name = definitions[blueprint]['box_name'] unless box_name
+      box_name = definitions['default']['box_name'] unless box_name
 
       meta = '--meta blueprint=%s' % [blueprint]
 

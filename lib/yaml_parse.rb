@@ -26,7 +26,7 @@ include Logging
 module YamlParse
   def get_values(path_to_yaml)
     begin
-      Logging.info('getting values from catalog.yaml, this will be a service catalog.forj.io')
+      Logging.info('getting values from defaults.yaml, this will be a service catalog.forj.io')
       YAML.load_file(path_to_yaml)
     rescue => e
       Logging.error(e.message)
