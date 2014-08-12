@@ -23,7 +23,7 @@ redstone:
   network: private
   # at this point you have to clone the infra project manually
   build_config_dir: ~/forj/infra/build/boxes/maestro
-  build_config: box-13.5
+  build_config: box
   branch: master
   box_name: maestro
   infra: ~/.forj/infra
@@ -35,4 +35,5 @@ modus:
   router: private-ext
 
 default:
-  maestro: https://github.com/forj-oss/maestro.git
+  maestro_url: https://github.com/forj-oss/maestro.git
+  infra_repo: ~/.forj/infra

@@ -15,8 +15,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-require 'rubygems'
-require 'require_relative'
+
+
 
 require_relative 'network.rb'
 include Network
@@ -36,15 +36,15 @@ include Helpers
 #
 module Boot
   def boot(blueprint, cloud_provider, name,
-      build, build_config_dir, build_config,
+      build, infra_dir, build_config,
       branch, git_repo, boothook, box_name,
       key_name, key_path, region, catalog,
       test = false)
     begin
-      initial_msg = 'booting %s on %s' % [blueprint , cloud_provider]
+      initial_msg = 'booting %s on %s (~/.forj/forj.log)' % [blueprint , cloud_provider]
 
       Logging.info(initial_msg)
-      puts (initial_msg)
+      puts ('INFO: Reading default configuration...')
 
       forj_dir = File.expand_path(File.dirname(__FILE__))
       Dir.chdir(forj_dir)
@@ -55,23 +55,34 @@ module Boot
         definitions = YamlParse.get_values('catalog.yaml')
       end
 
-      maestro_url =  definitions['default']['maestro']
+      # Initialize defaults
+      maestro_url =  definitions['default']['maestro_url']
 
-      Repositories.clone_repo(maestro_url)
-      infra_exists = nil
+      infra_dir = definitions['default']['infra_repo'] unless infra_dir
 
-      begin
-        if File.directory?(definitions[blueprint]['infra'])
-          infra_exists = true
-        else
-          Repositories.create_infra
-        end
-      rescue => e
-        infra_exists = false
-        puts e.message
+      # Ask information if needed.
+      bBuildInfra=false
+      if not Dir.exist?(File.expand_path(infra_dir))
+         sAsk = 'Your \'%s\' infra directory doesn\'t exist. Do you want to create a new one from Maestro(repo github)/templates/infra (yes/no)?' % [infra_dir]
+         bBuildInfra=agree(sAsk)
+      else
+         puts('INFO: Re-using your infra... in \'%s\'' % [infra_dir])
+      end
+      if not Dir.exist?(File.expand_path(infra_dir)) and not bBuildInfra
+         puts ('Exiting.')
+         return
       end
 
+      # Step Maestro Clone
+      puts('INFO: cloning maestro repo from \'%s\'...' % maestro_url)
+      Repositories.clone_repo(maestro_url)
+      
+      if bBuildInfra
+         puts('INFO: Building your infra... in \'%s\'' % [infra_dir])
+         Repositories.create_infra
+      end
 
+      puts('INFO: Configuring network \'%s\'' % [definitions[blueprint]['network']])
       network = Network.get_or_create_network(definitions[blueprint]['network'])
       begin
         subnet = Network.get_or_create_subnet(network.id, name)
@@ -81,12 +92,14 @@ module Boot
         puts e.message
       end
 
-      security_group = SecurityGroup.get_or_create_security_group(definitions[blueprint]['security_group'])
 
+      puts('INFO: Configuring keypair \'%s\'' % [definitions[blueprint]['keypair_name']])
       key_name = definitions[blueprint]['keypair_name'] unless key_name
       key_path = definitions[blueprint]['keypair_path'] unless key_path
       SecurityGroup.upload_existing_key(key_name, key_path)
 
+      puts('INFO: Configuring Security Group \'%s\'' % [definitions[blueprint]['security_group']])
+      security_group = SecurityGroup.get_or_create_security_group(definitions[blueprint]['security_group'])
       ports = definitions[blueprint]['ports']
 
       ports.each do|port|
@@ -102,6 +115,7 @@ module Boot
       end
 
       # run build.sh to boot maestro
+      puts
       current_dir = Dir.pwd
       home = Helpers.get_home_path
       build_path = home + '/.forj/maestro/build'
@@ -109,23 +123,19 @@ module Boot
 
       build = 'bin/build.sh' unless build
 
-      if infra_exists
-        build_config_dir = definitions[blueprint]['infra'] unless build_config_dir
-      else
-        build_config_dir = definitions[blueprint]['build_config_dir'] unless build_config_dir
-      end
-
       build_config = definitions[blueprint]['build_config'] unless build_config
 
       branch = definitions[blueprint]['branch'] unless branch
 
       box_name = definitions[blueprint]['box_name'] unless box_name
 
-      meta = '--meta blueprint=%s --meta HPCLOUD_PRIV=~/.cache/forj/master.forj-13.5.g64' % [blueprint]
+      meta = '--meta blueprint=%s' % [blueprint]
 
-      command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, build_config_dir, build_config, branch, meta]
+      command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, infra_dir, build_config, branch, meta]
 
-      Logging.info('using build.sh for %s' % [name])
+      Logging.info('Calling build.sh')
+      Logging.info(command)
+      
       Kernel.system(command)
       Dir.chdir(current_dir)
 
@@ -142,6 +152,9 @@ module Boot
       Logging.info(msg)
     rescue StandardError => e
       Logging.error(e.message)
+      puts e.backtrace.join("\n")
+
+      puts e.message
     end
   end
 end

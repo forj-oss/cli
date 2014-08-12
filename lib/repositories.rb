@@ -50,6 +50,7 @@ module Repositories
       end
       Dir.chdir(current_dir)
   end
+  
   def create_infra
     home = File.expand_path('~')
     path = home + '/.forj/'
