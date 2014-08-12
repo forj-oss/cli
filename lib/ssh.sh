@@ -19,7 +19,7 @@ GRE="\e[92m"
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-OW=`date +%Y-%m-%d.%H%M%S`
+NOW=$(date +%Y-%m-%d.%H%M%S)
 logpath=~/.ssh/
 DB=~/hosts
 #key_path=~/.ssh/
@@ -140,7 +140,7 @@ else
 		echo -e "${RED}Error, the kit ${GRE}$node${RED} with id ${GRE}$id${RED} was not found.${RST}"
 		exit 1
 	fi
-	key=$(cat $DB | grep -iE "$ip" | awk '{print $4}' | tr -d ' ')
+	key=$(cat $DB | grep -iEw "$ip" | awk '{print $4}' | tr -d ' ')
 	message="$node.$id"
 	extended="($ip)"
 
