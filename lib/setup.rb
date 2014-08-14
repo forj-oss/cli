@@ -21,6 +21,8 @@ require 'highline/import'
 
 require_relative 'yaml_parse.rb'
 include YamlParse
+require_relative 'helpers.rb'
+include Helpers
 
 #
 # Setup module call the hpcloud functions
@@ -40,6 +42,7 @@ def setup_credentials
   hpcloud_os_key = ask('Enter hpcloud password: ') { |q| q.echo = '*'}
 
   home = File.expand_path('~')
+  Helpers.create_directory('%s/.cache/forj/' % [home])
   creds = '%s/.cache/forj/creds' % [home]
 
   values = {:credentials => {:hpcloud_os_user=> hpcloud_os_user, :hpcloud_os_key=> hpcloud_os_key}}
