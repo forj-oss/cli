@@ -16,8 +16,6 @@
 #    limitations under the License.
 
 
-
-
 require_relative 'network.rb'
 include Network
 require_relative 'yaml_parse.rb'
@@ -31,6 +29,7 @@ include Logging
 require_relative 'helpers.rb'
 include Helpers
 
+
 #
 # Boot module
 #
@@ -38,28 +37,23 @@ module Boot
   def boot(blueprint, cloud_provider, name,
       build, infra_dir, build_config,
       branch, git_repo, boothook, box_name,
-      key_name, key_path, region, catalog,
+      key_name, key_path, region, config,
       test = false)
     begin
       initial_msg = 'booting %s on %s (~/.forj/forj.log)' % [blueprint , cloud_provider]
 
       Logging.info(initial_msg)
-      puts ('INFO: Reading default configuration...')
 
       forj_dir = File.expand_path(File.dirname(__FILE__))
       Dir.chdir(forj_dir)
 
-      #TODO: Consider defaults.yaml as default variables, and load more from ~/.forj/forj-config.yaml, to change defaults on user need.
-      if catalog
-        definitions = YamlParse.get_values(catalog)
-      else
-        definitions = YamlParse.get_values('defaults.yaml')
-      end
-      
-      # Initialize defaults
-      maestro_url =  definitions['default']['maestro_url']
+      oConfig=ForjConfig.new(config)
+      hConfig=oConfig.yConfig['default']
 
-      infra_dir = definitions['default']['infra_repo'] unless infra_dir
+      # Initialize defaults
+      maestro_url =  hConfig['maestro_url']
+
+      infra_dir = hConfig['infra_repo'] unless infra_dir
 
       # Ask information if needed.
       bBuildInfra=false
@@ -77,31 +71,31 @@ module Boot
       # Step Maestro Clone
       puts('INFO: cloning maestro repo from \'%s\'...' % maestro_url)
       Repositories.clone_repo(maestro_url)
-      
+
       if bBuildInfra
          puts('INFO: Building your infra... in \'%s\'' % [infra_dir])
          Repositories.create_infra
       end
 
-      puts('INFO: Configuring network \'%s\'' % [definitions['default']['network']])
-      network = Network.get_or_create_network(definitions['default']['network'])
+      puts('INFO: Configuring network \'%s\'' % [hConfig['network']])
+      network = Network.get_or_create_network(hConfig['network'])
       begin
         subnet = Network.get_or_create_subnet(network.id, name)
-        router = Network.get_router(definitions['default']['router'])
+        router = Network.get_router(hConfig['router'])
         Network.create_router_interface(subnet.id, router)
       rescue => e
         puts e.message
       end
 
 
-      puts('INFO: Configuring keypair \'%s\'' % [definitions['default']['keypair_name']])
-      key_name = definitions['default']['keypair_name'] unless key_name
-      key_path = definitions['default']['keypair_path'] unless key_path
+      puts('INFO: Configuring keypair \'%s\'' % [hConfig['keypair_name']])
+      key_name = hConfig['keypair_name'] unless key_name
+      key_path = hConfig['keypair_path'] unless key_path
       SecurityGroup.upload_existing_key(key_name, key_path)
 
-      puts('INFO: Configuring Security Group \'%s\'' % [definitions['default']['security_group']])
-      security_group = SecurityGroup.get_or_create_security_group(definitions['default']['security_group'])
-      ports = definitions['default']['ports']
+      puts('INFO: Configuring Security Group \'%s\'' % [hConfig['security_group']])
+      security_group = SecurityGroup.get_or_create_security_group(hConfig['security_group'])
+      ports = hConfig['ports']
 
       ports.each do|port|
         Network.get_or_create_rule(security_group.id, 'tcp', port, port)
@@ -124,11 +118,11 @@ module Boot
 
       build = 'bin/build.sh' unless build
 
-      build_config = definitions['default']['build_config'] unless build_config
+      build_config = hConfig['build_config'] unless build_config
 
-      branch = definitions['default']['branch'] unless branch
+      branch = hConfig['branch'] unless branch
 
-      box_name = definitions['default']['box_name'] unless box_name
+      box_name = hConfig['box_name'] unless box_name
 
       meta = '--meta blueprint=%s ' % [blueprint]
 
@@ -136,7 +130,7 @@ module Boot
 
       Logging.info('Calling build.sh')
       Logging.info(command)
-      
+
       Kernel.system(command)
       Dir.chdir(current_dir)
 
