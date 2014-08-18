@@ -37,62 +37,66 @@ $LOAD_PATH << './lib'
 require 'forj-config.rb' # Load class ForjConfig
 
 class Forj < Thor
-  desc 'help', 'Display forj cli help'
-  def help
-    puts 'Forj cli help'
-    puts ''
-    puts '  forj setup   # Set the credentials for forj. Currently supports only hpcloud provider.'
-    puts '    Several data will be requested like:'
-    puts '      access_key: access key from hpcloud'
-    puts '      secret_key: secret key from hpcloud'
-    puts '      auth_uri: identity endpoint'
-    puts '      tenant_id: id for the tenant you want to use'
-    puts '      availability_zone: which availability zone will be deployed'
-    puts ''
-    puts '  forj boot <Blueprint> on <Provider> as <InstanceName> [options]  # Boot a new forge with the following options'
-    puts '    where:'
-    puts '      blueprint    : Is the name of the blueprint (currently cli only supports redstone)'
-    puts '      Provider     : in which cloud provider to deploy the forge'
-    puts '      InstanceName : name of the forge'
-    puts ''
-    puts '    Ex: forj boot redstone on hpcloud as maestro_test'
-    puts ''
-    puts '    [Options] are:'
-    puts '      -c | --config <ConfigFile> : Load a different file'
-    puts '      -b build                   : replace the default build.sh'
-    puts '      -bcd build_config_dir      : defines the build configuration directory to load the build configuration file'
-    puts '      -bc build_config           : the build config file to load <confdir>/<BoxName>.<Config>.env.'
-    puts '      -gb branch                 : the build will extract from git branch name'
-    puts '      -tb test_box (not yet implemented): create test-box meta from the repository path provided.'
-    puts '      -gr git_repo               : the box built will use a different git repository sent out to <user_data>'
-    puts '      -bh boothook               : by default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
-    puts '      -bn box_name               : defines the name of the box or box image to build.'
-    puts ''
-    puts '  forj ssh <Name> <Node>    # Connect through ssh to an existing instance'
-    puts '    where'
-    puts '      InstanceName: is the name of the forge (maestro_test)'
-    puts '      Node        : is the name of the node (maestro, ci, etc...)'
-    puts ''
-    puts '  forj down  <InstanceName>  # Delete a forge and create a backup of your data'
-    puts '    not yet implemented'
-    puts ''
-    puts '  forj help    # Display this help'
-  end
 
-  desc 'boot', 'boot a Maestro box and instruct it to provision the blueprint'
+
+  desc "help [action]", "Describe available FORJ actions or one specific action"
+  def help(task = nil, subcommand = false)
+    if task
+       self.class.task_help(shell, task)
+    else   
+       puts <<-LONGDESC
+Quick steps: How to create a forj?
+----------------------------------
+
+1.  Setup your first forj account.
+    `$ forj setup [Provider]`
+
+    Ex: `forj setup hpcloud`. In this example, your account will be named 'hpcloud'.
+    
+IMPORTANT NOTE: Without any provider, forj setup will choose 'hpcloud' as provider. 
+                Currently, forj supports only hpcloud. Openstack will be available soon.
+
+2.  Create your forge on your default account
+    `$ forj boot <blueprint> on <Provider> as <InstanceName> `
+
+    Ex: `forj boot redstone on hpcloud as MyForge` 
+       
+forj command line details:
+--------------------------
+       LONGDESC
+       self.class.help(shell, subcommand)
+    end
+  end 
+
+  # BOOT 
+  desc 'boot <Blueprint> on <Provider> as <InstanceName> [options]', 'boot a Maestro box and instruct it to provision the blueprint'
+  
+  long_desc <<-LONGDESC
+This task boot a new forge with the following options
+\x5- blueprint : Is the name of the blueprint (currently cli only supports redstone)
+\x5- Provider : in which cloud provider to deploy the forge
+\x5- InstanceName : name of the forge
+
+    Ex: forj boot redstone on hpcloud as maestro_test
+
+`forj boot` load predefine valued from `lib/defaults.yaml`. If you need to change one of them, add this value in your ~/.forj/config.yaml.
+The list of predefined values can be retrieved with forj show defaults
+
+  LONGDESC
 
   method_option :config,           :aliases => '-c',   :desc => 'Path to a different forj config file. By default, use ~/.forj/config.yaml'
-  method_option :build,            :aliases => '-u',   :desc => 'Replace the default build.sh'
-  method_option :infra,            :aliases => '-I',   :desc => 'Defines the Infra directory to load the build configuration file. You can set FORJ_INFRA_DIR. By default, it will look in your current directory.'
-  method_option :build_config,     :aliases => '-c',   :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
-  method_option :branch,           :aliases => '-b',   :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
-  method_option :test_box,         :aliases => '-t',   :desc => 'Create test.rb-box meta from the repository path provided.'
-  method_option :git_repo,         :aliases => '-r',   :desc => 'The box built will use a different git repository sent out to <user_data>. This repository needs to be read only. No keys are sent.'
-  method_option :boothook,         :aliases => '-h',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
-  method_option :box_name,         :aliases => '-x',   :desc => 'Defines the name of the box or box image to build.'
+  method_option :infra,            :aliases => '-i',   :desc => 'Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
   method_option :key_name,         :aliases => '-k',   :desc => 'Import a key pair.'
   method_option :key_path,         :aliases => '-p',   :desc => 'Public key data'
-  
+
+  method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
+  method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
+  method_option :build_config,     :aliases => '-C',   :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
+  method_option :git_repo,         :aliases => '-R',   :desc => 'The box built will use a different git repository sent out to <user_data>. This repository needs to be read only. No keys are sent.'
+  method_option :branch,           :aliases => '-B',   :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
+  method_option :box_name,         :aliases => '-N',   :desc => 'Defines the name of the box or box image to build.'
+  method_option :test_box,         :aliases => '-T',   :desc => 'Create test.rb-box meta from the repository path provided.'
+ 
   def boot(blueprint, on, cloud_provider, as, name, test = false)
       Boot.boot(blueprint, cloud_provider, name,
                 options[:build], options[:build_config_dir],
@@ -103,17 +107,51 @@ class Forj < Thor
                 options[:config], test)
   end
 
+  desc 'show defaults', 'Show list of predefined value you can update in your ~/.forj/config.yaml'
+
+  def show(name)
+     oConfig=ForjConfig.new()
+     
+     puts 'List of predefined values:
+--------------------------'
+     puts oConfig.yDefaults['default'].to_yaml()
+     puts '--------------------------'
+     puts "You can set any of those variable in your ~/.forj/config.yaml, under section 'default:'"
+  end
+  # DOWN
   desc 'down', 'delete the Maestro box and all systems installed by the blueprint'
+  long_desc <<-LONGDESC
+  Not yet implemented
+  LONGDESC
+  
   def down(name)
     Down.down(name)
   end
 
+  # SSH
   desc 'ssh', 'connect to your forge thru ssh'
+  long_desc <<-LONGDESC
+Connect through ssh to an existing instance
+    
+        not yet implemented
+  LONGDESC
+  
   def ssh(name, server)
     Ssh.connect(name, server)
   end
 
+  # SETUP
   desc 'setup', 'set the credentials for forj cli'
+  long_desc <<-LONGDESC
+Set the cloud credentials and services for forj. Currently supports only hpcloud provider.
+
+Several data will be requested like:
+\x5- access_key: access key from hpcloud
+\x5- secret_key: secret key from hpcloud
+\x5- auth_uri: identity endpoint
+\x5- tenant_id: id for the tenant you want to use
+\x5- availability_zone: which availability zone will be deployed
+  LONGDESC
   def setup
     Setup.setup
   end
