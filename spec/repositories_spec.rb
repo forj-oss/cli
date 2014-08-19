@@ -27,11 +27,11 @@ class TestClass
 end
 
 describe 'repositories' do
-  it 'its clonning the repo' do
+  it 'should clone the repo' do
     @test_class = TestClass.new
     @test_class.extend(Repositories)
 
-    repo = @test_class.clone_repo
+    repo = @test_class.clone_repo('https://github.com/forj-oss/maestro')
     expect(repo).to be
   end
 end

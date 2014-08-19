@@ -1,85 +1,108 @@
 Forj cli
-=====================
+========
 
 
 Installation
-=====================
-For ruby 2.0
+------------
+### For ruby 2.0
 
-Fedora/CentOS/Redhat/rpm like system
+**Fedora/CentOS/Redhat rpm like package system**
 
-    sudo yum install ruby-dev build-essential libopenssl-ruby libssl-dev zlib1g-dev -y
-    sudo gem install forj
+    $ sudo yum install ruby-devel libxml2-devel libxslt-devel python-yaml -y
+    $ sudo gem install forj
 
-Ubuntu/Debian/debian like system (not tested)
+**Ubuntu/Debian deb like package system (not tested)**
 
-    sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
-    sudo gem install forj
+    $ sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
+    $ sudo gem install forj
 
-For ruby 1.9
+### For ruby 1.9
 
-    sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
-    sudo gem install forj
+    $ sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
+    $ sudo gem install forj
 
-For ruby 1.8
+### For ruby 1.8
 
-    sudo apt-get install ruby1.8-dev ruby1.8 ri1.8 rdoc1.8 irb1.8 -y
-    sudo apt-get install libreadline-ruby1.8 libruby1.8 libopenssl-ruby -y
-    sudo apt-get install libxslt-dev libxml2-dev -y
-    sudo gem install nokogiri
-    sudo apt-get install ruby-bundler -y
-    sudo gem install mime-types -v 1.25.1
-    sudo gem install hpcloud
-    sudo gem install forj
+    $ sudo apt-get install ruby1.8-dev ruby1.8 ri1.8 rdoc1.8 irb1.8 -y
+    $ sudo apt-get install libreadline-ruby1.8 libruby1.8 libopenssl-ruby -y
+    $ sudo apt-get install libxslt-dev libxml2-dev -y
+    $ sudo gem install nokogiri
+    $ sudo apt-get install ruby-bundler -y
+    $ sudo gem install mime-types -v 1.25.1
+    $ sudo gem install hpcloud
+    $ sudo gem install forj
 
 
-How to use forj cli
-=====================
-Setup forj
+Quick steps: How to create a forj?
+----------------------------------
 
     forj setup # follow the instructions
 
-Boot a forge
+1.  Setup your first forj account.
 
-    forj boot <blueprint> on <cloud_provider> as <name>
-    e.g. forj boot redstone on hpcloud as maestro_01
+    `$ forj setup [Provider]`
 
-Boot a forge with arguments
+    Ex: `forj setup hpcloud`. In this example, your account will be named 'hpcloud'.
+    **WARNING!!!** [Provider] is currently not supported. By default, it is using hpcloud as default provider.
 
-    forj boot <blueprint> on <cloud_provider> as <name> -y /home/<user>/catalog.yaml
+2.  Create your forge on your default account
 
-Optional arguments
+    `$ forj boot <blueprint> on hpcloud as <InstanceName>`
 
-    -u --build #Replace the default build.sh.
-    -d --build_config_dir # Defines the build configuration directory to load the build configuration file.
-    -c --build_config # The build config file to load <confdir>/<BoxName>.<Config>.env.
-    -b --branch # The build will extract from git branch name.
-    -t --test_box # Create test-box meta from the repository path provided.
-    -r --git_repo # The box built will use a different git repository sent out to <user_data>.
-    -h --boothook # By default, boothook file used is build/bin/build-tools/boothook.sh.
-    -x --box_name # Defines the name of the box or box image to build.
-    -k --key_name # Key pair name to import.
-    -p --key_path # Public key pair data.
-    -y --catalog # A path for the yaml file data about the blueprint
+    Ex: `forj boot redstone on hpcloud as MyForge`
 
-Catalog.yaml example
+
+###Forj options:
+
+To get forj cli help, just type:
+
+    $ forj
+
+To get help on specific action, just type:
+
+    $ forj help boot
+
+ Examples of possible actions:
+
+Commands:
+  forj boot <Blueprint> on <Provider> as <InstanceName> [options]  # boot a Maestro box and instruct it to provision the blueprint
+  forj down                                                        # delete the Maestro box and all systems installed by the blueprint
+  forj help [action]                                               # Describe available FORJ actions or one specific action
+  forj setup                                                       # set the credentials for forj cli
+  forj show defaults                                               # Show list of predefined value you can update in your ~/.forj/config.yaml
+  forj ssh 
+
+
+#### config.yaml description
+
+While building your forge, forj needs to load some data by default. Those are listed in forj-<version>/lib/defaults.yaml
+
+If you need to change one of this default value, update a ~/.forj/config.yaml file, with any kind of data that need to be changed.
+
+Here are the variables list you can set:
 
      default:
-       maestro_url: https://github.com/forj-oss/maestro.git
-       infra_repo: ~/.forj/infra
-       image: proto2b
-       flavor: standard.xsmall
-       ports: [22, 80, 443, 3131, 3000, 3132, 3133, 3134, 3135, 4505, 4506, 5000, 5666, 8000, 8080, 8081, 8083, 8125, 8139, 8140, 8773, 8774, 8776, 9292, 29418, 35357]
-       keypair_path: ~/.hpcloud/keypairs/nova
-       keypair_name: nova
-       router: private-ext
-       security_group: default
-       network: private
-       # at this point you have to clone the infra project manually
-       build_config_dir: ~/forj/infra/build/boxes/maestro
-       build_config: box
-       branch: master
-       box_name: maestro
+       account_name: name       # Default forj account used to connect to your cloud. This setting is automatically set to the first account created with forj setup <CloudProvider>
+       maestro_url: url         # Maestro GIT repository for clone.
+       infra_repo: path         # Path to the default Infra repository used to store your specific bootstrap/build environment. By default: ~/.forj/infra
+       image: imageName         # NOT CURRENTLY USED. Still under development.
+                                # Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'
+                                # If you have created the generic proto2b image, you can set it here.
+       flavor: flavorName       # NOT CURRENTLY USED. Still under development.
+                                # Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs.
+                                # By default: standard.xsmall
+       ports: [Port1,Port2,...] # list of additional ports to add in your cloud security group.
+                                # This list is added to the default one in defaults.yaml
+       keypair_path: path       # Define the file path to your OpenSSH private key. Useful to access your box with ssh command line.
+                                # By default. ~/.forj/keypairs/nova
+       keypair_name: name       # keypair name defined in your cloud to access your server. By default we named it 'nova'. If it doesn't exist, it will be created.
+       router: name             # Router name used by your forge boxes will use to access internet.
+       security_group: name     # Security group name to configure and attach to each forge boxes.
+       network: name            # Network name to attach to each forge boxes. By default we use 'private'. If it doesn't exist, it will be created.
+       # Internal use.
+       build_config: name       # forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'
+       branch: name             # forj cli use 'build.sh' to create Maestro. See gitbranch option on build.sh to get more information. By default 'master'
+       box_name: maestro        # forj cli use 'build.sh' to create Maestro. See box_name option on build.sh to get more information. By default 'maestro'
 
 To ssh into a server
 
@@ -93,6 +116,49 @@ We welcome all types of contributions.  Checkout our website (http://docs.forj.i
 to start hacking on Forj.  Also join us in our community (https://www.forj.io/community/) to help grow and foster Forj for
 your development today!
 
-License
-=====================
+
+Developping on FORJ:
+===================
+
+Development installation:
+-------------------------
+
+**WARNING!!!** forj cli is still under intensive development.
+
+### For ruby 2.0
+
+**Fedora/CentOS/Redhat rpm like package system**
+
+    $ sudo yum install git gcc ruby-devel libxml2-devel rubygem-rspec libxslt-devel python-yaml rubygem-nokogiri -y
+    $ gem install rspec-rake rspec-mocks rspec-expectations 
+
+**Ubuntu/Debian deb like package system (not tested)**
+
+    $ sudo apt-get install git ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
+    $ gem install rspec rspec-rake rspec-mocks rspec-expectations 
+
+Then execute the following:
+
+    $ gem install forj # To install all gem required for running it.
+    $ mkdir -p ~/src/forj-oss
+    $ cd ~/src/forj-oss
+    $ git clone https://github.com/forj-oss/cli
+
+To update `forj` from the repository:
+
+    $ cd ~/src/forj-oss/cli
+    $ git pull
+
+To test `forj` cli, do the following:
+
+    $ cd ~/src/forj-oss/cli
+    $ bin/forj
+
+To run unit-test, do the following:
+
+    $ cd ~/src/forj-oss/cli
+    $ rspec -c
+
+License:
+========
 Forj Cli is licensed under the Apache License, Version 2.0.  See LICENSE for full license text.

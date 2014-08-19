@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '0.0.33'
+  s.version     = '0.0.34'
   s.date        = '2014-06-12'
   s.summary     = 'forj command line'
   s.description = 'forj command line'
@@ -43,6 +43,7 @@ Gem::Specification.new do |s|
                      lib/log.rb
                      lib/helpers.rb
                      lib/build_tmpl/build-env.py
+                     lib/forj-config.rb
                      spec/boot_spec.rb
                      spec/connection_spec.rb
                      spec/down_spec.rb
@@ -52,6 +53,7 @@ Gem::Specification.new do |s|
                      spec/spec_helper.rb
                      spec/ssh_spec.rb
                      spec/yaml_parse_spec.rb
+                     spec/forj-config_spec.rb
                      Rakefile
                      Gemfile
                      README.md)

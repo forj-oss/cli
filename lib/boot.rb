@@ -47,6 +47,7 @@ module Boot
       forj_dir = File.expand_path(File.dirname(__FILE__))
       Dir.chdir(forj_dir)
 
+      puts ('INFO: Reading default configuration...')
       oConfig=ForjConfig.new(config)
       hConfig=oConfig.yConfig['default']
 
