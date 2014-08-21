@@ -29,53 +29,68 @@ include Helpers
 #
 module Setup
   def setup
-    # delegate the initial configuration to hpcloud (unix_cli)
-    Kernel.system('hpcloud account:setup')
-    setup_credentials
-    save_cloud_fog
-    #Kernel.system('hpcloud keypairs:add nova')
+    begin
+      sProvider = 'hp'
+      sAccountName = sProvider # By default, the account name uses the same provider name.
+
+      # TODO: Support of multiple providers thanks to fog.
+      # TODO: Replace this code by our own forj account setup, inspired/derived from hpcloud account::setup
+
+      # delegate the initial configuration to hpcloud (unix_cli)
+      Kernel.system('hpcloud account:setup')
+
+      # Implementation of simple credential encoding for build.sh/maestro
+      save_maestro_creds(sAccountName)
+    rescue RuntimeError => e
+      Logging.error(e.message)  
+    rescue  => e
+      Logging.error("%s\n%s" % [e.message,e.backtrace.join("\n")])  
+    end
   end
 end
 
-def setup_credentials
-  hpcloud_os_user = ask('Enter hpcloud username: ')
-  hpcloud_os_key = ask('Enter hpcloud password: ') { |q| q.echo = '*'}
+def save_maestro_creds(sAccountName)
 
-  home = File.expand_path('~')
-  Helpers.create_directory('%s/.cache/forj/' % [home])
-  creds = '%s/.cache/forj/creds' % [home]
+  # TODO Be able to load the previous username if the g64 file exists.
+  hpcloud_os_user = ask('Enter hpcloud username: ') do |q| 
+    q.validate = /\w+/ 
+    q.default = ''
+  end
+     
+  hpcloud_os_key = ask('Enter hpcloud password: ') do |q|
+    q.echo = '*'
+    q.validate = /.+/
+  end  
 
-  values = {:credentials => {:hpcloud_os_user=> hpcloud_os_user, :hpcloud_os_key=> hpcloud_os_key}}
+  add_creds = {:credentials => {:hpcloud_os_user=> hpcloud_os_user, :hpcloud_os_key=> hpcloud_os_key}}
 
-  YamlParse.dump_values(values, creds)
-
-end
-
-
-def save_cloud_fog
-  home = File.expand_path('~')
-
-  cloud_fog = '%s/.cache/forj/master.forj-13.5' % [home]
-  local_creds = '%s/.cache/forj/creds' % [home]
-
-  creds = '%s/.hpcloud/accounts/hp' % [home]
-  template = YAML.load_file(creds)
-  local_template = YAML.load_file(local_creds)
+  sForjCache=File.expand_path('~/.cache/forj/')
+  cloud_fog = '%s/%s.g64' % [sForjCache, 'master.forj-13.5']
 
 
-  access_key = template[:credentials][:account_id]
-  secret_key = template[:credentials][:secret_key]
+  Helpers.create_directory(sForjCache) if not File.directory?(sForjCache)
 
-  os_user = local_template[:credentials][:hpcloud_os_user]
-  os_key = local_template[:credentials][:hpcloud_os_key]
+  # Security fix: Remove old temp file with clear password.
+  old_file = '%s/master.forj-13.5' % [sForjCache]
+  File.delete(old_file) if File.exists?(old_file)
+  old_file = '%s/creds' % [sForjCache]
+  File.delete(old_file) if File.exists?(old_file)
 
-  File.open(cloud_fog, 'w') {|file|
-    file.write('HPCLOUD_OS_USER=%s' % [os_user] + "\n")
-    file.write('HPCLOUD_OS_KEY=%s' % [os_key] + "\n")
-    file.write('DNS_KEY=%s' % [access_key] + "\n")
-    file.write('DNS_SECRET=%s' % [secret_key])
+  hpcloud_creds = File.expand_path('~/.hpcloud/accounts/%s' % [sAccountName])
+  creds = YAML.load_file(hpcloud_creds)
+
+  access_key = creds[:credentials][:account_id]
+  secret_key = creds[:credentials][:secret_key]
+
+  os_user = add_creds[:credentials][:hpcloud_os_user]
+  os_key = add_creds[:credentials][:hpcloud_os_key]
+
+  IO.popen('gzip -c | base64 -w0 > %s' % [cloud_fog], 'r+') {|pipe|
+    pipe.puts('HPCLOUD_OS_USER=%s' % [os_user] )
+    pipe.puts('HPCLOUD_OS_KEY=%s' % [os_key] )
+    pipe.puts('DNS_KEY=%s' % [access_key] )
+    pipe.puts('DNS_SECRET=%s' % [secret_key])
+    pipe.close_write
   }
-
-  command = 'cat  %s | gzip -c | base64 -w0 > %s.g64' % [cloud_fog, cloud_fog]
-  Kernel.system(command)
+  Logging.info("'%s' written." % cloud_fog)
 end
