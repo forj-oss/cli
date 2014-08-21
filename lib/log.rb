@@ -26,41 +26,140 @@ require 'require_relative'
 require_relative 'helpers.rb'
 include Helpers
 
+
 #
 # Logging module
 #
 module Logging
-  def info(message)
-    home = Helpers.get_home_path
-    d = '%s/.forj/' % [home]
-    Helpers.create_directory(d)
 
-    log = '%s/.forj/forj.log' % [home]
-    log = Logger.new(log)
-    log.level = Logger::DEBUG
-
-    log.formatter = proc do |severity, datetime, progname, msg|
-      "#{progname} : #{datetime}: #{severity}: #{msg} \n"
+  class SSLErrorMgt
+  
+    def initialize()
+       @iRetry=0
+    end
+    
+    def ErrorDetected(message,backtrace)
+      if message.match('SSLv2/v3 read server hello A: unknown protocol') 
+         if @iRetry <5
+            sleep(2)
+            @iRetry+=1
+            print "%s/5 try...\r" % @iRetry if $FORJ_LOGGER.level == 0
+            return false
+         else   
+            Logging.error('Too many retry. %s' % message)
+            return true
+         end
+      else   
+         Logging.error("%s\n%s" % [message,backtrace.join("\n")])
+         return true
+      end
     end
 
-    log.info(message)
+  end 
+
+  class ForjLog
+     # Class used to create 2 log object, in order to keep track of error in a log file and change log output to OUTPUT on needs (option flags).
+     
+     attr_reader :level
+  
+     def initialize(sLogFile = 'forj.log', level = Logger::WARN)
+        if not $FORJ_DATA_PATH
+           raise "Internal Error: Unable to initialize ForjLog - global FORJ_DATA_PATH not set"
+        end
+        @oFileLogger = Logger.new(File.join($FORJ_DATA_PATH, sLogFile), 'weekly')
+        @oFileLogger.level = Logger::DEBUG
+        @oFileLogger.formatter = proc do |severity, datetime, progname, msg| 
+            "#{progname} : #{datetime}: #{severity}: #{msg} \n"
+         end   
+        
+        @oOutLogger = Logger.new(STDOUT)
+        @level = level
+        @oOutLogger.level = @level
+        @oOutLogger.formatter = proc do |severity, datetime, progname, msg| 
+            severity == 'ANY'?"#{msg} \n":"#{severity}: #{msg} \n"
+         end   
+     end
+
+     def info?
+        return(@oOutLogger.info?)
+     end
+     def debug?
+        return(@oOutLogger.debug?)
+     end
+     def error?
+        return(@oOutLogger.error?)
+     end
+     def fatal?
+        return(@oOutLogger.fatal?)
+     end
+     
+     def info(message)
+        @oOutLogger.info(message + ANSI.clear_line)
+        @oFileLogger.info(message)
+     end
+     def debug(message)
+        @oOutLogger.debug(message + ANSI.clear_line)
+        @oFileLogger.debug(message)
+     end
+     def error(message)
+        @oOutLogger.error(message + ANSI.clear_line)
+        @oFileLogger.error(message)
+     end
+     def fatal(message)
+        @oOutLogger.fatal(message + ANSI.clear_line)
+        @oFileLogger.fatal(message)
+     end
+
+     def warn(message)
+        @oOutLogger.warn(message + ANSI.clear_line)
+        @oFileLogger.warn(message)
+     end
+
+     def set_level(level)
+        @level = level
+        @oOutLogger.level = level
+     end
+
+     def unknown(message)
+        @oOutLogger.unknown(message + ANSI.clear_line)
+     end
+     
+  end
+       
+  def message(message)
+    $FORJ_LOGGER.unknown(message)
+  end
+     
+  def info(message)
+    $FORJ_LOGGER.info(message)
+  end
+  
+  def debug(message)
+    $FORJ_LOGGER.debug(message)
+  end
+  
+  def warning(message)
+    $FORJ_LOGGER.warn(message)
   end
 
   def error(message)
-    home = Helpers.get_home_path
-    d = '%s/.forj/' % [home]
-    Helpers.create_directory(d)
-
-    log = '%s/.forj/forj.log' % [home]
-    log = Logger.new(log)
-    log.level = Logger::ERROR
-
-    log.formatter = proc do |severity, datetime, progname, msg|
-      "#{progname} : #{datetime}: #{severity}: #{msg} \n"
-    end
-
-    log.error(message)
+    $FORJ_LOGGER.error(message)
   end
+  
+  def fatal(rc, message)
+    $FORJ_LOGGER.fatal(message)
+    puts 'Issues found. Please fix it and retry. Process aborted.'
+    exit rc
+  end
+
+  def set_level(level)
+    $FORJ_LOGGER.set_level(level)
+  end
+  
+  def state(message)
+     print("%s%s ...\r" % [message, ANSI.clear_line]) if $FORJ_LOGGER.level == Logger::INFO
+  end
+  
+
+
 end
-
-

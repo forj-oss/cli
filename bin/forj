@@ -18,6 +18,13 @@
 require 'rubygems'
 require 'require_relative'
 require 'thor'
+require 'ansi'
+
+$APP_PATH = File.dirname(__FILE__)
+$LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
+
+$FORJ_DATA_PATH= File.expand_path('~/.forj')
+$LOAD_PATH << './lib'
 
 require_relative '../lib/boot.rb'
 include Boot
@@ -28,15 +35,24 @@ include Setup
 require_relative '../lib/ssh.rb'
 include Ssh
 
-$APP_PATH = File.dirname(__FILE__)
-$LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
-
-$FORJ_DATA_PATH= File.expand_path('~/.forj')
-$LOAD_PATH << './lib'
-
 require 'forj-config.rb' # Load class ForjConfig
+require 'log.rb' # Load default loggers
+require 'connection.rb' # Load class ForjConnection
+
+#require 'debugger' # Use to debug with Ruby < 2.0
+#require 'byebug'   # Use to debug with Ruby >= 2.0
+
+include Logging
+
+# Initialize global Log object 
+$FORJ_LOGGER=ForjLog.new()
+
 
 class Forj < Thor
+
+  class_option :debug,   :aliases => '-d', :desc => 'Set debug mode'
+  class_option :verbose, :aliases => '-v', :desc => 'Set verbose mode'
+  class_option :config,  :aliases => '-c', :desc => 'Path to a different forj config file. By default, use ~/.forj/config.yaml'
 
 
   desc "help [action]", "Describe available FORJ actions or one specific action"
@@ -84,7 +100,7 @@ The list of predefined values can be retrieved with forj show defaults
 
   LONGDESC
 
-  method_option :config,           :aliases => '-c',   :desc => 'Path to a different forj config file. By default, use ~/.forj/config.yaml'
+  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj account name to use. By default, it takes the provider name.'
   method_option :infra,            :aliases => '-i',   :desc => 'Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
   method_option :key_name,         :aliases => '-k',   :desc => 'Import a key pair.'
   method_option :key_path,         :aliases => '-p',   :desc => 'Public key data'
@@ -92,19 +108,29 @@ The list of predefined values can be retrieved with forj show defaults
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
   method_option :build_config,     :aliases => '-C',   :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
-  method_option :git_repo,         :aliases => '-R',   :desc => 'The box built will use a different git repository sent out to <user_data>. This repository needs to be read only. No keys are sent.'
+  method_option :maestro_repo,     :aliases => '-M',   :desc => 'To use a different Maestro repository already cloned. By default, Maestro is cloned to ~/.forj/maestro from github.'
   method_option :branch,           :aliases => '-B',   :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
   method_option :box_name,         :aliases => '-N',   :desc => 'Defines the name of the box or box image to build.'
   method_option :test_box,         :aliases => '-T',   :desc => 'Create test.rb-box meta from the repository path provided.'
  
   def boot(blueprint, on, cloud_provider, as, name, test = false)
-      Boot.boot(blueprint, cloud_provider, name,
+      Logging.set_level(Logger::INFO) if options[:verbose]
+      Logging.set_level(Logger::DEBUG) if options[:debug]
+      oConfig=ForjConfig.new(options[:config])
+      
+      # Options are added if they are set. Otherwise, get will retrieve the default value.
+      oConfig.set('account_name', options[:account_name])
+      oConfig.set('infra_repo',   options[:infra])
+      oConfig.set('keypair_name', options[:key_name])
+      oConfig.set('keypair_path', options[:key_path])
+
+      # TODO: Be able to support the default provider from config.yaml
+      oConfig.set('provider', cloud_provider)
+      Boot.boot(blueprint, name,
                 options[:build], options[:build_config_dir],
                 options[:build_config], options[:branch],
-                options[:git_repo], options[:boothook],
-                options[:box_name], options[:key_name],
-                options[:key_path],options[:region],
-                options[:config], test)
+                options[:maestro_repo], options[:boothook],
+                options[:box_name], oConfig, test)
   end
 
   desc 'show defaults', 'Show list of predefined value you can update in your ~/.forj/config.yaml'
@@ -125,6 +151,8 @@ The list of predefined values can be retrieved with forj show defaults
   LONGDESC
   
   def down(name)
+      Logging.set_level(Logger::INFO) if options[:verbose]
+    Logging.set_level(Logger::DEBUG) if options[:debug]
     Down.down(name)
   end
 
@@ -137,11 +165,15 @@ Connect through ssh to an existing instance
   LONGDESC
   
   def ssh(name, server)
+    Logging.set_level(Logger::INFO) if options[:verbose]
+    Logging.set_level(Logger::DEBUG) if options[:debug]
     Ssh.connect(name, server)
   end
 
-  # SETUP
-  desc 'setup', 'set the credentials for forj cli'
+  # SETUP 
+  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj account name to use. By default, it takes the provider name.'
+
+  desc 'setup [Provider] [options]', 'set the hpcloud credentials for forj cli'
   long_desc <<-LONGDESC
 Set the cloud credentials and services for forj. Currently supports only hpcloud provider.
 
@@ -152,9 +184,13 @@ Several data will be requested like:
 \x5- tenant_id: id for the tenant you want to use
 \x5- availability_zone: which availability zone will be deployed
   LONGDESC
-  def setup
-    Setup.setup
+  def setup(sProvider = 'hpcloud')
+    Logging.set_level(Logger::INFO)  if options[:verbose]
+    Logging.set_level(Logger::DEBUG) if options[:debug]
+    oConfig=ForjConfig.new(options[:config])
+    Setup.setup(sProvider, oConfig, options)
   end
+
 end
 
 

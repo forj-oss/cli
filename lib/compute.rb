@@ -18,21 +18,16 @@
 require 'rubygems'
 require 'require_relative'
 
-require_relative 'connection.rb'
-include Connection
-require_relative 'log.rb'
-include Logging
-
 #
 # compute module
 #
 module Compute
-  def delete_forge(name)
-    instances = Connection.compute.servers.all(:name => name)
+  def delete_forge(oFC, name)
+    instances = oFC.oCompute.servers.all(:name => name)
     instances.each do|instance|
       # make sure we don't delete another forge because fog filters
       # the name in a "like syntax" way
-      Connection.compute.servers.get(instance.id).destroy
+      oFC.oCompute.servers.get(instance.id).destroy
     end
   end
 end

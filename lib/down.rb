@@ -24,8 +24,8 @@ require_relative 'yaml_parse.rb'
 include YamlParse
 require_relative 'security.rb'
 include SecurityGroup
-require_relative 'log.rb'
-include Logging
+#require_relative 'log.rb'
+#include Logging
 require_relative 'ssh.rb'
 include Ssh
 require_relative 'compute.rb'
@@ -35,28 +35,26 @@ include Compute
 # Down module
 #
 module Down
-  def down(name)
+  def down(oFC, name)
     begin
 
       initial_msg = 'deleting forge "%s"' % [name]
       Logging.info(initial_msg)
-      puts (initial_msg)
 
       Compute.delete_forge(name)
 
-      router = Network.get_router('private-ext')
-      subnet = Network.get_subnet(name)
+      router = Network.get_router(oFC, 'private-ext')
+      subnet = Network.get_subnet(oFC, name)
       Network.delete_router_interface(subnet.id, router)
 
-      Network.delete_subnet(subnet.id)
-      network = Network.get_network(name)
-      Network.delete_network(network.name)
+      Network.delete_subnet(oFC, subnet.id)
+      network = Network.get_network(oFC, name)
+      Network.delete_network(oFC, network.name)
 
     rescue SystemExit, Interrupt
-      puts 'process interrupted by user'
       Logging.error('process interrupted by user')
     rescue Exception => e
-      Logging.error(e.message)
+      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
   end
 end

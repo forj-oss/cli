@@ -22,8 +22,8 @@ require 'require_relative'
 
 require_relative 'yaml_parse.rb'
 include YamlParse
-require_relative 'log.rb'
-include Logging
+#require_relative 'log.rb'
+#include Logging
 
 #
 # Repositories module
@@ -40,18 +40,17 @@ module Repositories
           if File.directory?(path + 'maestro')
             FileUtils.rm_r path + 'maestro'
           end
-          Logging.info('cloning the maestro repo')
           Git.clone(maestro_url, 'maestro', :path => path)
         end
       rescue => e
+        Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
         puts 'Error while cloning the repo from %s' % [maestro_url]
         puts 'If this error persist you could clone the repo manually in ~/.forj/'
-        Logging.error(e.message)
       end
       Dir.chdir(current_dir)
   end
-  
-  def create_infra
+
+  def create_infra(maestro_repo)
     home = File.expand_path('~')
     path = home + '/.forj/'
     infra = path + 'infra/'
@@ -64,9 +63,7 @@ module Repositories
     command = 'cp -rp ~/.forj/maestro/templates/infra/cloud-init ~/.forj/infra/'
     Kernel.system(command)
 
-    Dir.chdir('build_tmpl')
-
-    fill_template = 'python build-env.py -p ~/.forj/infra --maestro-path ~/.forj/maestro'
+    fill_template = 'python %s/build_tmpl/build-env.py -p ~/.forj/infra --maestro-path %s' % [$LIB_PATH, maestro_repo]
     Kernel.system(fill_template)
   end
 end

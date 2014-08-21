@@ -24,8 +24,8 @@ require_relative 'security.rb'
 include SecurityGroup
 require_relative 'repositories.rb'
 include Repositories
-require_relative 'log.rb'
-include Logging
+#require_relative 'log.rb'
+#include Logging
 require_relative 'helpers.rb'
 include Helpers
 
@@ -34,27 +34,29 @@ include Helpers
 # Boot module
 #
 module Boot
-  def boot(blueprint, cloud_provider, name,
+  def boot(blueprint, name,
       build, infra_dir, build_config,
-      branch, git_repo, boothook, box_name,
-      key_name, key_path, region, config,
-      test = false)
+      branch, maestro_repo, boothook, box_name,
+      oConfig, test = false)
     begin
+
+      # Check options and set data
+      cloud_provider=oConfig.get('provider')
+      raise 'No provider specified.' if not cloud_provider
+
+      if cloud_provider != 'hpcloud'
+         raise "forj setup support only hpcloud. '%s' is currently not supported." % cloud_provider
+      end
+
+      oConfig.setDefault('account_name', cloud_provider)
+
       initial_msg = 'booting %s on %s (~/.forj/forj.log)' % [blueprint , cloud_provider]
-
-      Logging.info(initial_msg)
-
-      forj_dir = File.expand_path(File.dirname(__FILE__))
-      Dir.chdir(forj_dir)
-
-      puts ('INFO: Reading default configuration...')
-      oConfig=ForjConfig.new(config)
-      hConfig=oConfig.yConfig['default']
+      Logging.message(initial_msg)
 
       # Initialize defaults
-      maestro_url =  hConfig['maestro_url']
+      maestro_url =  oConfig.get('maestro_url')
 
-      infra_dir = hConfig['infra_repo'] unless infra_dir
+      infra_dir = oConfig.get('infra_repo') unless infra_dir
 
       # Ask information if needed.
       bBuildInfra=false
@@ -62,95 +64,100 @@ module Boot
          sAsk = 'Your \'%s\' infra directory doesn\'t exist. Do you want to create a new one from Maestro(repo github)/templates/infra (yes/no)?' % [infra_dir]
          bBuildInfra=agree(sAsk)
       else
-         puts('INFO: Re-using your infra... in \'%s\'' % [infra_dir])
+         Logging.info('Re-using your infra... in \'%s\'' % [infra_dir])
       end
       if not Dir.exist?(File.expand_path(infra_dir)) and not bBuildInfra
-         puts ('Exiting.')
+         Logging.info ('Exiting.')
          return
       end
 
       # Step Maestro Clone
-      puts('INFO: cloning maestro repo from \'%s\'...' % maestro_url)
-      Repositories.clone_repo(maestro_url)
+      if not maestro_repo
+         Logging.info('cloning maestro repo from \'%s\'...' % maestro_url)
+         Repositories.clone_repo(maestro_url)
+         maestro_repo=File.expand_path('~/.forj/maestro')
+      else
+         maestro_repo=File.expand_path(maestro_repo)
+         if not File.exists?('%s/templates/infra/%s-maestro.box.GITBRANCH.env.tmpl' % [maestro_repo, cloud_provider])
+            Logging.fatal(1, "'%s' is not a recognized Maestro repository. forj cli searched for templates/infra/%s-maestro.box.GITBRANCH.env.tmpl" % [maestro_repo, cloud_provider])
+         end
+         Logging.info('Using your maestro cloned repo \'%s\'...' % maestro_repo)
+      end
 
       if bBuildInfra
-         puts('INFO: Building your infra... in \'%s\'' % [infra_dir])
-         Repositories.create_infra
+         Logging.info('Building your infra... in \'%s\'' % [infra_dir])
+         Repositories.create_infra(maestro_repo)
       end
 
-      puts('INFO: Configuring network \'%s\'' % [hConfig['network']])
-      network = Network.get_or_create_network(hConfig['network'])
+      # Connect to services
+      oFC=ForjConnection.new(oConfig)
+
+      Logging.info('Configuring network \'%s\'' % [oConfig.get('network')])
       begin
-        subnet = Network.get_or_create_subnet(network.id, name)
-        router = Network.get_router(hConfig['router'])
-        Network.create_router_interface(subnet.id, router)
+        network = Network.get_or_create_network(oFC, oConfig.get('network'))
+        subnet = Network.get_or_create_subnet(oFC, network.id, network.name)
+        router = Network.get_or_create_router(oFC, network, subnet)
       rescue => e
-        puts e.message
+        Logging.fatal(1, "Network properly configured is required.\n%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
 
 
-      puts('INFO: Configuring keypair \'%s\'' % [hConfig['keypair_name']])
-      key_name = hConfig['keypair_name'] unless key_name
-      key_path = hConfig['keypair_path'] unless key_path
+      Logging.info('Configuring keypair \'%s\'' % [oConfig.get('keypair_name')])
+      key_name = oConfig.get('keypair_name')
+      key_path = oConfig.get('keypair_path')
       SecurityGroup.upload_existing_key(key_name, key_path)
 
-      puts('INFO: Configuring Security Group \'%s\'' % [hConfig['security_group']])
-      security_group = SecurityGroup.get_or_create_security_group(hConfig['security_group'])
-      ports = hConfig['ports']
+      Logging.info('Configuring Security Group \'%s\'' % [oConfig.get('security_group')])
+      security_group = SecurityGroup.get_or_create_security_group(oFC, oConfig.get('security_group'))
+      ports = oConfig.get('ports')
 
       ports.each do|port|
-        Network.get_or_create_rule(security_group.id, 'tcp', port, port)
+        Network.get_or_create_rule(oFC, security_group.id, 'tcp', port, port)
       end
 
-      ENV['FORJ_HPC_NETID'] = network.id
-      ENV['FORJ_SECURITY_GROUP'] = security_group.name
+      ENV['FORJ_HPC_NET'] = network.name
+      ENV['FORJ_SECURITY_GROUP'] = oConfig.get('security_group')
       ENV['FORJ_KEYPAIR'] = key_name
-      ENV['FORJ_HPC_KEYPUB'] = key_path
-      if region
-        ENV['FORJ_REGION'] = region
-      end
+      ENV['FORJ_HPC_NOVA_KEYPUB'] = key_path
+      ENV['FORJ_BASE_IMG'] = oConfig.get('image')
 
       # run build.sh to boot maestro
       puts
-      current_dir = Dir.pwd
-      home = Helpers.get_home_path
-      build_path = home + '/.forj/maestro/build'
-      Dir.chdir(build_path)
 
       build = 'bin/build.sh' unless build
 
-      build_config = hConfig['build_config'] unless build_config
+      build_config = oConfig.get('build_config') unless build_config
 
-      branch = hConfig['branch'] unless branch
+      branch = oConfig.get('branch') unless branch
 
-      box_name = hConfig['box_name'] unless box_name
+      box_name = oConfig.get('box_name') unless box_name
 
       meta = '--meta blueprint=%s ' % [blueprint]
 
       command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, infra_dir, build_config, branch, meta]
 
-      Logging.info('Calling build.sh')
-      Logging.info(command)
+      maestro_build_path = File.expand_path('~/.forj/maestro/build')
 
-      Kernel.system(command)
+      current_dir = Dir.pwd
+
+      Dir.chdir(File.expand_path('~/.forj/maestro/build'))
+
+      Logging.info("Calling '%s' from '%s'" %  [build, Dir.pwd])
+      Logging.debug(command)
+      Kernel.system(ENV, command)
       Dir.chdir(current_dir)
 
       if test
-        puts 'test flag is on, deleting objects'
+        Logging.debug 'test flag is on, deleting objects'
         Network.delete_router_interface(subnet.id, router)
         Network.delete_subnet(subnet.id)
         Network.delete_network(network.name)
       end
 
-    rescue SystemExit, Interrupt
-      msg = '%s interrupted by user' % [name]
-      puts msg
-      Logging.info(msg)
-    rescue StandardError => e
-      Logging.error(e.message)
-      puts e.backtrace.join("\n")
-
-      puts e.message
+    rescue Interrupt
+      Logging.message("\n'%s' boot from '%s' interrupted by user" % [name, blueprint])
+    rescue => e
+      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
   end
 end

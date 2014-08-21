@@ -25,43 +25,72 @@ include YamlParse
 #
 # Connection module
 #
-module Connection
-  def compute
-    begin
-      credentials = get_credentials
-      Fog::Compute.new({
-          :provider        => 'HP',
-          :hp_access_key   => credentials['access_key'],
-          :hp_secret_key   => credentials['secret_key'],
-          :hp_auth_uri     => credentials['auth_uri'],
-          :hp_tenant_id    => credentials['tenant_id'],
-          :hp_avl_zone     => credentials['availability_zone'],
-          :version         => 'v2'
-      })
-    rescue => e
-      Logging.error(e.message)
-    end
-  end
 
-  def network
-    begin
-      credentials = get_credentials
-      Fog::HP::Network.new({
-          :hp_access_key   => credentials['access_key'],
-          :hp_secret_key   => credentials['secret_key'],
-          :hp_auth_uri     => credentials['auth_uri'],
-          :hp_tenant_id    => credentials['tenant_id'],
-          :hp_avl_zone     => credentials['availability_zone']
-      })
-    rescue => e
-      Logging.error(e.message)
-    end
-  end
+class ForjConnection
+
+   attr_accessor :oCompute
+   attr_accessor :oNetwork
+
+   def initialize(oConfig)
+
+     sAccountName = oConfig.get('account_name')
+     @provider='HP' # TODO: Support multiple provider. (Generic Provider object required)
+     sAccountName = oConfig.get('provider') if not sAccountName
+     sAccountName = 'hpcloud' if not sAccountName
+
+     @credentials = get_credentials(sAccountName)
+     oSSLError=SSLErrorMgt.new
+
+     # Trying to get Compute object
+
+     Logging.debug("compute: Connecting to '%s' - Project '%s'" % [@provider, @credentials['tenant_id']])
+     begin
+        @oCompute=Fog::Compute.new({
+          :provider        => @provider,
+          :hp_access_key   => @credentials['access_key'],
+          :hp_secret_key   => @credentials['secret_key'],
+          :hp_auth_uri     => @credentials['auth_uri'],
+          :hp_tenant_id    => @credentials['tenant_id'],
+          :hp_avl_zone     => @credentials['availability_zone'],
+          :version         => 'v2'
+        })
+     rescue => e
+       if not oSSLError.ErrorDetected(e.message,e.backtrace)
+          retry
+       end
+       Logging.fatal(1, 'Unable to connect.')
+     end
+
+     # Trying to get Network object
+     Logging.debug("HP network: Connecting to '%s' - Project '%s'" % [@provider, @credentials['tenant_id']])
+     begin
+       @oNetwork=Fog::HP::Network.new({
+          :hp_access_key   => @credentials['access_key'],
+          :hp_secret_key   => @credentials['secret_key'],
+          :hp_auth_uri     => @credentials['auth_uri'],
+          :hp_tenant_id    => @credentials['tenant_id'],
+          :hp_avl_zone     => @credentials['availability_zone']
+       })
+     rescue => e
+       if not oSSLError.ErrorDetected(e.message,e.backtrace)
+          retry
+       end
+       Logging.fatal(1, 'Unable to connect.')
+     end
+
+   end
+
 end
 
-def get_credentials
-  home = File.expand_path('~')
-  creds = '%s/.hpcloud/accounts/hp' % [home]
+def get_credentials(sAccountName)
+  # TODO: Should support forj credentials. not hpcloud credentials.
+
+  raise 'Internal Error: Missing sAccountName' if not sAccountName
+
+  creds = File.expand_path('~/.hpcloud/accounts/%s' % [sAccountName])
+  if not File.exists?(creds)
+     Logging.fatal(1, "'%s' was not configured. Did you executed 'forj setup %s'? Please do it and retry." % [sAccountName, sAccountName])
+  end
   template = YAML.load_file(creds)
   credentials = Hash.new
 
@@ -72,8 +101,8 @@ def get_credentials
     credentials['tenant_id'] = template[:credentials][:tenant_id]
     credentials['availability_zone'] = template[:regions][:compute]
   rescue => e
+    Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     puts 'your credentials are not configured, delete the file %s and run forj setup again' % [creds]
-    Logging.error(e.message)
   end
   credentials
 end

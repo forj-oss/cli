@@ -72,4 +72,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'git', '>=1.2.7'
   s.add_runtime_dependency 'rbx-require-relative', '~>0.0.7'
   s.add_runtime_dependency 'highline', '~> 1.6.21'
+  s.add_runtime_dependency 'ansi', '>= 1.4.3'
 end

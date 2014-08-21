@@ -21,8 +21,8 @@
 require 'rubygems'
 require 'yaml'
 
-require_relative 'log.rb'
-include Logging
+#require_relative 'log.rb'
+#include Logging
 
 class ForjDefault
 
@@ -38,6 +38,8 @@ class ForjDefault
       if not $LIB_PATH
          raise 'Internal $LIB_PATH was not set.'
       end
+      
+      Logging.info ('Reading default configuration...')
 
       @sDefaultsName=File.join($LIB_PATH,'defaults.yaml')
 
@@ -50,10 +52,10 @@ class ForjConfig
 
    # Internal variables:
    # @sConfigName='config.yaml'
+   # @yRuntime = data in memory.
    # @yLocal = config.yaml file data hash.
    # @yConfig = defaults.yaml + local_config data hash
    
-
    attr_reader   :yLocal
    attr_reader   :yConfig
    attr_reader   :sConfigName
@@ -69,14 +71,13 @@ class ForjConfig
 
       sConfigDefaultName='config.yaml'
 
-      # binding.pry
       if sConfigName
          if File.dirname(sConfigName) == '.'
             sConfigName= File.join($FORJ_DATA_PATH,sConfigName)
          end  
          sConfigName = File.expand_path(sConfigName)
          if not File.exists?(sConfigName)
-            Logging.error('Config file %s doesn\'t exists. Using default one.')
+            Logging.warning("Config file '%s' doesn't exists. Using default one." % [sConfigName] )
             @sConfigName=File.join($FORJ_DATA_PATH,sConfigDefaultName)
          else   
             @sConfigName=sConfigName
@@ -98,12 +99,14 @@ class ForjConfig
             if not File.exists?($FORJ_DATA_PATH)
                Dir.mkdir($FORJ_DATA_PATH)
             end
-            puts ('INFO: Creating your default configuration file ...')
+            Logging.info ('Creating your default configuration file ...')
             self.SaveConfig()
          end
       end
      
       BuildConfig()
+      
+      @yRuntime={}
    end
 
 
@@ -113,14 +116,14 @@ class ForjConfig
          YAML.dump(@yLocal, out)
        end
      rescue => e
-       Logging.error(e.message)
+       Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
        return false
      end
-     # puts ('INFO: Configuration file "%s" updated.' % @sConfigName)
+     Logging.info ('Configuration file "%s" updated.' % @sConfigName)
      return true
    end
    
-   def ConfigSet(key, value, section = 'default')
+   def LocalSet(key, value, section = 'default')
      if not key or not value
         return false
      end
@@ -136,7 +139,7 @@ class ForjConfig
      return true
    end
    
-   def ConfigDel(key,section = 'default')
+   def LocalDel(key,section = 'default')
      if not key
         return false
      end
@@ -148,6 +151,35 @@ class ForjConfig
      return true
    end
    
+   def setDefault(key, value)
+     if not key 
+        return false
+     end
+     if not @yRuntime[key]
+        @yRuntime[key] = value
+     end   
+     return true
+   end
+   
+   def set(key, value)
+     if not key 
+        return false
+     end
+     if value
+        @yRuntime[key] = value
+     else
+        @yRuntime.delete(key)
+     end   
+     return true
+   end
+  
+   def get(key, default = @yConfig['default'][key])
+     if @yRuntime.has_key?(key)
+        @yRuntime[key]
+     else
+        default
+     end
+   end
   
    def BuildConfig()
       # This function implements the logic to get defaults, superseed by local config. 

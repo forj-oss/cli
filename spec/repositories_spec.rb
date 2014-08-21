@@ -18,6 +18,7 @@
 require 'rubygems'
 require 'spec_helper'
 
+require 'ansi'
 require 'fog'
 
 require_relative '../lib/repositories.rb'
@@ -31,7 +32,7 @@ describe 'repositories' do
     @test_class = TestClass.new
     @test_class.extend(Repositories)
 
-    repo = @test_class.clone_repo('https://github.com/forj-oss/maestro')
+    repo = @test_class.clone_repo('https://github.com/forj-oss/cli')
     expect(repo).to be
   end
 end

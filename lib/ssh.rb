@@ -18,8 +18,8 @@
 require 'rubygems'
 require 'require_relative'
 
-require_relative 'log.rb'
-include Logging
+#require_relative 'log.rb'
+#include Logging
 
 #
 # ssh module

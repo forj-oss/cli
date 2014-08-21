@@ -28,23 +28,46 @@ include Helpers
 # Setup module call the hpcloud functions
 #
 module Setup
-  def setup
+  def setup(sProvider, oConfig, options )
     begin
-      sProvider = 'hp'
+
+      raise 'No provider specified.' if not sProvider
+
       sAccountName = sProvider # By default, the account name uses the same provider name.
+      sAccountName = options[:account_name] if options[:account_name]
+
+      if sProvider != 'hpcloud'
+         raise "forj setup support only hpcloud. '%s' is currently not supported." % sProvider
+      end
 
       # TODO: Support of multiple providers thanks to fog.
       # TODO: Replace this code by our own forj account setup, inspired/derived from hpcloud account::setup
 
       # delegate the initial configuration to hpcloud (unix_cli)
-      Kernel.system('hpcloud account:setup')
+      hpcloud_data=File.expand_path('~/.hpcloud/accounts')
+      if File.exists?(File.join(hpcloud_data, 'hp')) and not File.exists?(File.join(hpcloud_data, sAccountName)) and sAccountName != 'hp'
+         Logging.info("hpcloud: Copying 'hp' account setup to '%s'" % sAccountName)
+         Kernel.system('hpcloud account:copy hp %s' % [sAccountName])
+      end
+
+      case Kernel.system('hpcloud account:setup %s' % [sAccountName] )
+         when false
+           raise "Unable to setup your hpcloud account"
+         when nil
+           raise "Unable to execute 'hpcloud' cli. Please check hpcloud installation."
+      end
+
+      if not oConfig.yConfig['default'].has_key?('account')
+         oConfig.LocalSet('account',sAccountName)
+         oConfig.SaveConfig
+      end
 
       # Implementation of simple credential encoding for build.sh/maestro
       save_maestro_creds(sAccountName)
     rescue RuntimeError => e
-      Logging.error(e.message)  
+      Logging.fatal(1,e.message)
     rescue  => e
-      Logging.error("%s\n%s" % [e.message,e.backtrace.join("\n")])  
+      Logging.fatal(1,"%s\n%s" % [e.message,e.backtrace.join("\n")])
     end
   end
 end
@@ -52,20 +75,20 @@ end
 def save_maestro_creds(sAccountName)
 
   # TODO Be able to load the previous username if the g64 file exists.
-  hpcloud_os_user = ask('Enter hpcloud username: ') do |q| 
-    q.validate = /\w+/ 
+  hpcloud_os_user = ask('Enter hpcloud username: ') do |q|
+    q.validate = /\w+/
     q.default = ''
   end
-     
+
   hpcloud_os_key = ask('Enter hpcloud password: ') do |q|
     q.echo = '*'
     q.validate = /.+/
-  end  
+  end
 
   add_creds = {:credentials => {:hpcloud_os_user=> hpcloud_os_user, :hpcloud_os_key=> hpcloud_os_key}}
 
   sForjCache=File.expand_path('~/.cache/forj/')
-  cloud_fog = '%s/%s.g64' % [sForjCache, 'master.forj-13.5']
+  cloud_fog = '%s/%s.g64' % [sForjCache, sAccountName]
 
 
   Helpers.create_directory(sForjCache) if not File.directory?(sForjCache)

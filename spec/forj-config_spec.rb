@@ -15,17 +15,21 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-class TestClass
-end
-
-require_relative '../lib/forj-config.rb'
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 $FORJ_DATA_PATH= File.expand_path('~/.forj')
 
-describe 'forj cli' do
-  describe ".forj-config" do
-    context "new instance" do
+$LOAD_PATH << './lib'
+
+require 'forj-config.rb' # Load class ForjConfig
+require 'log.rb' # Load default loggers
+
+include Logging
+
+$FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
+
+describe "class: forj-config" do
+    context "when creating a new instance" do
 
       it 'should be loaded' do
          @test_config=ForjConfig.new()
@@ -34,46 +38,46 @@ describe 'forj cli' do
 
     end
 
-    context "Config in memory" do
+    context "when starting, forj-config" do
       before(:all) do
          @config=ForjConfig.new()
       end
       
       it 'should be able to create a key/value in local config' do
-         @config.ConfigSet('test1','value')
-         @config.yConfig['default']['test1'].should == 'value'
+         @config.LocalSet('test1','value')
+         expect(@config.yConfig['default']['test1']).to eq('value')
       end
 
       it 'should be able to remove the previously created key/value from local config' do
-         @config.ConfigDel('test1')
-         @config.yConfig['default'].key?('test1').should == false
+         @config.LocalDel('test1')
+         expect(@config.yConfig['default'].key?('test1')).to equal(false)
       end
     end   
 
     
-    context "Updating local config file" do
+    context "while updating local config file, forj-config" do
       before(:all) do
          @config=ForjConfig.new() 
       end
       
       after(:all)  do
-        @config.ConfigDel('test1')
+        @config.LocalDel('test1')
         @config.SaveConfig()
       end  
 
       it 'should save a key/value in local config' do
-         @config.ConfigSet('test1','value')
-         @config.SaveConfig().should == true
+         @config.LocalSet('test1','value')
+         expect(@config.SaveConfig()).to equal(true)
       end
       
       it 'should get the saved value from local config' do
          oConfig=ForjConfig.new()
-         @config.yConfig['default']['test1'].should == 'value'
+         expect(@config.yConfig['default']['test1']).to eq('value')
       end
   
     end
 
-    context "Updating another config file from .forj" do
+    context "With another config file - test1.yaml, forj-config" do
 
       before(:all) do
         if File.exists?('~/.forj/test.yaml')
@@ -88,25 +92,26 @@ describe 'forj cli' do
         File.delete(File.expand_path('~/.forj/test1.yaml'))
       end  
 
-      it 'If file do not exist, warning! and file is not created.' do
-         File.exists?(File.expand_path('~/.forj/test.yaml')).should == false
+      it 'won\'t create a new file If we request to load \'test.yaml\'' do
+         expect(File.exists?(File.expand_path('~/.forj/test.yaml'))).to equal(false)
       end
       
-      it 'Then, default config is loaded.' do
-         File.basename(@config.sConfigName).should == 'config.yaml'
+      it 'will load the default config file if we request to load \'test.yaml\'' do
+         expect(File.basename(@config.sConfigName)).to eq('config.yaml')
       end
 
-      it 'test1.yaml config is loaded.' do
-         File.basename(@config2.sConfigName).should == 'test1.yaml'
+      it 'will confirm \'test1.yaml\' config to be loaded.' do
+         expect(File.basename(@config2.sConfigName)).to eq('test1.yaml')
       end
 
-      it 'should save a key/value in test2 config' do
-         @config2.ConfigSet('test2','value')
-         @config2.SaveConfig().should == true
+      it 'can save \'test2=value\'' do
+         @config2.LocalSet('test2','value')
+         expect(@config2.SaveConfig()).to equal(true)
+         config3=ForjConfig.new('test1.yaml')
+         expect(config3.yConfig['default']['test2']).to eq('value')
       end
 
   
     end
-  end
 
 end
