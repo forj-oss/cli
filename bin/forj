@@ -118,6 +118,8 @@ The list of predefined values can be retrieved with forj show defaults
       Logging.set_level(Logger::DEBUG) if options[:debug]
       oConfig=ForjConfig.new(options[:config])
       
+      Logging.fatal(1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not /^[\d[[:lower:]]-]+$/ =~ name
+      
       # Options are added if they are set. Otherwise, get will retrieve the default value.
       oConfig.set('account_name', options[:account_name])
       oConfig.set('infra_repo',   options[:infra])
