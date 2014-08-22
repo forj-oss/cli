@@ -111,8 +111,16 @@ module Boot
       security_group = SecurityGroup.get_or_create_security_group(oFC, oConfig.get('security_group'))
       ports = oConfig.get('ports')
 
-      ports.each do|port|
-        Network.get_or_create_rule(oFC, security_group.id, 'tcp', port, port)
+      ports.each do |port|
+        port = port.to_s if port.class != String
+        if not /^\d+(-\d+)?$/ =~ port 
+           Logging.error("Port '%s' is not valid. Must be <Port> or <PortMin>-<PortMax>" % [port])
+        else 
+           mPortFound = /^(\d+)(-(\d+))?$/.match(port)
+           portmin = mPortFound[1]
+           portmax = (mPortFound[3]) ? (mPortFound[3]) : (portmin)
+           Network.get_or_create_rule(oFC, security_group.id, 'tcp', portmin, portmax)
+        end   
       end
 
       ENV['FORJ_HPC_NET'] = network.name

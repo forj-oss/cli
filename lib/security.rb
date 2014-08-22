@@ -24,45 +24,42 @@ require 'require_relative'
 module SecurityGroup
 
   def get_or_create_security_group(oFC, name)
-    Logging.debug('getting or creating security group for %s' % [name])
+    Logging.state("Searching for security group '%s'..." % [name])
     security_group = get_security_group(oFC, name)
-    if security_group == nil
-      security_group = create_security_group(oFC, name)
-    else
-      Logging.debug('Security Group %s found.' % [name])
-    end
+    security_group = create_security_group(oFC, name) if not security_group
     security_group
-    
   end
 
   def create_security_group(oFC, name)
-    sec_group = nil
+    Logging.debug("creating security group '%s'" % [name])
     begin
-      sec_groups = get_security_group(oFC, name)
-      if sec_groups.length >= 1
-        sec_group = sec_groups[0]
-      else
-        description = 'Security group for blueprint %s' % [name]
-        Logging.info(description)
-        sec_group = oFC.oNetwork.security_groups.create(
+      description = "Security group for blueprint '%s'" % [name]
+      oFC.oNetwork.security_groups.create(
             :name => name,
             :description => description
         )
-      end
     rescue => e
       Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
-    sec_group
   end
 
   def get_security_group(oFC, name)
+    Logging.state("Searching for security group '%s'" % [name])
     oSSLError=SSLErrorMgt.new
     begin
-      oFC.oNetwork.security_groups.all({:name => name})[0]
+      sgroups = oFC.oNetwork.security_groups.all({:name => name})
     rescue => e
       if not oSSLError.ErrorDetected(e.message,e.backtrace)
          retry
       end
+    end
+    case sgroups.length()
+      when 0
+        Logging.debug("No security group '%s' found" % [name] )
+        nil
+      when 1
+        Logging.debug("Found security group '%s'" % [sgroups[0].name])
+        sgroups[0]  
     end
   end
 
@@ -79,6 +76,7 @@ module SecurityGroup
   end
 
   def create_security_group_rule(oFC, security_group_id, protocol, port_min, port_max)
+    Logging.debug("Creating ingress rule '%s:%s - %s to 0.0.0.0/0'" % [protocol, port_min, port_max])
     oSSLError=SSLErrorMgt.new
     begin
       oFC.oNetwork.security_group_rules.create(
@@ -109,11 +107,20 @@ module SecurityGroup
     end
   end
 
-  def get_security_group_rule(oFC, port)
-    oSSLError=SSLErrorMgt.new
+  def get_security_group_rule(oFC, security_group_id, port_min, port_max)
+    Logging.state("Searching for rule '%s - %s'" % [ port_min, port_max])
+    oSSLError = SSLErrorMgt.new
     begin
-      oFC.oNetwork.security_group_rules.all({:port_range_min => port, :port_range_max => port})[0]
-    rescue => e
+      sgroups = oFC.oNetwork.security_group_rules.all({:port_range_min => port_min, :port_range_max => port_max, :security_group_id => security_group_id})
+      case sgroups.length()
+        when 0
+          Logging.debug("No security rule '%s - %s' found" % [ port_min, port_max ] )
+          nil
+        else
+          Logging.debug("Found security rule '%s - %s'." % [ port_min, port_max ])
+          sgroups
+      end      
+   rescue => e
       if not oSSLError.ErrorDetected(e.message,e.backtrace)
          retry
       end
@@ -121,9 +128,8 @@ module SecurityGroup
   end
 
   def get_or_create_rule(oFC, security_group_id, protocol, port_min, port_max)
-    Logging.debug('getting or creating rule %s' % [port_min])
-    rule = get_security_group_rule(oFC, port_min)
-    if rule == nil
+    rule = get_security_group_rule(oFC, security_group_id, port_min, port_max)
+    if not rule
       rule = create_security_group_rule(oFC, security_group_id, protocol, port_min, port_max)
     end
     rule
