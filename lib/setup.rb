@@ -31,13 +31,13 @@ module Setup
   def setup(sProvider, oConfig, options )
     begin
 
-      raise 'No provider specified.' if not sProvider
+      Logging.fatal(1, 'No provider specified.') if not sProvider
 
       sAccountName = sProvider # By default, the account name uses the same provider name.
       sAccountName = options[:account_name] if options[:account_name]
 
       if sProvider != 'hpcloud'
-         raise "forj setup support only hpcloud. '%s' is currently not supported." % sProvider
+         Logging.fatal(1, "forj setup support only hpcloud. '%s' is currently not supported." % sProvider)
       end
 
       # TODO: Support of multiple providers thanks to fog.
@@ -50,11 +50,14 @@ module Setup
          Kernel.system('hpcloud account:copy hp %s' % [sAccountName])
       end
 
-      case Kernel.system('hpcloud account:setup %s' % [sAccountName] )
+      Logging.info("Configuring hpcloud account '%s'" % [sAccountName] )
+      command = 'hpcloud account:setup %s' % [sAccountName]
+      Logging.debug("Executing : '%s'" % command)
+      case Kernel.system(command)
          when false
-           raise "Unable to setup your hpcloud account"
+           Logging.fatal(1, "Unable to setup your hpcloud account")
          when nil
-           raise "Unable to execute 'hpcloud' cli. Please check hpcloud installation."
+           Logging.fatal(1, "Unable to execute 'hpcloud' cli. Please check hpcloud installation.")
       end
 
       if not oConfig.yConfig['default'].has_key?('account')
@@ -64,6 +67,10 @@ module Setup
 
       # Implementation of simple credential encoding for build.sh/maestro
       save_maestro_creds(sAccountName)
+      
+      # Check/create keypair
+      keypair_setup(oConfig)
+      
     rescue RuntimeError => e
       Logging.fatal(1,e.message)
     rescue  => e
@@ -72,7 +79,65 @@ module Setup
   end
 end
 
+def ensure_forj_dirs_exists()
+  # Function to create FORJ paths if missing.
+
+  # Defining Global variables
+  $FORJ_DATA_PATH = File.expand_path(File.join('~', '.forj'))
+  $FORJ_ACCOUNT_PATH = File.join($FORJ_DATA_PATH, 'account') # Not currently used...
+  $FORJ_KEYPAIRS_PATH = File.join($FORJ_DATA_PATH, 'keypairs')
+  $FORJ_CREDS_PATH = File.expand_path(File.join('~', '.cache', 'forj'))
+  
+  # TODO: To move to an hpcloud object.
+  $HPC_KEYPAIRS = File.expand_path(File.join('~', '.hpcloud', 'keypairs'))
+
+  Helpers.ensure_dir_exists($FORJ_DATA_PATH)
+  Helpers.ensure_dir_exists($FORJ_ACCOUNT_PATH)
+  Helpers.ensure_dir_exists($FORJ_KEYPAIRS_PATH)
+  Helpers.ensure_dir_exists($FORJ_CREDS_PATH)
+end
+  
+def keypair_setup(oConfig)
+
+   key_path = oConfig.get('keypair_path')
+
+   Logging.info("Configuring forj keypair '%s'" % [key_path] )
+
+   if not File.exists?(key_path)
+      # Need to create a key. ask if we need so.
+      real_key_path = File.expand_path(ask("If your ssh keypair doesn't exist, forj will ask ssh-keygen to create one for you.\nPrivate key file path:") do |q|
+         q.validate = /\w+/
+         q.default = key_path
+      end)
+      if not File.exists?(real_key_path)
+         Helpers.ensure_dir_exists(File.dirname(real_key_path))
+         command = 'ssh-keygen -t rsa -f %s' % real_key_path
+         Logging.debug("Executing '%s'" % command)
+         system(command)
+      end
+      if not File.exists?(real_key_path)
+         Logging.fatal(1, "'%s' not found. Unable to add your keypair to hpcloud. Create it yourself and provide it with -p option. Then retry." % [real_key_path])
+      else
+         if real_key_path != key_path and not oConfig.LocalDefaultExist?('keypair_path')
+            Logging.debug("Saving forj keypair '%s' as default." % [real_key_path] )
+            oConfig.LocalSet('keypair_path', real_key_path)
+            oConfig.SaveConfig()
+         end   
+      end
+   end
+end
+
+
 def save_maestro_creds(sAccountName)
+  # Check required global data
+  if not $FORJ_CREDS_PATH
+     Logging.fatal(1, "Internal error: '$FORJ_CREDS_PATH' missing.")
+  end
+  if not Helpers.dir_exists?($FORJ_CREDS_PATH)
+     Logging.fatal(1, "Internal error: '%s' doesn't exist." % $FORJ_CREDS_PATH)
+  end
+
+  Logging.info("Completing hpcloud account '%s' information." % [sAccountName] )
 
   # TODO Be able to load the previous username if the g64 file exists.
   hpcloud_os_user = ask('Enter hpcloud username: ') do |q|
@@ -87,16 +152,12 @@ def save_maestro_creds(sAccountName)
 
   add_creds = {:credentials => {:hpcloud_os_user=> hpcloud_os_user, :hpcloud_os_key=> hpcloud_os_key}}
 
-  sForjCache=File.expand_path('~/.cache/forj/')
-  cloud_fog = '%s/%s.g64' % [sForjCache, sAccountName]
-
-
-  Helpers.create_directory(sForjCache) if not File.directory?(sForjCache)
+  cloud_fog = File.join($FORJ_CREDS_PATH, sAccountName+'.g64')
 
   # Security fix: Remove old temp file with clear password.
-  old_file = '%s/master.forj-13.5' % [sForjCache]
+  old_file = '%s/master.forj-13.5' % [$FORJ_CREDS_PATH]
   File.delete(old_file) if File.exists?(old_file)
-  old_file = '%s/creds' % [sForjCache]
+  old_file = '%s/creds' % [$FORJ_CREDS_PATH]
   File.delete(old_file) if File.exists?(old_file)
 
   hpcloud_creds = File.expand_path('~/.hpcloud/accounts/%s' % [sAccountName])

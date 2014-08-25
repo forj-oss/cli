@@ -30,15 +30,16 @@ class ForjConnection
 
    attr_accessor :oCompute
    attr_accessor :oNetwork
+   attr_accessor :sAccountName
 
    def initialize(oConfig)
 
-     sAccountName = oConfig.get('account_name')
+     @sAccountName = oConfig.get('account_name')
      @provider='HP' # TODO: Support multiple provider. (Generic Provider object required)
-     sAccountName = oConfig.get('provider') if not sAccountName
-     sAccountName = 'hpcloud' if not sAccountName
+     @sAccountName = oConfig.get('provider') if not @sAccountName
+     @sAccountName = 'hpcloud' if not @sAccountName
 
-     @credentials = get_credentials(sAccountName)
+     @credentials = get_credentials(@sAccountName)
      oSSLError=SSLErrorMgt.new
 
      # Trying to get Compute object
@@ -85,7 +86,7 @@ end
 def get_credentials(sAccountName)
   # TODO: Should support forj credentials. not hpcloud credentials.
 
-  raise 'Internal Error: Missing sAccountName' if not sAccountName
+  Logging.fatal(1, 'Internal Error: Missing sAccountName') if not sAccountName
 
   creds = File.expand_path('~/.hpcloud/accounts/%s' % [sAccountName])
   if not File.exists?(creds)

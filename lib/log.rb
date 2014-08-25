@@ -61,11 +61,17 @@ module Logging
      # Class used to create 2 log object, in order to keep track of error in a log file and change log output to OUTPUT on needs (option flags).
      
      attr_reader :level
-  
+
      def initialize(sLogFile = 'forj.log', level = Logger::WARN)
-        if not $FORJ_DATA_PATH
+        
+        if not $FORJ_DATA_PATH 
            raise "Internal Error: Unable to initialize ForjLog - global FORJ_DATA_PATH not set"
         end
+
+        if not Helpers.dir_exists?($FORJ_DATA_PATH)
+           raise "Internal Error: Unable to initialize ForjLog - '%s' doesn't exist." % $FORJ_DATA_PATH
+        end
+
         @oFileLogger = Logger.new(File.join($FORJ_DATA_PATH, sLogFile), 'weekly')
         @oFileLogger.level = Logger::DEBUG
         @oFileLogger.formatter = proc do |severity, datetime, progname, msg| 
@@ -160,6 +166,9 @@ module Logging
      print("%s%s ...\r" % [message, ANSI.clear_line]) if $FORJ_LOGGER.level == Logger::INFO
   end
   
-
+  def high_level_msg(message)
+     # Not DEBUG and not INFO. Just printed to the output.
+     puts ("%s" % [message]) if $FORJ_LOGGER.level > 1
+  end
 
 end

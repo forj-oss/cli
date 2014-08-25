@@ -36,7 +36,7 @@ class ForjDefault
       # If config doesn't exist, it will be created, empty with 'defaults:' only
 
       if not $LIB_PATH
-         raise 'Internal $LIB_PATH was not set.'
+         Logging.fatal(1, 'Internal $LIB_PATH was not set.')
       end
       
       Logging.info ('Reading default configuration...')
@@ -66,7 +66,7 @@ class ForjConfig
 
 
       if not $FORJ_DATA_PATH
-         raise 'Internal $FORJ_DATA_PATH was not set.'
+         Logging.fatal(1, 'Internal $FORJ_DATA_PATH was not set.')
       end
 
       sConfigDefaultName='config.yaml'
@@ -190,6 +190,14 @@ class ForjConfig
          @yConfig['default'].merge!(@yLocal['default']) { |key, oldval, newval| key == 'ports'? newval.clone.push(oldval.clone).flatten: newval }
       end   
       @yConfig.merge!(@yLocal) { |key, oldval, newval| key == 'default'? oldval: newval }
+   end
+   
+   def LocalDefaultExist?(key)
+      if @yLocal['default'][key]
+         true
+      else
+         false
+      end      
    end
 
 end

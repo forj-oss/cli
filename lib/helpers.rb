@@ -15,6 +15,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+require 'fileutils' 
+
 module Helpers
   def get_home_path
     File.expand_path('~')
@@ -25,4 +27,34 @@ module Helpers
       Dir.mkdir path
     end
   end
+  
+  def dir_exists?(path)
+    if File.exists?(path)
+       if not File.directory?(path)
+          msg = "'%s' is not a directory. Please fix it." % path
+          if $FORJ_LOGGER
+             Logging.fatal(1, msg)
+          else
+             raise msg
+          end
+       end
+       if not File.readable?(path) or not File.writable?(path) or not File.executable?(path)
+          msg = "%s is not a valid directory. Check permissions and fix it." % path
+          if $FORJ_LOGGER
+             Logging.fatal(1, msg)
+          else
+             raise msg
+          end
+       end
+       return true
+    end
+    false
+  end
+  
+  def ensure_dir_exists(path)
+    if not dir_exists?(path)
+       FileUtils.mkpath(path) if not File.directory?(path)
+    end
+  end
+  
 end

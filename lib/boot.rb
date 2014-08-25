@@ -42,16 +42,16 @@ module Boot
 
       # Check options and set data
       cloud_provider=oConfig.get('provider')
-      raise 'No provider specified.' if not cloud_provider
+      Logging.fatal(1, 'No provider specified.') if not cloud_provider
 
       if cloud_provider != 'hpcloud'
-         raise "forj setup support only hpcloud. '%s' is currently not supported." % cloud_provider
+         Logging.fatal(1, "forj setup support only hpcloud. '%s' is currently not supported." % cloud_provider)
       end
 
       oConfig.setDefault('account_name', cloud_provider)
 
       initial_msg = 'booting %s on %s (~/.forj/forj.log)' % [blueprint , cloud_provider]
-      Logging.message(initial_msg)
+      Logging.high_level_msg(initial_msg) #################
 
       # Initialize defaults
       maestro_url =  oConfig.get('maestro_url')
@@ -73,6 +73,7 @@ module Boot
 
       # Step Maestro Clone
       if not maestro_repo
+         Logging.high_level_msg('cloning maestro repo ...' ) #################
          Logging.info('cloning maestro repo from \'%s\'...' % maestro_url)
          Repositories.clone_repo(maestro_url)
          maestro_repo=File.expand_path('~/.forj/maestro')
@@ -92,6 +93,7 @@ module Boot
       # Connect to services
       oFC=ForjConnection.new(oConfig)
 
+      Logging.high_level_msg('Configuring network...') #################
       Logging.info('Configuring network \'%s\'' % [oConfig.get('network')])
       begin
         network = Network.get_or_create_network(oFC, oConfig.get('network'))
@@ -101,16 +103,17 @@ module Boot
         Logging.fatal(1, "Network properly configured is required.\n%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
 
-
+      Logging.state('Configuring keypair...') #################
       Logging.info('Configuring keypair \'%s\'' % [oConfig.get('keypair_name')])
-      key_name = oConfig.get('keypair_name')
-      key_path = oConfig.get('keypair_path')
-      SecurityGroup.upload_existing_key(key_name, key_path)
+      SecurityGroup.hpc_import_key(oConfig, oFC.sAccountName)
+
+      Logging.state('Configuring security group...') #################
 
       Logging.info('Configuring Security Group \'%s\'' % [oConfig.get('security_group')])
       security_group = SecurityGroup.get_or_create_security_group(oFC, oConfig.get('security_group'))
       ports = oConfig.get('ports')
 
+      Logging.state('Configuring security group ports...') #################
       ports.each do |port|
         port = port.to_s if port.class != String
         if not /^\d+(-\d+)?$/ =~ port 
@@ -123,10 +126,11 @@ module Boot
         end   
       end
 
+      ENV['FORJ_HPC'] = oFC.sAccountName
       ENV['FORJ_HPC_NET'] = network.name
       ENV['FORJ_SECURITY_GROUP'] = oConfig.get('security_group')
-      ENV['FORJ_KEYPAIR'] = key_name
-      ENV['FORJ_HPC_NOVA_KEYPUB'] = key_path
+      ENV['FORJ_KEYPAIR'] = oConfig.get('keypair_name')
+      ENV['FORJ_HPC_NOVA_KEYPUB'] = oConfig.get('keypair_path') + '.pub'
       ENV['FORJ_BASE_IMG'] = oConfig.get('image')
 
       # run build.sh to boot maestro

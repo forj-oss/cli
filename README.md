@@ -4,24 +4,23 @@ Forj cli
 
 Installation
 ------------
-### For ruby 2.0
 
-**Fedora/CentOS/Redhat rpm like package system**
+###Fedora/CentOS/Redhat rpm like package system
 
-    $ sudo yum install ruby-devel libxml2-devel libxslt-devel python-yaml -y
+**For ruby 2.0**
+
+    $ sudo yum install ruby-devel libxml2-devel libxslt-devel python-yaml gcc git -y
     $ sudo gem install forj
 
-**Ubuntu/Debian deb like package system (not tested)**
+###Ubuntu/Debian deb like package system
 
-    $ sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
+**For ruby 1.9**
+
+    $ sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev libxml2-dev libxslt-dev git -y
     $ sudo gem install forj
 
-### For ruby 1.9
 
-    $ sudo apt-get install ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
-    $ sudo gem install forj
-
-### For ruby 1.8
+**For ruby 1.8**
 
     $ sudo apt-get install ruby1.8-dev ruby1.8 ri1.8 rdoc1.8 irb1.8 -y
     $ sudo apt-get install libreadline-ruby1.8 libruby1.8 libopenssl-ruby -y

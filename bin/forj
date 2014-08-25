@@ -23,16 +23,16 @@ require 'ansi'
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 
-$FORJ_DATA_PATH= File.expand_path('~/.forj')
 $LOAD_PATH << './lib'
 
-require_relative '../lib/boot.rb'
+require 'boot.rb'
+require 'down.rb'
+require 'setup.rb'
+require 'ssh.rb'
+
 include Boot
-require_relative '../lib/down.rb'
 include Down
-require_relative '../lib/setup.rb'
 include Setup
-require_relative '../lib/ssh.rb'
 include Ssh
 
 require 'forj-config.rb' # Load class ForjConfig
@@ -43,6 +43,9 @@ require 'connection.rb' # Load class ForjConnection
 #require 'byebug'   # Use to debug with Ruby >= 2.0
 
 include Logging
+
+# Initialize forj paths
+ensure_forj_dirs_exists()
 
 # Initialize global Log object 
 $FORJ_LOGGER=ForjLog.new()
@@ -102,8 +105,8 @@ The list of predefined values can be retrieved with forj show defaults
 
   method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj account name to use. By default, it takes the provider name.'
   method_option :infra,            :aliases => '-i',   :desc => 'Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
-  method_option :key_name,         :aliases => '-k',   :desc => 'Import a key pair.'
-  method_option :key_path,         :aliases => '-p',   :desc => 'Public key data'
+  method_option :key_name,         :aliases => '-k',   :desc => "Keypair name to use."
+  method_option :key_path,         :aliases => '-p',   :desc => "Private or Public key file. forj will determine if you provide a public key or a private, if respectively the extension '.pub' exist or not."
 
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
@@ -124,7 +127,18 @@ The list of predefined values can be retrieved with forj show defaults
       oConfig.set('account_name', options[:account_name])
       oConfig.set('infra_repo',   options[:infra])
       oConfig.set('keypair_name', options[:key_name])
-      oConfig.set('keypair_path', options[:key_path])
+      if options[:key_path]
+         mFound = options[:key_path].match(/^(.*)(\.pub)?$/)
+         if mFound 
+            key_path = File.expand_path(mFound[1])
+            if mFound[2] and not File.exists?(File.expand_path(mFound[1]+mFound[2]))
+               Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
+            end   
+            oConfig.set('keypair_path', key_path)
+         else
+            Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
+         end   
+      end   
 
       # TODO: Be able to support the default provider from config.yaml
       oConfig.set('provider', cloud_provider)

@@ -227,7 +227,7 @@ module Network
   
   # Router interface to connect to the network
   def create_router_interface(subnet, router)
-    raise "Internal Error: subnet/router object not passed." if not subnet or not router
+    Logging.fatal(1, "Internal Error: subnet/router object not passed.") if not subnet or not router
 
     Logging.debug("Attaching subnet '%s' to router '%s'" % [subnet.name, router.name])
     begin

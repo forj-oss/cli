@@ -16,11 +16,13 @@
 #    limitations under the License.
 
 require 'rubygems'
-require 'require_relative'
+require 'highline/import'
 
 #
 # SecurityGroup module
 #
+
+# TODO: Introduce most of HPCloud task in an hpcloud object.
 module SecurityGroup
 
   def get_or_create_security_group(oFC, name)
@@ -135,8 +137,35 @@ module SecurityGroup
     rule
   end
 
-  def upload_existing_key(key_name, key_path)
-    command = 'hpcloud keypairs:import %s %s' % [key_name, key_path]
-    Kernel.system(command)
+  def hpc_import_key(oConfig, account)
+
+    key_name = oConfig.get('keypair_name')
+    key_path = oConfig.get('keypair_path')
+
+    Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not key_path
+    Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not key_name
+
+    pubkey_path = key_path + '.pub'
+    Logging.fatal(1, "keypair '%s' are missing. Please call 'forj setup %s' to create the missing key pair required." % [pubkey_path, account]) if not File.exists?(pubkey_path)
+    if not File.exists?(File.join($HPC_KEYPAIRS, key_name + '.pub'))
+       Logging.info("Importing your forj public key '%s' to hpcloud." % pubkey_path)
+       command = 'hpcloud keypairs:import %s %s -a %s' % [key_name, pubkey_path, account]
+       Logging.debug("Executing command '%s'" % command)
+       Kernel.system(command)
+    else
+       Logging.info("Using '%s' as public key." % pubkey_path)
+    end
+    if not File.exists?(File.join($HPC_KEYPAIRS, key_name + '.pem'))
+       if File.exists?(key_path)
+	      Logging.info("Importing your forj private key '%s' to hpcloud." % key_path)
+	      command = 'hpcloud keypairs:private:add %s %s -a %s' % [key_name, key_path, account]
+	      Logging.debug("Executing command '%s'" % command)
+	      Kernel.system(command)
+	   else   
+	      Logging.warning('Unable to find the private key. This will be required to access with ssh to Maestro and any blueprint boxes.')
+	   end
+    else
+       Logging.info("Using '%s' as private key." % key_path)
+    end
   end
 end
