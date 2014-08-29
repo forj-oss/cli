@@ -23,7 +23,7 @@ require 'ansi'
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 
-$LOAD_PATH << './lib'
+$LOAD_PATH << $LIB_PATH
 
 require 'boot.rb'
 require 'down.rb'
@@ -47,7 +47,7 @@ include Logging
 # Initialize forj paths
 ensure_forj_dirs_exists()
 
-# Initialize global Log object 
+# Initialize global Log object
 $FORJ_LOGGER=ForjLog.new()
 
 
@@ -62,7 +62,7 @@ class Forj < Thor
   def help(task = nil, subcommand = false)
     if task
        self.class.task_help(shell, task)
-    else   
+    else
        puts <<-LONGDESC
 Quick steps: How to create a forj?
 ----------------------------------
@@ -71,25 +71,25 @@ Quick steps: How to create a forj?
     `$ forj setup [Provider]`
 
     Ex: `forj setup hpcloud`. In this example, your account will be named 'hpcloud'.
-    
-IMPORTANT NOTE: Without any provider, forj setup will choose 'hpcloud' as provider. 
+
+IMPORTANT NOTE: Without any provider, forj setup will choose 'hpcloud' as provider.
                 Currently, forj supports only hpcloud. Openstack will be available soon.
 
 2.  Create your forge on your default account
     `$ forj boot <blueprint> on <Provider> as <InstanceName> `
 
-    Ex: `forj boot redstone on hpcloud as MyForge` 
-       
+    Ex: `forj boot redstone on hpcloud as MyForge`
+
 forj command line details:
 --------------------------
        LONGDESC
        self.class.help(shell, subcommand)
     end
-  end 
+  end
 
-  # BOOT 
+  # BOOT
   desc 'boot <Blueprint> on <Provider> as <InstanceName> [options]', 'boot a Maestro box and instruct it to provision the blueprint'
-  
+
   long_desc <<-LONGDESC
 This task boot a new forge with the following options
 \x5- blueprint : Is the name of the blueprint (currently cli only supports redstone)
@@ -105,67 +105,65 @@ The list of predefined values can be retrieved with forj show defaults
 
   method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj account name to use. By default, it takes the provider name.'
   method_option :infra,            :aliases => '-i',   :desc => 'Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
+  method_option :maestro_repo,     :aliases => '-m',   :desc => 'To use a different Maestro repository already cloned. By default, Maestro is cloned to ~/.forj/maestro from github.'
   method_option :key_name,         :aliases => '-k',   :desc => "Keypair name to use."
   method_option :key_path,         :aliases => '-p',   :desc => "Private or Public key file. forj will determine if you provide a public key or a private, if respectively the extension '.pub' exist or not."
 
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
-  method_option :build_config,     :aliases => '-C',   :desc => 'The build config file to load <confdir>/<BoxName>.<Config>.env. By default, uses "master" as Config.'
-  method_option :maestro_repo,     :aliases => '-M',   :desc => 'To use a different Maestro repository already cloned. By default, Maestro is cloned to ~/.forj/maestro from github.'
   method_option :branch,           :aliases => '-B',   :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
-  method_option :box_name,         :aliases => '-N',   :desc => 'Defines the name of the box or box image to build.'
   method_option :test_box,         :aliases => '-T',   :desc => 'Create test.rb-box meta from the repository path provided.'
- 
-  def boot(blueprint, on, cloud_provider, as, name, test = false)
+
+  def boot(blueprint, on, cloud_provider, as, name)
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
       oConfig=ForjConfig.new(options[:config])
-      
+
       Logging.fatal(1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not /^[\d[[:lower:]]-]+$/ =~ name
-      
+
       # Options are added if they are set. Otherwise, get will retrieve the default value.
       oConfig.set('account_name', options[:account_name])
       oConfig.set('infra_repo',   options[:infra])
       oConfig.set('keypair_name', options[:key_name])
       if options[:key_path]
          mFound = options[:key_path].match(/^(.*)(\.pub)?$/)
-         if mFound 
+         if mFound
             key_path = File.expand_path(mFound[1])
             if mFound[2] and not File.exists?(File.expand_path(mFound[1]+mFound[2]))
                Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
-            end   
+            end
             oConfig.set('keypair_path', key_path)
          else
             Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
-         end   
-      end   
+         end
+      end
 
       # TODO: Be able to support the default provider from config.yaml
       oConfig.set('provider', cloud_provider)
       Boot.boot(blueprint, name,
-                options[:build], options[:build_config_dir],
+                options[:build],
                 options[:build_config], options[:branch],
                 options[:maestro_repo], options[:boothook],
-                options[:box_name], oConfig, test)
+                options[:box_name], oConfig)
   end
 
   desc 'show defaults', 'Show list of predefined value you can update in your ~/.forj/config.yaml'
 
   def show(name)
      oConfig=ForjConfig.new()
-     
-     puts 'List of predefined values:
+
+     puts 'List of default values:
 --------------------------'
-     puts oConfig.yDefaults['default'].to_yaml()
+     puts rhGet(oConfig.yConfig,'default').to_yaml()
      puts '--------------------------'
-     puts "You can set any of those variable in your ~/.forj/config.yaml, under section 'default:'"
+     puts "You can change any of those variables by editing/adding them in your ~/.forj/config.yaml, under section 'default:'"
   end
   # DOWN
   desc 'down', 'delete the Maestro box and all systems installed by the blueprint'
   long_desc <<-LONGDESC
   Not yet implemented
   LONGDESC
-  
+
   def down(name)
       Logging.set_level(Logger::INFO) if options[:verbose]
     Logging.set_level(Logger::DEBUG) if options[:debug]
@@ -176,17 +174,17 @@ The list of predefined values can be retrieved with forj show defaults
   desc 'ssh', 'connect to your forge thru ssh'
   long_desc <<-LONGDESC
 Connect through ssh to an existing instance
-    
+
         not yet implemented
   LONGDESC
-  
+
   def ssh(name, server)
     Logging.set_level(Logger::INFO) if options[:verbose]
     Logging.set_level(Logger::DEBUG) if options[:debug]
     Ssh.connect(name, server)
   end
 
-  # SETUP 
+  # SETUP
   method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj account name to use. By default, it takes the provider name.'
 
   desc 'setup [Provider] [options]', 'set the hpcloud credentials for forj cli'
@@ -204,7 +202,8 @@ Several data will be requested like:
     Logging.set_level(Logger::INFO)  if options[:verbose]
     Logging.set_level(Logger::DEBUG) if options[:debug]
     oConfig=ForjConfig.new(options[:config])
-    Setup.setup(sProvider, oConfig, options)
+    oConfig.set('provider', sProvider)
+    Setup.setup(oConfig, options)
   end
 
 end

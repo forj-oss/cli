@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '0.0.36'
+  s.version     = '0.0.37'
   s.date        = '2014-08-25'
   s.summary     = 'forj command line'
   s.description = 'forj cli - See https://www.forj.io for documentation/information'
@@ -42,7 +42,6 @@ Gem::Specification.new do |s|
                      lib/ssh.sh
                      lib/log.rb
                      lib/helpers.rb
-                     lib/build_tmpl/build-env.py
                      lib/forj-config.rb
                      spec/boot_spec.rb
                      spec/connection_spec.rb
@@ -65,10 +64,10 @@ Gem::Specification.new do |s|
 
   s.bindir = 'bin'
 
-  s.add_runtime_dependency 'thor', '>=0.16.0'
+  s.add_runtime_dependency 'thor', '~>0.16.0'
   s.add_runtime_dependency 'nokogiri', '~>1.5.11'
   s.add_runtime_dependency 'fog', '~>1.19.0'
-  s.add_runtime_dependency 'hpcloud', '~>2.0.8'
+  s.add_runtime_dependency 'hpcloud', '~>2.0.9'
   s.add_runtime_dependency 'git', '>=1.2.7'
   s.add_runtime_dependency 'rbx-require-relative', '~>0.0.7'
   s.add_runtime_dependency 'highline', '~> 1.6.21'

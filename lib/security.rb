@@ -142,6 +142,10 @@ module SecurityGroup
     key_name = oConfig.get('keypair_name')
     key_path = oConfig.get('keypair_path')
 
+    mObj = key_path.match(/^(.*)(\.pem)?$/)
+
+    key_path = mObj[1]
+
     Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not key_path
     Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not key_name
 
@@ -155,15 +159,18 @@ module SecurityGroup
     else
        Logging.info("Using '%s' as public key." % pubkey_path)
     end
+    private_key = nil
+    private_key = key_path if File.exists?(key_path)
+    private_key = key_path + '.pem' if File.exists?(key_path + '.pem')
     if not File.exists?(File.join($HPC_KEYPAIRS, key_name + '.pem'))
-       if File.exists?(key_path)
-	      Logging.info("Importing your forj private key '%s' to hpcloud." % key_path)
-	      command = 'hpcloud keypairs:private:add %s %s -a %s' % [key_name, key_path, account]
-	      Logging.debug("Executing command '%s'" % command)
-	      Kernel.system(command)
-	   else   
-	      Logging.warning('Unable to find the private key. This will be required to access with ssh to Maestro and any blueprint boxes.')
-	   end
+       if private_key
+          Logging.info("Importing your forj private key '%s' to hpcloud." % private_key)
+          command = 'hpcloud keypairs:private:add %s %s' % [key_name, private_key]
+          Logging.debug("Executing command '%s'" % command)
+          Kernel.system(command)
+       else   
+          Logging.warning('Unable to find the private key. This will be required to access with ssh to Maestro and any blueprint boxes.')
+       end
     else
        Logging.info("Using '%s' as private key." % key_path)
     end

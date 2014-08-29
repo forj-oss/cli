@@ -39,3 +39,18 @@ default:
   build_config: box
   branch: master
   box_name: maestro
+description:
+  # Description of build.sh environment variable defined by forj cli for build.sh. (~/.forj/infra/build/<Account>.build.env)
+  FORJ_HPC:             "HPCloud cli Account used to build your Maestro box"
+  FORJ_HPC_COMPUTE:     "HPCloud Compute service (like region-b.geo-1) used to run your Maestro Box"
+  FORJ_TENANT_NAME:     "HPCloud Tenant name used build your <Blueprint> nodes"
+  FORJ_HPC_NET:         "HPCloud Network name to use, while booting all boxes."
+  FORJ_KEYPAIR:         "Keypair used to access boxes."
+  FORJ_SECURITY_GROUP:  "Security group associated to each box"
+  FORJ_HPC_NOVA_KEYPUB: "Public key used by build.sh to ensure his existence on HPCloud"
+  FORJ_BASE_IMG:        "Base image used to build all boxes"
+  FORJ_FLAVOR:          "Flavor used to build Maestro"
+  # DNS specific data
+  FORJ_DNS_TENANTID:    "HPCloud Project ID to use to create DNS entries for each boxes."
+  FORJ_DNS_ZONE:        "HPCloud Domain name service to use for each boxes DNS entries. (Ex: region-a.geo-1)"
+  FORJ_DNS_DOMAIN:      "Domain used for DNS. Each server will be attached to a public IP. An 'A' record in the DNS service will need to be added to your HPCloud DOMAIN."
