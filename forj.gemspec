@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '0.0.37'
+  s.version     = '0.0.38'
   s.date        = '2014-08-25'
   s.summary     = 'forj command line'
   s.description = 'forj cli - See https://www.forj.io for documentation/information'
@@ -72,4 +72,6 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'rbx-require-relative', '~>0.0.7'
   s.add_runtime_dependency 'highline', '~> 1.6.21'
   s.add_runtime_dependency 'ansi', '>= 1.4.3'
+  s.add_runtime_dependency 'encryptor', '1.3.0'
+
 end
