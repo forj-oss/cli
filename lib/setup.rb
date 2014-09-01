@@ -100,7 +100,7 @@ def setup_tenant_name(oConfig, sAccountName)
       hCompute = { :tenant_name => tenant_name }
       oConfig.ExtraSet(:forj_accounts, sAccountName, :compute, hCompute)
    else
-      Logging.error("Unable to found the tenant Name for '%s' ID." % tenant_id)
+      Logging.error("Unable to find the tenant Name for '%s' ID." % tenant_id)
    end
    oConfig.set('tenants', tenants)
 end

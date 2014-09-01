@@ -164,7 +164,7 @@ module Network
           end   
           router = routers[0]
        else
-          Logging.warning("Unable to found the router id '%s'" % [ port.device_id ])
+          Logging.warning("Unable to find the router id '%s'" % [ port.device_id ])
           router = nil
        end    
     end
@@ -292,7 +292,7 @@ module Network
       Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
     Logging.state("Found gateway '%s'" % [name]) if netty
-    Logging.state("Unable to found gateway '%s'" % [name]) if not netty
+    Logging.state("Unable to find gateway '%s'" % [name]) if not netty
     return netty
   end 
     
