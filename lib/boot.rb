@@ -145,6 +145,7 @@ module Boot
       oBuildEnv.set('FORJ_BASE_IMG',        oConfig.get('image'))
       oBuildEnv.set('FORJ_FLAVOR',          oConfig.get('flavor'))
       oBuildEnv.set('FORJ_TENANT_NAME',     rhGet(oConfig.ExtraGet(:forj_accounts, oFC.sAccountName, :compute), :tenant_name))
+      oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.ExtraGet(:hpc_accounts, oFC.sAccountName, :regions), :compute))
       
 
       oBuildEnv.set('FORJ_DOMAIN', yDNS[:domain_name])
