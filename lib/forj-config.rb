@@ -29,8 +29,6 @@ class ForjDefault
    # @sDefaultsName='defaults.yaml'
    # @yDefaults = defaults.yaml file data hash
 
-   attr_reader   :yDefaults
-
    def initialize()
       # Load yaml documents (defaults)
       # If config doesn't exist, it will be created, empty with 'defaults:' only
@@ -46,23 +44,38 @@ class ForjDefault
       @yDefaults=YAML.load_file(@sDefaultsName)
    end
 
+   def exist?(key, section = 'default')
+      (rhExist?(@yDefaults, section, key) == 2)
+   end
+
+   def get(key, section = 'default')
+      rhGet(@yDefaults, section, key)
+   end
+
+   def dump()
+      @yDefaults
+   end
 end
 
 class ForjConfig
 
-   # Internal variables:
-   # @sConfigName='config.yaml'
-   # @yRuntime = data in memory.
-   # @yLocal = config.yaml file data hash.
-   # @yConfig = defaults.yaml + local_config data hash
+   # Internal Object variables:
+   # @sConfigName= 'config.yaml'
+   # @yRuntime   = data in memory.
+   # @yLocal     = config.yaml file data hash.
+   # @yObjConfig = Extra loaded data
+   # @oDefaults  = Application defaults object
 
-   attr_reader   :yLocal
-   attr_reader   :yConfig
-   attr_reader   :sConfigName
+	attr_reader :sConfigName
+
+   # Load yaml documents (defaults + config)
+   # If config doesn't exist, it will be created, empty with 'defaults:' only
+
+   def default_dump()
+      @oDefaults.dump()
+   end
 
    def initialize(sConfigName=nil)
-      # Load yaml documents (defaults + config)
-      # If config doesn't exist, it will be created, empty with 'defaults:' only
 
       if not $FORJ_DATA_PATH
          Logging.fatal(1, 'Internal $FORJ_DATA_PATH was not set.')
@@ -72,33 +85,32 @@ class ForjConfig
 
       if sConfigName
          if File.dirname(sConfigName) == '.'
-            sConfigName= File.join($FORJ_DATA_PATH,sConfigName)
+            sConfigName = File.join($FORJ_DATA_PATH,sConfigName)
          end
          sConfigName = File.expand_path(sConfigName)
          if not File.exists?(sConfigName)
             Logging.warning("Config file '%s' doesn't exists. Using default one." % [sConfigName] )
-            @sConfigName=File.join($FORJ_DATA_PATH,sConfigDefaultName)
+            @sConfigName = File.join($FORJ_DATA_PATH,sConfigDefaultName)
          else
-            @sConfigName=sConfigName
+            @sConfigName = sConfigName
          end
       else
-         @sConfigName=File.join($FORJ_DATA_PATH,sConfigDefaultName)
+         @sConfigName = File.join($FORJ_DATA_PATH,sConfigDefaultName)
       end
 
-      @Default=ForjDefault.new
+      @oDefaults = ForjDefault.new
 
       if File.exists?(@sConfigName)
-         @yLocal=YAML.load_file(@sConfigName)
+         @yLocal = YAML.load_file(@sConfigName)
       else
-         @yLocal={ 'default' => nil }
+         @yLocal = { 'default' => nil }
          # Write the empty file
-         Logging.info ('Creating your default configuration file ...')
+         Logging.info('Creating your default configuration file ...')
          self.SaveConfig()
       end
 
-      BuildConfig()
-
-      @yRuntime={}
+      @yRuntime = {}
+      @yObjConfig = {}
    end
 
    def SaveConfig()
@@ -115,7 +127,7 @@ class ForjConfig
    end
 
    def ExtraSave(sFile, section, name)
-      hVal = rhGet(@Default.yDefaults, :extra_loaded, section, name)
+      hVal = rhGet(@yObjConfig, section, name)
       if hVal
          begin
             File.open(sFile, 'w') do |out|
@@ -133,9 +145,106 @@ class ForjConfig
    def ExtraLoad(sFile, section, name)
       if File.exists?(sFile)
          hVal = YAML.load_file(sFile)
-         rhSet(@Default.yDefaults, hVal, :extra_loaded, section, name)
+         rhSet(@yObjConfig, hVal, section, name)
+         hVal
       end
-      BuildConfig()
+   end
+
+   def ExtraExist?(section, name, key = nil)
+      return nil if not section or not name
+
+      return(rhExist?(@yObjConfig, section, name) == 2) if not key
+      return(rhExist?(@yObjConfig, section, name, key) == 3)
+   end
+
+   def ExtraGet(section, name, key = nil, default = nil)
+      return nil if not section or not name
+
+      return default unless ExtraExist?(section, name, key)
+      return rhGet(@yObjConfig, section, name, key) if key
+      rhGet(@yObjConfig, section, name)
+   end
+
+   def ExtraSet(section, name, key = nil, value)
+      if key
+         rhSet(@yObjConfig, value, section, name, key)
+      else
+         rhSet(@yObjConfig, value, section, name)
+      end
+   end
+
+   def set(key, value)
+      # Function to set a runtime key/value, but remove it if value is nil.
+      # To set in config.yaml, use LocalSet
+      # To set on extra data, like account information, use ExtraSet
+      if not key
+         return false
+      end
+      if value
+         rhSet(@yRuntime, value, key)
+      else
+         @yRuntime.delete(key)
+      end
+      true
+   end
+
+   def get(key, interms = nil, default = nil)
+      # If key is in runtime
+      return rhGet(@yRuntime, key) if rhExist?(@yRuntime, key) == 1
+      # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
+      if interms
+         if interms.instance_of? Hash
+            return rhGet(interms, key) if rhExist?(interms, key) == 1
+         elsif interms.instance_of? Array # Array of hash
+            iCount=0
+            interms.each { | elem |
+               if elem.class == Hash and rhExist?(elem, key) == 1
+                  break
+               end
+               iCount += 1
+               }
+            return rhGet(interms[iCount], key) if iCount< interms.length()
+         end
+      end
+      # else key in local default config of default section.
+      return LocalGet(key) if LocalDefaultExist?(key)
+      # else key in application defaults
+      return @oDefaults.get(key) if @oDefaults.exist?(key)
+      # else default
+      default
+   end
+
+   def getAppDefault(section, key)
+      @oDefaults.get(key, section)
+   end
+
+   def exist?(key, interms = nil)
+      # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
+      return "runtime" if rhExist?(@yRuntime, key) == 1
+      if interms
+         if interms.instance_of? Hash
+            return 'hash' if rhExist?(interms, key) == 1
+         elsif interms.instance_of? Array # Array of hash
+            iCount = 0
+            Array.each { | elem |
+               return ("array[%s]" % iCount)  if elem.class == Hash and rhExist?(elem, key) == 1
+               iCount += 1
+               }
+         end
+      end
+      return 'local' if LocalDefaultExist?(key)
+      # else key in application defaults
+      return 'default' if @oDefaults.exist?(key)
+      false
+   end
+
+   def LocalDefaultExist?(key)
+      LocalExist?(key)
+   end
+
+   def LocalExist?(key, section = 'default')
+      return true if rhExist?(@yLocal, section, key) == 2
+      false
    end
 
    def LocalSet(key, value, section = 'default')
@@ -150,15 +259,12 @@ class ForjConfig
      else
         @yLocal.merge!(section => {key => value})
      end
-     BuildConfig()
      return true
    end
 
    def LocalGet(key, section = 'default', default = nil)
-      if @yLocal.has_key?(key)
-         return @yLocal[key]
-      end
-      default
+     return default if rhExist?(@yLocal, section, key) != 2
+     rhGet(@yLocal, section, key)
    end
 
    def LocalDel(key, section = 'default')
@@ -169,112 +275,11 @@ class ForjConfig
         return false
      end
      @yLocal[section].delete(key)
-     BuildConfig()
      return true
    end
 
-   def ExtraExist?(section, name, key)
-      return nil if not section or not name
-      
-      return(rhExist?(@yConfig, :extra_loaded, section, name) == 3) if not key
-      return(rhExist?(@yConfig, :extra_loaded, section, name, key) == 4)
-   end
-
-   def ExtraGet(section, name, key = nil, default = nil)
-      return nil if not section or not name
-      
-      if key
-         return default unless ExtraExist?(section, name, key)
-         rhGet(@yConfig, :extra_loaded, section, name, key)
-      else
-         return default unless rhExist?(@yConfig, :extra_loaded, section, name) == 3
-         rhGet(@yConfig, :extra_loaded, section, name)
-      end   
-   end
-
-   def ExtraSet(section, name, key, value)
-      rhSet(@yConfig, value, :extra_loaded, section, name, key)
-   end
-
-   def set(key, value, par = {})
-      # Function to set a config key, but remove it if value is nil.
-      if not key
-         return false
-      end
-      if par[:section] and par[:name]
-         # Set data in extra_loaded
-         ExtraSet(par[:section], par[:name], key, value)
-      elsif par[:section]
-         # To set key=value on config.yaml, use LocalSet
-         if value
-            rhSet(@yRuntime, value, par[:section], key)
-         else
-            hVal = rhGet(@yRuntime, par[:section])
-            hVal.delete(key)
-         end
-      else
-         if value
-            rhSet(@yRuntime, value, key)
-         else
-            @yRuntime.delete(key)
-         end
-      end
-      true
-   end
-
-   def get(key, par = {})
-      if par[:section] and par[:name]
-         # Get data only from extra_loaded
-         return ExtraGet(par[:section], par[:name], key, par[:default])
-      elsif par[:section]
-         # If section/key is in runtime
-         return rhGet(@yRuntime, par[:section], key) if rhExist?(@yRuntime, par[:section], key) == 2
-         # If section/key is in default config
-         return rhGet(@yConfig,  par[:section], key) if rhExist?(@yConfig,  par[:section], key) == 2
-      else
-         # If key is in runtime
-         return rhGet(@yRuntime, key) if rhExist?(@yRuntime, key) == 1
-      end
-      # else key in default config of default section.
-      return rhGet(@yConfig, 'default', key) if rhExist?(@yConfig, 'default', key) == 2
-      # else default
-      par[:default]
-   end
-
-   def exist?(key, par = {})
-      if par[:section] and par[:name]
-         # section/name/key exist in extra_loaded ?
-         return ExtraExist?(par[:section], par[:name], key)
-      elsif par[:section]
-         # section/key exist in runtime?
-         return "runtime" if rhExist?(@yRuntime, par[:section], key) == 2
-         # section/key exist in default config ?
-         return "default" if rhExist?(@yConfig, par[:section], key) == 2
-      else
-         return "runtime" if rhExist?(@yRuntime, key) == 1
-         return "default" if rhExist?(@yRuntime, 'default', key) == 2
-      end
-      false
-   end
-
-   def BuildConfig()
-      # This function implements the logic to get defaults, superseed by local config.
-      # Take care of ports array, which is simply merged.
-
-      @yConfig = @Default.yDefaults.clone
-      if @yLocal['default']
-         @yConfig['default'].merge!(@yLocal['default']) { |key, oldval, newval| key == 'ports'? newval.clone.push(oldval.clone).flatten: newval }
-      end
-      @yConfig.merge!(@yLocal) { |key, oldval, newval| (key == 'default' or key == :extra_load)? oldval: newval }
-   end
-
-   def LocalDefaultExist?(key)
-      return true if @yLocal['default'][key]
-      false
-   end
-
+   # Function to return in fatal error if a config data is nil. Help to control function requirement.
    def fatal_if_inexistent(key)
-      # Function to return in fatal error if a config data is nil. Help to control function requirement.
       Logging.fatal(1, "Internal error - %s: '%s' is missing" % [caller(), key]) if not self.get(key)
    end
 end

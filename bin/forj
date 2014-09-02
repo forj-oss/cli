@@ -67,13 +67,16 @@ class Forj < Thor
 Quick steps: How to create a forj?
 ----------------------------------
 
-1.  Setup your first forj account.
-    `$ forj setup [Provider]`
+To test a forj blueprint, you will need an account on a cloud solution. 
+Currently forj cli supports only HPHelion (https://horizon.hp.com) but will be expanded to support most of known clouds supported by FOG. (http://fog.io)
 
-    Ex: `forj setup hpcloud`. In this example, your account will be named 'hpcloud'.
+1.  Setup your FORJ account.
+    `$ forj setup [AccountName] [--provider Provider]`
 
-IMPORTANT NOTE: Without any provider, forj setup will choose 'hpcloud' as provider.
-                Currently, forj supports only hpcloud. Openstack will be available soon.
+    Ex: `forj setup MyForjAccount`. In this example, you will setup 'MyForjAccount' with your HPHelion account. The first time, this account will become the default one.
+
+**IMPORTANT NOTE** By default, forj setup will propose you to create your forge on HPHelion (provider 'hpcloud').
+If AccountName is not set, the account name will be proposed to be name 'hpcloud' as well!
 
 2.  Create your forge on your default account
     `$ forj boot <blueprint> on <Provider> as <InstanceName> `
@@ -98,21 +101,24 @@ This task boot a new forge with the following options
 
     Ex: forj boot redstone on hpcloud as maestro_test
 
-`forj boot` load predefine valued from `lib/defaults.yaml`. If you need to change one of them, add this value in your ~/.forj/config.yaml.
+`forj boot` load predefined forj values from `lib/defaults.yaml`. If you need to change one of them, add the key/value in your local config (-c or `~/.forj/config.yaml`).
 The list of predefined values can be retrieved with forj show defaults
 
   LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj account name to use. By default, it takes the provider name.'
-  method_option :infra,            :aliases => '-i',   :desc => 'Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
-  method_option :maestro_repo,     :aliases => '-m',   :desc => 'To use a different Maestro repository already cloned. By default, Maestro is cloned to ~/.forj/maestro from github.'
-  method_option :key_name,         :aliases => '-k',   :desc => "Keypair name to use."
-  method_option :key_path,         :aliases => '-p',   :desc => "Private or Public key file. forj will determine if you provide a public key or a private, if respectively the extension '.pub' exist or not."
+  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
+  method_option :maestro_repo,     :aliases => '-m',   :desc => "To use a different Maestro repository already cloned. 
+                                           By default, Maestro is systematically cloned to ~/.forj/maestro from github.
+                                           
+Following options superseed your config file or forj defaults."
+  method_option :infra,            :aliases => '-r',   :desc => 'config: infra_repo    : Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
+  method_option :key_name,         :aliases => '-k',   :desc => "config: keypair_name  : Keypair name to use."
+  method_option :key_path,         :aliases => '-p',   :desc => "config: keypair_path  : Private or Public key file to use.
 
+Build system options:"
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
-  method_option :branch,           :aliases => '-B',   :desc => 'The build will extract from git branch name. It sets the configuration build <config> to the branch name <branch>.'
-  method_option :test_box,         :aliases => '-T',   :desc => 'Create test.rb-box meta from the repository path provided.'
+  method_option :branch,           :aliases => '-R',   :desc => "Branch name to clone for maestro." 
 
   def boot(blueprint, on, cloud_provider, as, name)
       Logging.set_level(Logger::INFO) if options[:verbose]
@@ -122,9 +128,13 @@ The list of predefined values can be retrieved with forj show defaults
       Logging.fatal(1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not /^[\d[[:lower:]]-]+$/ =~ name
 
       # Options are added if they are set. Otherwise, get will retrieve the default value.
-      oConfig.set('account_name', options[:account_name])
-      oConfig.set('infra_repo',   options[:infra])
-      oConfig.set('keypair_name', options[:key_name])
+      oConfig.set('account_name',   options[:account_name]) if options[:account_name]
+      oConfig.set('infra_repo',     options[:infra])
+      oConfig.set('keypair_name',   options[:key_name])
+      oConfig.set('keypair_path',   options[:key_path])
+      oConfig.set(:maestro_repo ,   options[:maestro_repo])
+      
+      
       if options[:key_path]
          mFound = options[:key_path].match(/^(.*)(\.pub)?$/)
          if mFound
@@ -138,13 +148,9 @@ The list of predefined values can be retrieved with forj show defaults
          end
       end
 
-      # TODO: Be able to support the default provider from config.yaml
-      oConfig.set('provider', cloud_provider)
-      Boot.boot(blueprint, name,
-                options[:build],
+      Boot.boot(blueprint, name, options[:build],
                 options[:build_config], options[:branch],
-                options[:maestro_repo], options[:boothook],
-                options[:box_name], oConfig)
+                options[:boothook], options[:box_name], oConfig)
   end
 
   desc 'show defaults', 'Show list of predefined value you can update in your ~/.forj/config.yaml'
@@ -154,7 +160,7 @@ The list of predefined values can be retrieved with forj show defaults
 
      puts 'List of default values:
 --------------------------'
-     puts rhGet(oConfig.yConfig,'default').to_yaml()
+     puts oConfig.default_dump.to_yaml
      puts '--------------------------'
      puts "You can change any of those variables by editing/adding them in your ~/.forj/config.yaml, under section 'default:'"
   end
@@ -185,25 +191,36 @@ Connect through ssh to an existing instance
   end
 
   # SETUP
-  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj account name to use. By default, it takes the provider name.'
+  method_option :keypair_name,         :aliases => '-k',   :desc => "config keypair_name : Keypair name attached as default to your FORJ account."
+  method_option :keypair_path,         :aliases => '-p',   :desc => "config keypair_path : SSH key file (private or public) to attach as default to your FORJ account. 
+                                       It will attach any detected private/public key thanks to the file name 
+                                       (without extension/.pem = private, .pub = public)"
 
-  desc 'setup [Provider] [options]', 'set the hpcloud credentials for forj cli'
+  desc 'setup [AccountName [Provider]] [options]', "Setup FORJ cloud account credentials and information."
   long_desc <<-LONGDESC
-Set the cloud credentials and services for forj. Currently supports only hpcloud provider.
+If AccountName is not set, 'hpcloud' will be used for AccountName and provider name, by default.
+If AccountName is not set without provider, 'hpcloud' provider will be used, by default.
+
+This setup will configure a FORJ account used to connect to your cloud system.
+It will ask for your cloud provider credentials and services. 
+
+WARNING! Currently supports only hpcloud provider.
 
 Several data will be requested like:
-\x5- access_key: access key from hpcloud
-\x5- secret_key: secret key from hpcloud
-\x5- auth_uri: identity endpoint
-\x5- tenant_id: id for the tenant you want to use
-\x5- availability_zone: which availability zone will be deployed
+\x5- Cloud provider credentials and services.
+\x5- user/password (password is encrypted)
+\x5- DNS settings if you want Maestro to manage it.
+\x5- domain name to add to each boxes hostname 
   LONGDESC
-  def setup(sProvider = 'hpcloud')
+  def setup(sAccountName = 'hpcloud', sProvider = "hpcloud")
     Logging.set_level(Logger::INFO)  if options[:verbose]
     Logging.set_level(Logger::DEBUG) if options[:debug]
     oConfig=ForjConfig.new(options[:config])
     oConfig.set('provider', sProvider)
-    Setup.setup(oConfig, options)
+    oConfig.set('account_name', sAccountName)
+    oConfig.set('keypair_path', options[:keypair_path]) if options[:keypair_path]
+    oConfig.set('keypair_name', options[:keypair_name]) if options[:keypair_name]
+    Setup.setup(oConfig)
   end
 
 end

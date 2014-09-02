@@ -38,7 +38,7 @@ include HP::Cloud
 # Setup module call the hpcloud functions
 #
 module Setup
-   def setup(oConfig, options )
+   def setup(oConfig)
 
       # TODO: Provide a way to re-edit all or partially elements set up by this function.
       begin

@@ -52,16 +52,17 @@ Quick steps: How to create a forj?
 
 1.  Setup your first forj account.
 
-    `$ forj setup [Provider]`
+    `$ forj setup [AccountName]`
 
-    Ex: `forj setup hpcloud`. In this example, your account will be named 'hpcloud'.
+    Ex: `forj setup MyAccount`. In this example, your account will be named 'MyAccount'.
+         The first time you setup your account, it will become the default one.
     **WARNING!!!** [Provider] is currently not supported. By default, it is using hpcloud as default provider.
 
 2.  Create your forge on your default account
 
-    `$ forj boot <blueprint> on hpcloud as <InstanceName>`
+    `$ forj boot <blueprint> <InstanceName>`
 
-    Ex: `forj boot redstone on hpcloud as MyForge`
+    Ex: `forj boot redstone myforge` - This command will start a Redstone forge named 'myforge' with the default FORJ account. Previous, we set it to be MyAccount.
 
 
 ###Forj options:
@@ -77,11 +78,11 @@ To get help on specific action, just type:
  Examples of possible actions:
 
 Commands:
-  forj boot <Blueprint> on <Provider> as <InstanceName> [options]  # boot a Maestro box and instruct it to provision the blueprint
-  forj down                                                        # delete the Maestro box and all systems installed by the blueprint
-  forj help [action]                                               # Describe available FORJ actions or one specific action
-  forj setup                                                       # set the credentials for forj cli
-  forj show defaults                                               # Show list of predefined value you can update in your ~/.forj/config.yaml
+  forj boot <Blueprint> <InstanceName> [options] # boot a Maestro box and instruct it to provision the blueprint
+  forj down                                      # delete the Maestro box and all systems installed by the blueprint
+  forj help [action]                             # Describe available FORJ actions or one specific action
+  forj setup                                     # set the credentials for forj cli
+  forj show defaults                             # Show list of predefined value you can update in your ~/.forj/config.yaml
   forj ssh 
 
 
@@ -97,12 +98,12 @@ Here are the variables list you can set:
        account_name: name       # Default forj account used to connect to your cloud. This setting is automatically set to the first account created with forj setup <CloudProvider>
        maestro_url: url         # Maestro GIT repository for clone.
        infra_repo: path         # Path to the default Infra repository used to store your specific bootstrap/build environment. By default: ~/.forj/infra
-       image: imageName         # NOT CURRENTLY USED. Still under development.
-                                # Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'
+       image: imageName         # Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'
                                 # If you have created the generic proto2b image, you can set it here.
-       flavor: flavorName       # NOT CURRENTLY USED. Still under development.
-                                # Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs.
-                                # By default: standard.xsmall
+       flavor: flavorName       # Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs.
+                                # By default: standard.medium
+       bp_flavor: flavorName    # Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro.
+                                # By default: standard.small
        ports: [Port1,Port2,...] # list of additional ports to add in your cloud security group.
                                 # This list is added to the default one in defaults.yaml
        keypair_path: path       # Define the file path to your OpenSSH private key. Useful to access your box with ssh command line.

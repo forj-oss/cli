@@ -39,7 +39,7 @@ class ForjConnection
      @oConfig = oConfig
      @sAccountName = @oConfig.get('account_name')
      @provider='HP' # TODO: Support multiple provider. (Generic Provider object required)
-     @sAccountName = @oConfig.get('provider') if not @sAccountName
+     @sAccountName = @oConfig.get(:provider) if not @sAccountName
      @sAccountName = 'hpcloud' if not @sAccountName
 
      @credentials = get_credentials()

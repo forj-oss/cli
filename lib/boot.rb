@@ -35,21 +35,23 @@ include Helpers
 #
 module Boot
   def boot(blueprint, name, build, build_config,
-      branch, maestro_repo, boothook, box_name,
-      oConfig)
+      branch, boothook, box_name, oConfig)
     begin
+
+      Logging.fatal(1, 'FORJ account not specified. Did you used `forj setup`, before?') if not oConfig.get('account_name')
+
+      # Load Forj account data
+      forjAccountFile = File.join($FORJ_ACCOUNTS_PATH, oConfig.get('account_name'))
+      oConfig.ExtraLoad(forjAccountFile, :forj_accounts, oConfig.get('account_name'))
 
       # Check options and set data
       cloud_provider=oConfig.get('provider')
-      Logging.fatal(1, 'No provider specified.') if not cloud_provider
 
       if cloud_provider != 'hpcloud'
          Logging.fatal(1, "forj setup support only hpcloud. '%s' is currently not supported." % cloud_provider)
       end
 
-      oConfig.set('account_name', cloud_provider)
-
-      initial_msg = 'booting %s on %s (~/.forj/forj.log)' % [blueprint , cloud_provider]
+      initial_msg = "booting %s on %s\nCheck log with `tail -f ~/.forj/forj.log`.\nUse --verbose or --debug for more boot status on screen" % [blueprint , cloud_provider]
       Logging.high_level_msg(initial_msg) #################
 
       # Initialize defaults
@@ -57,9 +59,6 @@ module Boot
 
       infra_dir = File.expand_path(oConfig.get('infra_repo'))
       
-      # Load Forj account data
-      forjAccountFile = File.join($FORJ_ACCOUNTS_PATH, oConfig.get('account_name'))
-      oConfig.ExtraLoad(forjAccountFile, :forj_accounts, oConfig.get('account_name'))
 
       # Check about infra repo compatibility with forj cli
       bBuildInfra = Repositories.infra_rebuild_required?(oConfig, infra_dir)
@@ -80,15 +79,16 @@ module Boot
       yDNS = oConfig.ExtraGet(:forj_accounts, oConfig.get('account_name'), :dns)
       Logging.fatal(1, "DNS or domain name are missing. Please execute forj setup %s" % oConfig.get('account_name')) if not yDNS
 
+      branch = oConfig.get('branch') unless branch
+
       # Step Maestro Clone
-      if not maestro_repo
-         Logging.high_level_msg('cloning maestro repo ...' ) #################
+      if not oConfig.get(:maestro_repo)
          Logging.info('cloning maestro repo from \'%s\'...' % maestro_url)
          Repositories.clone_repo(maestro_url)
          maestro_repo=File.expand_path('~/.forj/maestro')
       else
-         maestro_repo=File.expand_path(maestro_repo)
-         if not File.exists?('%s/templates/infra/%s-maestro.box.GITBRANCH.env.tmpl' % [maestro_repo, cloud_provider])
+         maestro_repo=File.expand_path(oConfig.get(:maestro_repo))
+         if not File.exists?('%s/templates/infra/maestro.box.%s.env' % [maestro_repo, branch])
             Logging.fatal(1, "'%s' is not a recognized Maestro repository. forj cli searched for templates/infra/%s-maestro.box.GITBRANCH.env.tmpl" % [maestro_repo, cloud_provider])
          end
          Logging.info('Using your maestro cloned repo \'%s\'...' % maestro_repo)
@@ -102,7 +102,6 @@ module Boot
       # Connect to services
       oFC=ForjConnection.new(oConfig)
 
-      Logging.high_level_msg('Configuring network...') #################
       Logging.info('Configuring network \'%s\'' % [oConfig.get('network')])
       begin
         network = Network.get_or_create_network(oFC, oConfig.get('network'))
@@ -112,17 +111,14 @@ module Boot
         Logging.fatal(1, "Network properly configured is required.\n%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
 
-      Logging.state('Configuring keypair...') #################
       Logging.info('Configuring keypair \'%s\'' % [oConfig.get('keypair_name')])
       SecurityGroup.hpc_import_key(oConfig, oFC.sAccountName)
 
-      Logging.state('Configuring security group...') #################
 
       Logging.info('Configuring Security Group \'%s\'' % [oConfig.get('security_group')])
       security_group = SecurityGroup.get_or_create_security_group(oFC, oConfig.get('security_group'))
       ports = oConfig.get('ports')
 
-      Logging.state('Configuring security group ports...') #################
       ports.each do |port|
         port = port.to_s if port.class != String
         if not /^\d+(-\d+)?$/ =~ port
@@ -145,7 +141,7 @@ module Boot
       oBuildEnv.set('FORJ_BASE_IMG',        oConfig.get('image'))
       oBuildEnv.set('FORJ_FLAVOR',          oConfig.get('flavor'))
       oBuildEnv.set('FORJ_TENANT_NAME',     rhGet(oConfig.ExtraGet(:forj_accounts, oFC.sAccountName, :compute), :tenant_name))
-      oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.ExtraGet(:hpc_accounts, oFC.sAccountName, :regions), :compute))
+      oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.ExtraGet(:hpc_accounts,  oFC.sAccountName, :regions), :compute))
       
 
       oBuildEnv.set('FORJ_DOMAIN', yDNS[:domain_name])
@@ -162,12 +158,11 @@ module Boot
       build = 'bin/build.sh' unless build
 
       build_config = oConfig.get('build_config')
-      branch = oConfig.get('branch') unless branch
       box_name = oConfig.get('box_name')
 
-      meta = '--meta blueprint=%s ' % [blueprint]
+      arg = '--meta blueprint=%s ' % [blueprint]
 
-      command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, infra_dir, build_config, branch, meta]
+      command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, infra_dir, build_config, branch, arg]
 
       maestro_build_path = File.join(maestro_repo, 'build')
 
@@ -227,9 +222,8 @@ class BuildEnv
       begin
          File.open(@sBuildEnvFile, 'w') do |out|
             @yBuildEnvVar.each do | key, value |
-               if rhExist?(@oConfig.yConfig, 'description', key)
-                  out.write("# %s - %s\n" % [key, rhGet(@oConfig.yConfig, 'description', key)])
-               end
+               desc = @oConfig.getAppDefault(:description, key)
+               out.write("# %s - %s\n" % [key, desc]) if desc
                value = "" if not value
                out.write("%s='%s'\n\n" % [key, value])
             end

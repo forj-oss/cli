@@ -137,42 +137,69 @@ module SecurityGroup
     rule
   end
 
+  def keypair_detect(keypair_name, key_fullpath)
+      # Build key data information structure.
+      # Take care of priv with or without .pem and pubkey with pub.
+	
+      key_basename = File.basename(key_fullpath)
+      key_path = File.expand_path(File.dirname(key_fullpath))
+    
+      mObj = key_basename.match(/^(.*?)(\.pem|\.pub)?$/)
+      key_basename = mObj[1]
+    
+      private_key_ext = nil
+      private_key_ext = "" if File.exists?(File.join(key_path, key_basename))
+      private_key_ext = '.pem' if File.exists?(File.join(key_path, key_basename + '.pem'))
+      if private_key_ext
+         private_key_exist = true
+         private_key_name = key_basename + private_key_ext
+      else
+         private_key_exist = false
+         private_key_name = key_basename
+      end
+    
+      public_key_exist = File.exists?(File.join(key_path, key_basename + '.pub'))
+      public_key_name = key_basename + '.pub'
+    
+    
+      result = {:keypair_name     => keypair_name,
+                :keypair_path     => key_path,         :key_basename       => key_basename,
+                :private_key_name => private_key_name, :private_key_exist? => private_key_exist,
+                :public_key_name  => public_key_name,  :public_key_exist?  => public_key_exist,
+               }
+   end
+
   def hpc_import_key(oConfig, account)
 
-    key_name = oConfig.get('keypair_name')
-    key_path = oConfig.get('keypair_path')
+    keys = keypair_detect(oConfig.get('keypair_name'), oConfig.get('keypair_path'))
 
-    mObj = key_path.match(/^(.*)(\.pem)?$/)
+    Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not keys[:keypair_path]
+    Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not keys[:keypair_name]
+    Logging.fatal(1, "keypair '%s' are missing. Please call 'forj setup %s' to create the missing key pair required." % [keys[:keypair_name], account]) if not keys[:public_key_exist?]
+    
+    public_key_path = File.join(keys[:keypair_path], keys[:public_key_name])
+    private_key_path = File.join(keys[:keypair_path], keys[:private_key_name])
 
-    key_path = mObj[1]
-
-    Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not key_path
-    Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not key_name
-
-    pubkey_path = key_path + '.pub'
-    Logging.fatal(1, "keypair '%s' are missing. Please call 'forj setup %s' to create the missing key pair required." % [pubkey_path, account]) if not File.exists?(pubkey_path)
-    if not File.exists?(File.join($HPC_KEYPAIRS, key_name + '.pub'))
-       Logging.info("Importing your forj public key '%s' to hpcloud." % pubkey_path)
-       command = 'hpcloud keypairs:import %s %s -a %s' % [key_name, pubkey_path, account]
+    if not File.exists?(File.join($HPC_KEYPAIRS, keys[:keypair_name] + '.pub'))
+       Logging.info("Importing your forj public key '%s' to hpcloud." % keys[:public_key_name])
+       command = 'hpcloud keypairs:import %s %s -a %s' % [keys[:keypair_name], public_key_path , account]
        Logging.debug("Executing command '%s'" % command)
        Kernel.system(command)
     else
-       Logging.info("Using '%s' as public key." % pubkey_path)
+       Logging.info("Using '%s' as public key." % public_key_path)
     end
-    private_key = nil
-    private_key = key_path if File.exists?(key_path)
-    private_key = key_path + '.pem' if File.exists?(key_path + '.pem')
-    if not File.exists?(File.join($HPC_KEYPAIRS, key_name + '.pem'))
-       if private_key
-          Logging.info("Importing your forj private key '%s' to hpcloud." % private_key)
-          command = 'hpcloud keypairs:private:add %s %s' % [key_name, private_key]
+    
+    if not File.exists?(File.join($HPC_KEYPAIRS, keys[:keypair_name] + '.pem'))
+       if keys[:private_key_exist?]
+          Logging.info("Importing your forj private key '%s' to hpcloud." % private_key_path)
+          command = 'hpcloud keypairs:private:add %s %s' % [keys[:keypair_name], private_key_path]
           Logging.debug("Executing command '%s'" % command)
           Kernel.system(command)
        else   
           Logging.warning('Unable to find the private key. This will be required to access with ssh to Maestro and any blueprint boxes.')
        end
     else
-       Logging.info("Using '%s' as private key." % key_path)
+       Logging.info("Using '%s' as private key." % private_key_path)
     end
   end
 end

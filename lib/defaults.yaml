@@ -22,11 +22,13 @@ default:
   image: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
   
   # Flavor to use for Maestro
-  flavor: standard.xsmall
+  flavor: standard.medium
+  # Default flavor to use for all Blueprint nodes.
+  bp_flavor: standard.small
   
   # Ports to open for Maestro, added to the security group
   security_group: forj
-  ports: [22, 80, 443, 3000, 3131, 3132, 3233, 3134, 3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
+  ports: [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
   
   # Private key file path. Those files (private/public key) will be added to ~/.forj/keypairs/ as respectively 'keypair_name' and 'keypair_name'.pub
   keypair_path: ~/.ssh/forj-id_rsa 
@@ -39,7 +41,7 @@ default:
   build_config: box
   branch: master
   box_name: maestro
-description:
+:description:
   # Description of build.sh environment variable defined by forj cli for build.sh. (~/.forj/infra/build/<Account>.build.env)
   FORJ_HPC:             "HPCloud cli Account used to build your Maestro box"
   FORJ_HPC_COMPUTE:     "HPCloud Compute service (like region-b.geo-1) used to run your Maestro Box"

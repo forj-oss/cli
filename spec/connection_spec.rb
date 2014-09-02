@@ -28,12 +28,15 @@ $LOAD_PATH << './lib'
 
 require 'forj-config.rb' # Load class ForjConfig
 require 'log.rb' # Load default loggers
+require 'connection.rb' # Load class ForjConnection
+
+# Initialize forj paths
+ensure_forj_dirs_exists()
 
 include Logging
 
 $FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
 
-require 'connection.rb' # Load class ForjConnection
 
 describe 'Module: forj-connection' do
 

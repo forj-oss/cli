@@ -163,7 +163,7 @@ module Logging
   end
   
   def state(message)
-     print("%s%s ...\r" % [message, ANSI.clear_line]) if $FORJ_LOGGER.level == Logger::INFO
+     print("%s ...%s\r" % [message, ANSI.clear_line]) if $FORJ_LOGGER.level == Logger::INFO
   end
   
   def high_level_msg(message)

@@ -220,7 +220,7 @@ module Network
     begin
       oFC.oNetwork.routers.get(router.id).destroy
     rescue => e
-      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
+      Logging.error("Unable to delete '%s' router ID" % router_id, e)
     end
   end
 
