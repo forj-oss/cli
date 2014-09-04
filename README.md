@@ -31,6 +31,18 @@ Installation
     $ sudo gem install hpcloud
     $ sudo gem install forj
 
+**Installation from source**
+Perform one of the ruby installation steps without `gem install forj`.
+
+    $ sudo apt-get -y install build-essential make libxslt-dev libxml2-dev
+    $ sudo mkdir -p /opt/config/production/git
+    $ cd /opt/config/production/git
+    $ git clone https://review.forj.io/forj-oss/cli
+    $ cd cli
+    $ gem install bundler --no-rdoc --no-ri
+    $ gem install rake --no-rdoc --no-ri
+    $ bundle install --gemfile Gemfile
+    $ rake install
 
 Quick steps: How to create a forj?
 ----------------------------------

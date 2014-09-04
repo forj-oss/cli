@@ -15,8 +15,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
+require 'rubygems'
+require 'bundler/setup'
 require 'rspec/core/rake_task'
+
+$stdout.sync = true
+$stderr.sync = true
+Bundler::GemHelper.install_task
 
 task :default => [:spec]
 
