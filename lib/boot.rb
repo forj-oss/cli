@@ -40,12 +40,17 @@ module Boot
 
       Logging.fatal(1, 'FORJ account not specified. Did you used `forj setup`, before?') if not oConfig.get('account_name')
 
+      oForjAccount = ForjAccount.new(oConfig)
+
+      oForjAccount.ac_load()
+
+
       # Load Forj account data
       forjAccountFile = File.join($FORJ_ACCOUNTS_PATH, oConfig.get('account_name'))
       oConfig.ExtraLoad(forjAccountFile, :forj_accounts, oConfig.get('account_name'))
 
       # Check options and set data
-      cloud_provider=oConfig.get('provider')
+      cloud_provider = oForjAccount.get(:account, :provider, 'hpcloud')
 
       if cloud_provider != 'hpcloud'
          Logging.fatal(1, "forj setup support only hpcloud. '%s' is currently not supported." % cloud_provider)
@@ -76,8 +81,8 @@ module Boot
       end
 
       # Get FORJ DNS setting
-      yDNS = oConfig.ExtraGet(:forj_accounts, oConfig.get('account_name'), :dns)
-      Logging.fatal(1, "DNS or domain name are missing. Please execute forj setup %s" % oConfig.get('account_name')) if not yDNS
+      yDNS = rhGet(oForjAccount.hAccountData, :dns)
+      Logging.fatal(1, "DNS or domain name are missing. Please execute forj setup %s" % oForjAccount.get(:account, 'name')) if not yDNS
 
       branch = oConfig.get('branch') unless branch
 
@@ -111,8 +116,8 @@ module Boot
         Logging.fatal(1, "Network properly configured is required.\n%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
 
-      Logging.info('Configuring keypair \'%s\'' % [oConfig.get('keypair_name')])
-      SecurityGroup.hpc_import_key(oConfig, oFC.sAccountName)
+      Logging.info('Configuring keypair \'%s\'' % [oForjAccount.get(:credentials, 'keypair_name')])
+      SecurityGroup.hpc_import_key(oForjAccount)
 
 
       Logging.info('Configuring Security Group \'%s\'' % [oConfig.get('security_group')])
@@ -135,12 +140,13 @@ module Boot
       ENV['FORJ_CLI_ENV'] = oBuildEnv.sBuildEnvFile
       oBuildEnv.set('FORJ_HPC',             oFC.sAccountName)
       oBuildEnv.set('FORJ_HPC_NET',         network.name)
-      oBuildEnv.set('FORJ_SECURITY_GROUP',  oConfig.get('security_group'))
-      oBuildEnv.set('FORJ_KEYPAIR',         oConfig.get('keypair_name'))
-      oBuildEnv.set('FORJ_HPC_NOVA_KEYPUB', oConfig.get('keypair_path') + '.pub')
-      oBuildEnv.set('FORJ_BASE_IMG',        oConfig.get('image'))
-      oBuildEnv.set('FORJ_FLAVOR',          oConfig.get('flavor'))
-      oBuildEnv.set('FORJ_TENANT_NAME',     rhGet(oConfig.ExtraGet(:forj_accounts, oFC.sAccountName, :compute), :tenant_name))
+      oBuildEnv.set('FORJ_SECURITY_GROUP',  oForjAccount.get(:maestro,    'security_group'))
+      oBuildEnv.set('FORJ_KEYPAIR',         oForjAccount.get(:credentials,'keypair_name'))
+      oBuildEnv.set('FORJ_HPC_NOVA_KEYPUB', oForjAccount.get(:credentials,'keypair_path') + '.pub')
+      oBuildEnv.set('FORJ_BASE_IMG',        oForjAccount.get(:maestro,    'image'))
+      oBuildEnv.set('FORJ_FLAVOR',          oForjAccount.get(:maestro,    'flavor'))
+      oBuildEnv.set('FORJ_BP_FLAVOR',       oForjAccount.get(:maestro,    'bp_flavor'))
+      oBuildEnv.set('FORJ_TENANT_NAME',     oForjAccount.get(:compute,    :tenant_name))
       oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.ExtraGet(:hpc_accounts,  oFC.sAccountName, :regions), :compute))
       
 

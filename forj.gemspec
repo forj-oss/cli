@@ -43,6 +43,7 @@ Gem::Specification.new do |s|
                      lib/log.rb
                      lib/helpers.rb
                      lib/forj-config.rb
+                     lib/forj-account.rb
                      spec/boot_spec.rb
                      spec/connection_spec.rb
                      spec/down_spec.rb

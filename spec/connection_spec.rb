@@ -29,6 +29,7 @@ $LOAD_PATH << './lib'
 require 'forj-config.rb' # Load class ForjConfig
 require 'log.rb' # Load default loggers
 require 'connection.rb' # Load class ForjConnection
+require 'forj-account.rb'
 
 # Initialize forj paths
 ensure_forj_dirs_exists()
