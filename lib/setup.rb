@@ -17,8 +17,6 @@
 
 require 'rubygems'
 
-require 'forj-account.rb'
-
 
 #
 # Setup module call the hpcloud functions

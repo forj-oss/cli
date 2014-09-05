@@ -66,13 +66,46 @@ class ForjConfig
    # @yObjConfig = Extra loaded data
    # @oDefaults  = Application defaults object
 
-	attr_reader :sConfigName
+   attr_reader :sConfigName
 
    # Load yaml documents (defaults + config)
    # If config doesn't exist, it will be created, empty with 'defaults:' only
 
-   def default_dump()
-      @oDefaults.dump()
+   def default_dump(interms = nil)
+      # Build a config hash.
+      res = {}
+      @oDefaults.dump['default'].each_key { |key|
+         dump_key = exist?(key)
+         rhSet(res, get(key), dump_key, key)
+         }
+      if rhExist?(@yLocal, 'default') == 1
+         @yLocal['default'].each_key { |key|
+         dump_key = exist?(key)
+         rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
+         }
+      end
+      if interms
+         if interms.instance_of? Hash
+            @interms.each_key { | key|
+               dump_key = exist?(key)
+               rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
+               }
+         elsif interms.instance_of? Array # Array of hash
+            iCount=0
+            interms.each { | elem |
+               elem.each_key { | key|
+               dump_key = exist?(key)
+                  rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
+                  }
+               }
+         end
+      end
+      @yRuntime.each_key { |key|
+         dump_key = exist?(key)
+         rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
+         }
+      
+      res
    end
 
    def initialize(sConfigName=nil)
@@ -198,12 +231,19 @@ class ForjConfig
          elsif interms.instance_of? Array # Array of hash
             iCount=0
             interms.each { | elem |
-               if elem.class == Hash and rhExist?(elem, key) == 1
-                  break
+               if elem.class == Hash
+                  oVal = nil
+                  elem.each { | hashkey, value |
+                     if value.class == Hash and rhExist?(elem, hashkey, key) == 2
+                        oVal = rhGet?(elem, hashkey, key)
+                        break
+                     end
+                     }
+                  break if oVal
                end
                iCount += 1
                }
-            return rhGet(interms[iCount], key) if iCount< interms.length()
+            return oVal
          end
       end
       # else key in local default config of default section.
@@ -227,7 +267,11 @@ class ForjConfig
          elsif interms.instance_of? Array # Array of hash
             iCount = 0
             Array.each { | elem |
-               return ("array[%s]" % iCount)  if elem.class == Hash and rhExist?(elem, key) == 1
+               if elem.class == Hash
+                  elem.each { | hashkey, value |
+                     return ("%s" % hashkey)  if value.class == Hash and rhExist?(elem, hashkey, key) == 2
+                     }
+               end
                iCount += 1
                }
          end

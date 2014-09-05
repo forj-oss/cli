@@ -36,6 +36,7 @@ include Setup
 include Ssh
 
 require 'forj-config.rb' # Load class ForjConfig
+require 'forj-account.rb' # Load class ForjAccount
 require 'log.rb' # Load default loggers
 require 'connection.rb' # Load class ForjConnection
 
@@ -90,7 +91,7 @@ forj command line details:
     end
   end
 
-  # BOOT
+################################# BOOT
   desc 'boot <Blueprint> on <Provider> as <InstanceName> [options]', 'boot a Maestro box and instruct it to provision the blueprint'
 
   long_desc <<-LONGDESC
@@ -183,18 +184,29 @@ Maestro/infra bootstrap debugging:"
                 options[:boothook], options[:box_name], oConfig)
   end
 
-  desc 'show defaults', 'Show list of predefined value you can update in your ~/.forj/config.yaml'
+################################# Show defaults
+   desc 'show defaults', 'Show list of predefined value you can update in your ~/.forj/config.yaml'
+   method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
 
-  def show(name)
-     oConfig=ForjConfig.new()
+   def show(name)
+      case name
+         when 'defaults'
+            oConfig=ForjConfig.new()
+            oConfig.set('account_name',   options[:account_name])
+            oForjAccount = ForjAccount.new(oConfig)
+            oForjAccount.ac_load()
 
-     puts 'List of default values:
---------------------------'
-     puts oConfig.default_dump.to_yaml
-     puts '--------------------------'
-     puts "You can change any of those variables by editing/adding them in your ~/.forj/config.yaml, under section 'default:'"
-  end
-  # DOWN
+            puts 'List of default values: (local refer to your config file. hash refer to your FORJ account data)'
+            puts '-----------------------'
+            puts oConfig.default_dump([oForjAccount.hAccountData]).to_yaml
+            puts '-----------------------'
+            puts "To change default values, update your ~/.forj/config.yaml and add the key/value entry under 'default' section."
+         else
+            Logging.error("object '%s' unknown." % name)
+      end
+   end
+
+################################# DOWN
   desc 'down', 'delete the Maestro box and all systems installed by the blueprint'
   long_desc <<-LONGDESC
   Not yet implemented
@@ -202,11 +214,11 @@ Maestro/infra bootstrap debugging:"
 
   def down(name)
       Logging.set_level(Logger::INFO) if options[:verbose]
-    Logging.set_level(Logger::DEBUG) if options[:debug]
-    Down.down(name)
+      Logging.set_level(Logger::DEBUG) if options[:debug]
+      Down.down(name)
   end
 
-  # SSH
+################################# SSH
   desc 'ssh', 'connect to your forge thru ssh'
   long_desc <<-LONGDESC
 Connect through ssh to an existing instance
@@ -220,7 +232,7 @@ Connect through ssh to an existing instance
     Ssh.connect(name, server)
   end
 
-  # SETUP
+################################# SETUP
   method_option :keypair_name,         :aliases => '-k',   :desc => "config keypair_name : Keypair name attached as default to your FORJ account."
   method_option :keypair_path,         :aliases => '-p',   :desc => "config keypair_path : SSH key file (private or public) to attach as default to your FORJ account. 
                                        It will attach any detected private/public key thanks to the file name 
@@ -228,11 +240,11 @@ Connect through ssh to an existing instance
 
   desc 'setup [AccountName [Provider]] [options]', "Setup FORJ cloud account credentials and information."
   long_desc <<-LONGDESC
-If AccountName is not set, 'hpcloud' will be used for AccountName and provider name, by default.
-If AccountName is not set without provider, 'hpcloud' provider will be used, by default.
-
 This setup will configure a FORJ account used to connect to your cloud system.
-It will ask for your cloud provider credentials and services. 
+\x5It will ask for your cloud provider credentials and services. 
+
+If AccountName is not set, 'hpcloud' will be used for AccountName and provider name, by default.
+\x5If AccountName is not set without provider, 'hpcloud' provider will be used, by default.
 
 WARNING! Currently supports only hpcloud provider.
 
