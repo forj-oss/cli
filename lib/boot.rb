@@ -167,6 +167,7 @@ module Boot
       box_name = oConfig.get('box_name')
 
       arg = '--meta blueprint=%s ' % [blueprint]
+      arg += "--test-box '%s' " % oConfig.get(:test_box) if oConfig.exist?(:test_box)
 
       command = '%s --build_ID %s --box-name %s --build-conf-dir %s --build-config %s --gitBranch %s --debug-box %s' % [build, name, box_name, infra_dir, build_config, branch, arg]
 

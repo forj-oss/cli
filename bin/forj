@@ -121,7 +121,12 @@ Following options superseed your config file or forj defaults."
 Build system options:"
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
-  method_option :branch,           :aliases => '-R',   :desc => "Branch name to clone for maestro." 
+  method_option :branch,           :aliases => '-R',   :desc => "Branch name to clone for maestro. 
+
+Maestro/infra bootstrap debugging:"
+  method_option :test_box,         :aliases => '-T',   :desc => "Identify a path to become your test-box repository. 
+                                           Ex: if your maestro is in ~/src/forj-oss, --test_box ~/src/forj-oss/maestro build.sh and 
+                                               test-box will send your local maestro repo to your box, for boot."
 
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil, old_name = nil)
   
@@ -157,6 +162,7 @@ Build system options:"
       oConfig.set('flavor',         options[:maestro_flavor])
       oConfig.set('bp_flavor',      options[:bp_flavor])
       oConfig.set(:maestro_repo ,   options[:maestro_repo])
+      oConfig.set(:test_box, File.expand_path(options[:test_box])) if options[:test_box] and File.directory?(File.expand_path(options[:test_box]))
       
       
       if options[:key_path]
