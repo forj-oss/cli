@@ -79,9 +79,9 @@ Currently forj cli supports only HPHelion (https://horizon.hp.com) but will be e
 If AccountName is not set, the account name will be proposed to be name 'hpcloud' as well!
 
 2.  Create your forge on your default account
-    `$ forj boot <blueprint> on <Provider> as <InstanceName> `
+    `$ forj boot <blueprint> <InstanceName>`
 
-    Ex: `forj boot redstone on hpcloud as MyForge`
+    Ex: `forj boot redstone MyForge`. In this example, forj will create a `redstone` blueprint forge named `MyForge`, using the default `MyForjAccount`
 
 forj command line details:
 --------------------------
@@ -96,7 +96,6 @@ forj command line details:
   long_desc <<-LONGDESC
 This task boot a new forge with the following options
 \x5- blueprint : Is the name of the blueprint (currently cli only supports redstone)
-\x5- Provider : in which cloud provider to deploy the forge
 \x5- InstanceName : name of the forge
 
     Ex: forj boot redstone on hpcloud as maestro_test
@@ -120,10 +119,27 @@ Build system options:"
   method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
   method_option :branch,           :aliases => '-R',   :desc => "Branch name to clone for maestro." 
 
-  def boot(blueprint, on, cloud_provider, as, name)
+  def boot(blueprint, on_or_name, old_accountname = nil, as = nil, old_name = nil)
+  
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
-      oConfig=ForjConfig.new(options[:config])
+
+      oConfig = ForjConfig.new(options[:config])
+
+
+      # depreciated: <BluePrint> on <AccountName> as <InstanceName>
+      if old_accountname and as and old_name
+         msg = "The syntax `forj boot '%s' on '%s' as '%s'` is depreciated.\nUse `forj boot '%s' '%s'" % [blueprint, old_accountname, old_name, blueprint, old_name]
+         if oConfig.get('account_name') == old_accountname
+            Logging.warning("%s` instead." % msg)
+         else   
+            Logging.warning("%s -a '%s'` instead." % [msg, old_accountname])
+         end
+         name = old_name
+         oConfig.set('account_name', old_accountname)
+      else
+         name = on_or_name
+      end
 
       Logging.fatal(1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not /^[\d[[:lower:]]-]+$/ =~ name
 
