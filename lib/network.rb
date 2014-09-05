@@ -60,7 +60,7 @@ module Network
       Logging.debug('creating network %s' % [name])
       oFC.oNetwork.networks.create(:name => name)
     rescue => e
-      Logging.fatal(1, "%s\n%s" % [e.inspect, e.message])
+      Logging.fatal(1, "Unable to create '%s'network" % name, e)
     end
   end
 
@@ -116,7 +116,7 @@ module Network
           :ip_version => '4'
       )
     rescue => e
-      Logging.fatal(1, "%s\n%s" % [e.class.name, e.message])
+      Logging.fatal(1, "Unable to create '%s' subnet." % name, e)
     end
   end
 
@@ -211,7 +211,7 @@ module Network
         )
     end    
     rescue => e
-      Logging.fatal(1, "%s\n%s" % [e.inspect, e.message])
+      Logging.fatal(1, "Unable to create '%s' router" % name, e)
     end
   end
 

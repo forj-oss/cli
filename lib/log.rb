@@ -111,9 +111,10 @@ module Logging
         @oOutLogger.error(message + ANSI.clear_line)
         @oFileLogger.error(message)
      end
-     def fatal(message)
+     def fatal(message, e)
         @oOutLogger.fatal(message + ANSI.clear_line)
-        @oFileLogger.fatal(message)
+        @oFileLogger.fatal("%s\n%s\n%s" % [message, e.message, e.backtrace.join("\n")]) if e
+		@oFileLogger.fatal(message)
      end
 
      def warn(message)
@@ -152,8 +153,8 @@ module Logging
     $FORJ_LOGGER.error(message)
   end
   
-  def fatal(rc, message)
-    $FORJ_LOGGER.fatal(message)
+  def fatal(rc, message, e = nil)
+    $FORJ_LOGGER.fatal(message, e)
     puts 'Issues found. Please fix it and retry. Process aborted.'
     exit rc
   end

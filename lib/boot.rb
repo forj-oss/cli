@@ -113,7 +113,7 @@ module Boot
         subnet = Network.get_or_create_subnet(oFC, network.id, network.name)
         router = Network.get_or_create_router(oFC, network, subnet)
       rescue => e
-        Logging.fatal(1, "Network properly configured is required.\n%s\n%s" % [e.message, e.backtrace.join("\n")])
+        Logging.fatal(1, "Network properly configured is required.", e)
       end
 
       Logging.info('Configuring keypair \'%s\'' % [oForjAccount.get(:credentials, 'keypair_name')])

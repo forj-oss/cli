@@ -159,7 +159,7 @@ module Repositories
                   end
                end
             rescue => e
-               Logging.fatal(1, "Unable to open the build environment file to migrate it\n%s" % e.backtrace.join('\n'))
+               Logging.fatal(1, "Unable to open the build environment file to migrate it", e)
             end
             oConfig.ExtraSet(:forj_accounts, sAccountName, :dns, yDns)
             oConfig.ExtraSave(File.join($FORJ_ACCOUNTS_PATH, sAccountName), :forj_accounts, sAccountName)

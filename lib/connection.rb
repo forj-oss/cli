@@ -71,7 +71,7 @@ class ForjConnection
        if not oSSLError.ErrorDetected(e.message,e.backtrace)
           retry
        end
-       Logging.fatal(1, 'Compute: Unable to connect.')
+       Logging.fatal(1, 'Compute: Unable to connect.', e)
      end
    end
    
@@ -91,7 +91,7 @@ class ForjConnection
        if not oSSLError.ErrorDetected(e.message,e.backtrace)
           retry
        end
-       Logging.fatal(1, 'Network: Unable to connect.')
+       Logging.fatal(1, 'Network: Unable to connect.', e)
      end
 
    end

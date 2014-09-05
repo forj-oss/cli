@@ -39,7 +39,7 @@ module Setup
       rescue RuntimeError => e
          Logging.fatal(1,e.message)
       rescue  => e
-         Logging.fatal(1,"%s\n%s" % [e.message,e.backtrace.join("\n")])
+         Logging.fatal(1,"Unable to run setup" , e)
       end
   end
 end

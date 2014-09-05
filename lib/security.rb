@@ -54,6 +54,7 @@ module SecurityGroup
       if not oSSLError.ErrorDetected(e.message,e.backtrace)
          retry
       end
+      Logging.fatal(1, "Unable to get list of security groups.", e)
     end
     case sgroups.length()
       when 0
