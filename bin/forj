@@ -185,22 +185,42 @@ Maestro/infra bootstrap debugging:"
   end
 
 ################################# Show defaults
-   desc 'show defaults', 'Show list of predefined value you can update in your ~/.forj/config.yaml'
-   method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
+   desc 'show <Object> [name]', 'Show Object (default valuesr, account data, etc...) values.'
+  long_desc <<-LONGDESC
+This command helps to show values used by 'forj' to boot a blueprint (account data, default values, etc...)
 
-   def show(name)
-      case name
+queriable Objects:
+
+- defaults : Provide the list of predefined values, configured by forj, or by you in your ~/.forj/config.yaml (or another config file with -c)
+- account [name] : without name, forj will give you the list of account saved. Otherwise print 'name' account data.
+  LONGDESC
+
+   def show(object, name = nil)
+	case object
          when 'defaults'
             oConfig=ForjConfig.new()
-            oConfig.set('account_name',   options[:account_name])
-            oForjAccount = ForjAccount.new(oConfig)
-            oForjAccount.ac_load()
 
             puts 'List of default values: (local refer to your config file. hash refer to your FORJ account data)'
-            puts '-----------------------'
-            puts oConfig.default_dump([oForjAccount.hAccountData]).to_yaml
-            puts '-----------------------'
+            puts oConfig.default_dump().to_yaml
+            puts '---'
             puts "To change default values, update your ~/.forj/config.yaml and add the key/value entry under 'default' section."
+         when 'account'
+            oConfig=ForjConfig.new()
+            if not name
+               puts "List of FORJ accounts: Use 'forj account YourAccount' to see one account details."
+               oAccounts = ForjAccounts.new()
+               puts oAccounts.dump().to_yaml
+            else
+               oConfig.set('account_name', name)
+               oAccount = ForjAccount.new(oConfig)
+               oAccount.ac_load()
+
+               puts "Account value for '%s':" % name
+               puts oAccount.dump().to_yaml
+               puts '---'
+               puts "To change those values, execute 'forj setup -a %s'." % options[:account_name]
+            end
+
          else
             Logging.error("object '%s' unknown." % name)
       end

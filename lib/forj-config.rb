@@ -90,7 +90,7 @@ class ForjConfig
                dump_key = exist?(key)
                rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
                }
-         elsif interms.instance_of? Array # Array of hash
+         elsif interms.instance_of? Array # Array of hash of hash
             iCount=0
             interms.each { | elem |
                elem.each_key { | key|

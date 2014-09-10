@@ -33,6 +33,18 @@ require 'hpcloud/accounts'
 require 'hpcloud/connection'
 include HP::Cloud
 
+class ForjAccounts
+   # Class to query FORJ Accounts list.
+   def initialize()
+   end
+   
+   def dump()
+      aAccounts=[]
+      Dir.foreach($FORJ_ACCOUNTS_PATH) { |x| aAccounts << x if not x.match(/^\..?$/) }
+      aAccounts
+   end
+end
+
 class ForjAccount
 
    attr_reader :sAccountName
@@ -61,7 +73,7 @@ class ForjAccount
 
    def get(section, key, default = nil)
       @oConfig.get(key, rhGet(@hAccountData, section), default )
-	end
+   end
 
    def ac_load(sAccountName = @sAccountName)
       # Load Account Information
@@ -80,6 +92,10 @@ class ForjAccount
          return @hAccountData
       end
       nil
+   end
+   
+   def dump()
+      result = { :forj_account => @hAccountData, :hpc_account => provider_load() }
    end
 
    def ac_save()
@@ -148,10 +164,9 @@ class ForjAccount
       @oConfig.ExtraLoad(hpc_account_file, :hpc_accounts, @sAccountName)
    end
 
+   # Maestro uses fog/openstack to connect to the cloud. It needs Tenant name instead of tenant ID.
+   # Getting it from Compute connection and set it
    def setup_tenant_name()
-      # Maestro uses fog/openstack to connect to the cloud. It needs Tenant name instead of tenant ID.
-      # Getting it from Compute connection and set it
-
       oSSLError=SSLErrorMgt.new # Retry object
       Logging.debug("Getting tenants from hpcloud cli libraries")
       begin
