@@ -68,7 +68,7 @@ class Forj < Thor
 Quick steps: How to create a forj?
 ----------------------------------
 
-To test a forj blueprint, you will need an account on a cloud solution. 
+To test a forj blueprint, you will need an account on a cloud solution.
 Currently forj cli supports only HPHelion (https://horizon.hp.com) but will be expanded to support most of known clouds supported by FOG. (http://fog.io)
 
 1.  Setup your FORJ account.
@@ -91,6 +91,15 @@ forj command line details:
     end
   end
 
+   desc 'version', 'get GEM version of forj.'
+  
+   def version()
+      if Gem.loaded_specs['forj']
+         puts Gem.loaded_specs['forj'].version.to_s
+      end
+   end
+
+
 ################################# BOOT
   desc 'boot <Blueprint> on <Provider> as <InstanceName> [options]', 'boot a Maestro box and instruct it to provision the blueprint'
 
@@ -106,11 +115,11 @@ The list of predefined values can be retrieved with forj show defaults
 
   LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
-  method_option :maestro_repo,     :aliases => '-m',   :desc => "To use a different Maestro repository already cloned. 
-                                           By default, Maestro is systematically cloned to ~/.forj/maestro from github.
-                                           
-Following options superseed your config file or forj defaults."
+  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file.
+
+Following options superseed your Account, config file or forj defaults."
+  method_option :maestro_repo,     :aliases => '-m',   :desc => "config: maestro_repo  : To use a different Maestro repository already cloned.
+                                           By default, Maestro is systematically cloned to ~/.forj/maestro from github."
   method_option :infra,            :aliases => '-r',   :desc => 'config: infra_repo    : Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
   method_option :key_name,         :aliases => '-k',   :desc => "config: keypair_name  : Keypair name to use."
   method_option :key_path,         :aliases => '-p',   :desc => "config: keypair_path  : Private or Public key file to use."
@@ -122,15 +131,15 @@ Following options superseed your config file or forj defaults."
 Build system options:"
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
-  method_option :branch,           :aliases => '-R',   :desc => "Branch name to clone for maestro. 
+  method_option :branch,           :aliases => '-R',   :desc => "Branch name to clone for maestro.
 
 Maestro/infra bootstrap debugging:"
-  method_option :test_box,         :aliases => '-T',   :desc => "Identify a path to become your test-box repository. 
-                                           Ex: if your maestro is in ~/src/forj-oss, --test_box ~/src/forj-oss/maestro build.sh and 
+  method_option :test_box,         :aliases => '-T',   :desc => "Identify a path to become your test-box repository.
+                                           Ex: if your maestro is in ~/src/forj-oss, --test_box ~/src/forj-oss/maestro build.sh and
                                                test-box will send your local maestro repo to your box, for boot."
 
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil, old_name = nil)
-  
+
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
 
@@ -142,7 +151,7 @@ Maestro/infra bootstrap debugging:"
          msg = "The syntax `forj boot '%s' on '%s' as '%s'` is depreciated.\nUse `forj boot '%s' '%s'" % [blueprint, old_accountname, old_name, blueprint, old_name]
          if oConfig.get('account_name') == old_accountname
             Logging.warning("%s` instead." % msg)
-         else   
+         else
             Logging.warning("%s -a '%s'` instead." % [msg, old_accountname])
          end
          name = old_name
@@ -151,7 +160,7 @@ Maestro/infra bootstrap debugging:"
          name = on_or_name
       end
 
-      Logging.fatal(1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not /^[\d[[:lower:]]-]+$/ =~ name
+      Logging.fatal( 1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not (/^[\d[[:lower:]]-]+$/ =~ name)
 
       # Options are added if they are set. Otherwise, get will retrieve the default value.
       oConfig.set('account_name',   options[:account_name]) if options[:account_name]
@@ -164,8 +173,8 @@ Maestro/infra bootstrap debugging:"
       oConfig.set('bp_flavor',      options[:bp_flavor])
       oConfig.set(:maestro_repo ,   options[:maestro_repo])
       oConfig.set(:test_box, File.expand_path(options[:test_box])) if options[:test_box] and File.directory?(File.expand_path(options[:test_box]))
-      
-      
+
+
       if options[:key_path]
          mFound = options[:key_path].match(/^(.*)(\.pub)?$/)
          if mFound
@@ -196,7 +205,7 @@ queriable Objects:
   LONGDESC
 
    def show(object, name = nil)
-	case object
+      case object
          when 'defaults'
             oConfig=ForjConfig.new()
 
@@ -238,12 +247,179 @@ queriable Objects:
       Down.down(name)
   end
 
-################################# SSH
-  desc 'ssh', 'connect to your forge thru ssh'
+################################# SET
+  desc 'set [key=value] [options]', 'Set some variables in defaults or account.'
   long_desc <<-LONGDESC
-Connect through ssh to an existing instance
+You can set some variables to change 'forj' defaults or specifically for a FORJ account.
 
-        not yet implemented
+Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. During setup, if this keypair doesn't exist, it proposes to create it for you, with ssh-keygen.
+    If you want to use a keypair that already exists, you can set it as your default, with:
+
+    `forj set keypair_name=~/.ssh/id_rsa`
+
+    If you want to set this key only for your account 'dev':
+
+    `forj set keypair_name=~/.ssh/id_rsa -a dev`
+
+    If you want to get the list of possible key to set:
+
+    `forj set`
+
+    If you want to remove the key from dev, and ask for to re-use defaults (from your config or application default)
+
+    `forj set keypair_name= -a dev`
+
+    If you want to remove the key from your default, and re-use application default
+
+    `forj set keypair_name=`
+
+  LONGDESC
+
+  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
+
+   def set(key_val = nil)
+      Logging.set_level(Logger::INFO) if options[:verbose]
+      Logging.set_level(Logger::DEBUG) if options[:debug]
+
+      oConfig=ForjConfig.new()
+      if not key_val
+         puts "List of FORJ settings: Use 'forj set KeyName=Value [-a YourAccount]' to set one. Use `forj show defaults` / `account` to check values."
+         hMaps = oConfig.getAppDefault(:account_section_mapping)
+         hMaps.each_key { | key |
+            sDesc = rhGet(hMaps, key, :desc)
+            puts "%-15s : %s" % [key, sDesc]
+            }
+      else
+         mkey_val = key_val.match(/^(.*) *= *(.*)$/)
+         if mkey_val
+            if not options[:account_name]
+               if oConfig.exist?(mkey_val[1])
+                  sBef = "%s: '%s'" % [oConfig.exist?(mkey_val[1]), oConfig.get(mkey_val[1])]
+               else
+                  sBef = "unset"
+               end
+               if mkey_val[2] != ""
+                  oConfig.LocalSet(mkey_val[1], mkey_val[2])
+               else
+                  oConfig.LocalDel(mkey_val[1])
+               end
+               oConfig.SaveConfig()
+               if oConfig.exist?(mkey_val[1])
+                  sAft = "%s: '%s'" % [oConfig.exist?(mkey_val[1]), oConfig.get(mkey_val[1])]
+               else
+                  sAft = "unset"
+               end
+               puts "Updated:\n%s: %s => %s" % [mkey_val[1], sBef, sAft]
+            else
+               account_name = options[:account_name]
+               oConfig.set('account_name', account_name)
+               oForjAccount = ForjAccount.new(oConfig)
+               oForjAccount.ac_load()
+               if oForjAccount.exist?(mkey_val[1])
+                  sBef = "%s: '%s'" % [oForjAccount.exist?(mkey_val[1]).sub("hash", account_name), oForjAccount.get(mkey_val[1])]
+               else
+                  sBef = "unset"
+               end
+               if mkey_val[2] == ""
+                  oForjAccount.del(mkey_val[1])
+               else
+                  oForjAccount.set(mkey_val[1], mkey_val[2])
+               end
+               oForjAccount.ac_save()
+               if oForjAccount.exist?(mkey_val[1])
+                  sAft = "%s: '%s'" % [oForjAccount.exist?(mkey_val[1]).sub("hash", account_name), oForjAccount.get(mkey_val[1])]
+               else
+                  sAft = "unset"
+               end
+               puts "Updated:\n%s: %s => %s" % [mkey_val[1], sBef, sAft]
+            end
+         else
+            Logging.fatal(1 ,"Syntax error. Please set your value like: 'key=value' and retry.")
+         end
+      end
+   end
+
+################################# GET
+  desc 'get', 'Get data from defaults or account values.'
+  long_desc <<-LONGDESC
+forj cli maintain a list of key/value at 3 Levels:
+\x5- Application defaults
+\x5- Local config defaults
+\x5- Account data
+
+This function will help you identify which value has been retrieved from which level.
+
+Ex: To get the default keypair_name, from your ~/.forj/config.yaml, or if not found, from application defaults.
+
+`forj get keypair_name`
+
+Ex: To get the keypair_name defined from the account, or from your ~/.forj/config.yaml, or if not found, from application defaults.
+
+`forj get keypair_name -a dev`
+
+
+  LONGDESC
+
+  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
+
+   def get(key = nil)
+      Logging.set_level(Logger::INFO) if options[:verbose]
+      Logging.set_level(Logger::DEBUG) if options[:debug]
+
+      oConfig=ForjConfig.new()
+      if not options[:account_name]
+         if key
+            if oConfig.exist?(key)
+               puts "%s:'%s'" % [oConfig.exist?(key), oConfig.get(key)]
+            else
+               Logging.message("key '%s' not found"% [key])
+            end
+         else
+            puts "legend: default = Application defaults, local = Local default config\n\n" % [options[:account_name], options[:account_name]]
+            puts "%-15s(%-7s) %-12s:\n--------------------------------------" % ['key', 'origin', 'section name']
+            hMaps = oConfig.getAppDefault(:account_section_mapping)
+            hMaps.each { |map_key, value|
+               if oConfig.exist?(map_key)
+                  puts "%-15s(%-7s) %-12s: '%s'" % [map_key, oConfig.exist?(map_key), value[:section], oConfig.get(map_key)]
+               else
+                  puts "%-15s(       ) %-12s: unset" % [map_key, value[:section]]
+               end
+
+               }
+         end
+         puts "\nUse 'forj set <key>=<value>' to update defaults"
+      else
+         oConfig.set('account_name', options[:account_name])
+         oForjAccount = ForjAccount.new(oConfig)
+         Logging.fatal(1, "Unable to load account '%s'. Not found." % options[:account_name]) if not oForjAccount.ac_load
+         if key
+            if oForjAccount.exist?(key)
+               puts "%s: '%s'" % [oForjAccount.exist?(key).sub("hash", options[:account_name]), oForjAccount.get(key)]
+            else
+               Logging.message("key '%s' not found"% [key])
+            end
+         else
+            puts "legend: default = Application defaults, local = Local default config, %s = '%s' account config\n\n" % [options[:account_name], options[:account_name]]
+            puts "%-15s(%-7s) %-12s:\n--------------------------------------" % ['key', 'origin', 'section name']
+            hMaps = oConfig.getAppDefault(:account_section_mapping)
+            hMaps.each { |map_key, value|
+               if oForjAccount.exist?(map_key)
+                  puts "%-15s(%-7s) %-12s: '%s'" % [map_key, oForjAccount.exist?(map_key).sub("hash", options[:account_name]), value[:section], oForjAccount.get(map_key)]
+               else
+                  puts "%-15s(       ) %12s: unset" % [map_key, value[:section]]
+               end
+               }
+         end
+         puts "\nUse 'forj set <key>=<value> -a %s' to update account data.\nOr  'forj set <key>= -a %s' to restore key default value." % [options[:account_name], options[:account_name]]
+      end
+   end
+
+################################# SSH
+  desc 'ssh <Instance> <Server> [options]', 'connect to your forge thru ssh'
+  long_desc <<-LONGDESC
+Connect through ssh to a node attached to an instance
+
+ex: forj ssh myforge review
   LONGDESC
 
   def ssh(name, server)
@@ -254,14 +430,14 @@ Connect through ssh to an existing instance
 
 ################################# SETUP
   method_option :keypair_name,         :aliases => '-k',   :desc => "config keypair_name : Keypair name attached as default to your FORJ account."
-  method_option :keypair_path,         :aliases => '-p',   :desc => "config keypair_path : SSH key file (private or public) to attach as default to your FORJ account. 
-                                       It will attach any detected private/public key thanks to the file name 
+  method_option :keypair_path,         :aliases => '-p',   :desc => "config keypair_path : SSH key file (private or public) to attach as default to your FORJ account.
+                                       It will attach any detected private/public key thanks to the file name
                                        (without extension/.pem = private, .pub = public)"
 
   desc 'setup [AccountName [Provider]] [options]', "Setup FORJ cloud account credentials and information."
   long_desc <<-LONGDESC
 This setup will configure a FORJ account used to connect to your cloud system.
-\x5It will ask for your cloud provider credentials and services. 
+\x5It will ask for your cloud provider credentials and services.
 
 If AccountName is not set, 'hpcloud' will be used for AccountName and provider name, by default.
 \x5If AccountName is not set without provider, 'hpcloud' provider will be used, by default.
@@ -272,7 +448,7 @@ Several data will be requested like:
 \x5- Cloud provider credentials and services.
 \x5- user/password (password is encrypted)
 \x5- DNS settings if you want Maestro to manage it.
-\x5- domain name to add to each boxes hostname 
+\x5- domain name to add to each boxes hostname
   LONGDESC
   def setup(sAccountName = 'hpcloud', sProvider = "hpcloud")
     Logging.set_level(Logger::INFO)  if options[:verbose]

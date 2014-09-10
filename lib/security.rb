@@ -138,7 +138,7 @@ module SecurityGroup
     rule
   end
 
-  def keypair_detect(keypair_name, key_fullpath)
+   def keypair_detect(keypair_name, key_fullpath)
       # Build key data information structure.
       # Take care of priv with or without .pem and pubkey with pub.
 	
@@ -163,17 +163,17 @@ module SecurityGroup
       public_key_name = key_basename + '.pub'
     
     
-      result = {:keypair_name     => keypair_name,
-                :keypair_path     => key_path,         :key_basename       => key_basename,
-                :private_key_name => private_key_name, :private_key_exist? => private_key_exist,
-                :public_key_name  => public_key_name,  :public_key_exist?  => public_key_exist,
-               }
+      {:keypair_name     => keypair_name,
+       :keypair_path     => key_path,         :key_basename       => key_basename,
+       :private_key_name => private_key_name, :private_key_exist? => private_key_exist,
+       :public_key_name  => public_key_name,  :public_key_exist?  => public_key_exist,
+      }
    end
 
   def hpc_import_key(oForjAccount)
 
-    keys = keypair_detect(oForjAccount.get(:credentials, 'keypair_name'), oForjAccount.get(:credentials, 'keypair_path'))
-    account = oForjAccount.get(:account, :name)
+    keys = keypair_detect(oForjAccount.get('keypair_name'), oForjAccount.get('keypair_path'))
+    account = oForjAccount.get(:name)
 
     Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not keys[:keypair_path]
     Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not keys[:keypair_name]

@@ -17,27 +17,27 @@ default:
 
   # Default Infra repository to use. If missing, it will be proposed to be created.
   infra_repo: ~/.forj/infra
-  
+
   # You can set proto2b in your ~/.forj/config.yaml if you built it from maestro/build. Read the maestro/README.md to create it.
   image: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
-  
+
   # Flavor to use for Maestro
   flavor: standard.medium
   # Default flavor to use for all Blueprint nodes.
   bp_flavor: standard.small
-  
+
   # Ports to open for Maestro, added to the security group
   security_group: forj
   ports: [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
-  
+
   # Private key file path. Those files (private/public key) will be added to ~/.forj/keypairs/ as respectively 'keypair_name' and 'keypair_name'.pub
-  keypair_path: ~/.ssh/forj-id_rsa 
+  keypair_path: ~/.ssh/forj-id_rsa
   keypair_name: forj
 
   # Network: If network doesn't exist, forj cli will try to create it, and attach it a router.
   network: forj
 
-  # build.sh internal variables.  
+  # build.sh internal variables.
   build_config: box
   branch: master
   box_name: maestro
@@ -56,3 +56,65 @@ default:
   FORJ_DNS_TENANTID:    "HPCloud Project ID to use to create DNS entries for each boxes."
   FORJ_DNS_ZONE:        "HPCloud Domain name service to use for each boxes DNS entries. (Ex: region-a.geo-1)"
   FORJ_DNS_DOMAIN:      "Domain used for DNS. Each server will be attached to a public IP. An 'A' record in the DNS service will need to be added to your HPCloud DOMAIN."
+
+# Use by Object ForjAccount, function get, to identify the section name in ~/.forj/accounts/YourAccount. We can set those variables with 'forj set key=value [-a account]'
+:account_section_mapping:
+  security_group:
+    :section:     :maestro
+    :desc:        "Security group name to configure and attach to each forge boxes."
+
+  image:
+    :section:    :maestro
+    :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
+
+  flavor:
+    :section:    :maestro
+    :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
+
+  bp_flavor:
+    :section:    :maestro
+    :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
+
+  build_config:
+    :section:    :maestro
+    :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
+
+  box_name:
+    :section:    :maestro
+    :desc:       "forj cli use 'build.sh' to create Maestro. See box_name option on build.sh to get more information. By default 'maestro'"
+
+  keypair_name:
+    :section:    :credentials
+    :desc:       "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
+
+  keypair_path:
+    :section:    :credentials
+    :desc:       "public key file to send to the cloud under keypair name, and private key to keep on your local forj environment to access your boxes."
+
+  :tenant_name:
+    :section:    :compute
+    :desc:       "Tenant name required by fog/openstack on gardener"
+
+  :domain_name:
+    :section:    :dns
+    :desc:       "Domain name added to each hosts."
+
+  :tenant_id:
+    :section:    :dns
+    :desc:       "DNS Tenant ID Maestro will use"
+
+  :service:
+    :section:    :dns
+    :desc:       "DNS service region name Maestro will use."
+
+  :network:
+    :section:    :network
+    :desc:       "Network name to attach to each forge boxes. By default we use 'private'. If it doesn't exist, it will be created."
+    
+  :infra_repo:
+    :section:    :maestro
+    :desc:       "Defines your Infra directory to use while booting."
+  
+  :maestro_repo:
+    :section:    :maestro
+    :desc:       "To use a different Maestro repository already cloned."

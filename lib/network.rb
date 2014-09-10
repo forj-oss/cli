@@ -49,7 +49,7 @@ module Network
         else  
           Logging.warning("Several network was found with '%s'. Selecting the first one '%s'." % [name, networks[0].name])
           networks[0]
-        end
+      end
     rescue => e
       Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
@@ -75,36 +75,36 @@ module Network
 
 
   # Subnet management
-  def get_or_create_subnet(oFC, network_id, name)
-    Logging.state("Searching for sub-network attached '%s'." % [name])
-    begin
-      subnets = oFC.oNetwork.subnets.all(:network_id => network_id)
-    rescue => e
-      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
-    end
-    if subnets 
-      case subnets.length()
-        when 0
-          Logging.debug("No subnet found from '%s' network" % [name])
-          subnet = nil
-        when 1
-          Logging.debug("Found '%s' subnet from '%s' network" % [subnets[0].name, name])
-          subnet = subnets[0]
-        else 
-          Logging.warning("Several subnet was found on '%s'. Choosing the first one = '%s'" % [name, subnets[0].name])
-          subnet = subnets[0]
-        end
-    end  
-    if not subnet
-      # Create the subnet with 'sub-' prefixing the network name.   
+   def get_or_create_subnet(oFC, network_id, name)
+      Logging.state("Searching for sub-network attached '%s'." % [name])
       begin
-        subnet = create_subnet(oFC, network_id, 'sub-%s' % [name])
+         subnets = oFC.oNetwork.subnets.all(:network_id => network_id)
       rescue => e
-        Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
+         Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
-    end
-    return subnet
-  end
+      if subnets 
+         case subnets.length()
+            when 0
+               Logging.debug("No subnet found from '%s' network" % [name])
+               subnet = nil
+            when 1
+               Logging.debug("Found '%s' subnet from '%s' network" % [subnets[0].name, name])
+               subnet = subnets[0]
+            else 
+               Logging.warning("Several subnet was found on '%s'. Choosing the first one = '%s'" % [name, subnets[0].name])
+               subnet = subnets[0]
+         end
+      end  
+      if not subnet
+         # Create the subnet with 'sub-' prefixing the network name.   
+         begin
+            subnet = create_subnet(oFC, network_id, 'sub-%s' % [name])
+         rescue => e
+            Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
+         end
+      end
+      return subnet
+   end
 
   def create_subnet(oFC, network_id, name)
     Logging.debug("Creating subnet '%s'" % [name])

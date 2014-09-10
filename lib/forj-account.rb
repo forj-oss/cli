@@ -37,7 +37,7 @@ class ForjAccounts
    # Class to query FORJ Accounts list.
    def initialize()
    end
-   
+
    def dump()
       aAccounts=[]
       Dir.foreach($FORJ_ACCOUNTS_PATH) { |x| aAccounts << x if not x.match(/^\..?$/) }
@@ -71,8 +71,48 @@ class ForjAccount
       rhSet(@hAccountData, sProvider, [:account, :provider]) if rhExist?(@hAccountData, [:account, :provider]) != 2
    end
 
-   def get(section, key, default = nil)
-      @oConfig.get(key, rhGet(@hAccountData, section), default )
+   # oForjAccount data get are retrieved from the account file under section described in defaults.yaml (:account_section_mapping), as soon as this mapping exists.
+   # If not found, get the data from the local configuration file. Usually ~/.forj/config.yaml
+   # If not found, get the data from defaults.yaml
+   # otherwise, use the get default parameter as value. Default is nil.
+   def get(key, default = nil)
+      return nil if not key
+
+      section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
+      yInterm = nil
+      yInterm = rhGet(@hAccountData, section) if section
+      @oConfig.get(key, yInterm , default )
+   end
+
+   def exist?(key)
+      return nil if not key
+
+      section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
+      yInterm = nil
+      yInterm = rhGet(@hAccountData, section) if section
+      @oConfig.exist?(key, yInterm)
+
+   end
+
+   def set(key, value)
+      return nil if not key
+
+      section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
+      return nil if not section
+      rhSet(@hAccountData, value, section, key)
+   end
+
+   def del(key)
+      return nil if not key
+
+      section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
+      return nil if not section
+      rhSet(@hAccountData, nil, section, key)
+   end
+
+   def getAccountData(section, key, default=nil)
+      return rhGet(@hAccountData, section, key) if rhExist?(@hAccountData, section, key) == 2
+      default
    end
 
    def ac_load(sAccountName = @sAccountName)
@@ -93,9 +133,9 @@ class ForjAccount
       end
       nil
    end
-   
+
    def dump()
-      result = { :forj_account => @hAccountData, :hpc_account => provider_load() }
+      { :forj_account => @hAccountData, :hpc_account => provider_load() }
    end
 
    def ac_save()
@@ -125,7 +165,7 @@ class ForjAccount
 
       # Checking cloud connection
       Logging.message("Checking cloud connection")
-      oFC = ForjConnection.new(@oConfig)
+      ForjConnection.new(@oConfig)
 
       Logging.message("Setup '%s' done. Thank you." % @sAccountName)
    end
@@ -151,7 +191,7 @@ class ForjAccount
       end
 
       provider_load() # To ensure latest provider data are loaded
-      
+
       setup_tenant_name()
    end
 
@@ -265,10 +305,10 @@ class ForjAccount
       yCreds = rhGet(@hAccountData, :credentials)
       key_name = @oConfig.get('keypair_name', yCreds )
       orig_key_path = File.expand_path(@oConfig.get('keypair_path', yCreds))
-      
+
       Logging.warning("'keypair_path' is missing at least from defaults.yaml. To fix it, set it in your configuration file ~/.forj/config.yaml under default section") if not orig_key_path
       key_path = nil
-      while not key_path 
+      while not key_path
          key_path = ask ("Please provide the SSH private key path used by default on this account:") do | q |
             q.default = orig_key_path
             q.validate = /.*+/
@@ -300,7 +340,7 @@ class ForjAccount
          q.validate = /.*+/
       end
       key_name = key_name.to_s
-      
+
       keys = keypair_detect(key_name, key_path)
 
       Logging.info("Configuring forj keypair '%s'" % [ keys[:keypair_name] ] )
@@ -349,7 +389,7 @@ class ForjAccount
       if keys[:keypair_path] != $FORJ_KEYPAIRS_PATH
          if not File.exists?(forj_private_key_file)
             Logging.info("Importing key pair to FORJ keypairs list.")
-            FileUtils.copy(private_key_file, forj_private_key_file) 
+            FileUtils.copy(private_key_file, forj_private_key_file)
             FileUtils.copy(public_key_file, forj_public_key_file)
             # Attaching this keypair to the account
             rhSet(@hAccountData, key_name, :credentials, 'keypair_name')
@@ -400,7 +440,7 @@ class ForjAccount
          hpcloud_os_key_hidden = '*' * Encryptor.decrypt(
              :value => Base64::strict_decode64(enc_hpcloud_os_key),
              :key   => entr[:key],
-             :iv    => entr[:iv], 
+             :iv    => entr[:iv],
              :salt  => entr[:salt]
             ).length
          hpcloud_os_key_hidden="[%s]" % hpcloud_os_key_hidden
@@ -418,10 +458,10 @@ class ForjAccount
          if hpcloud_os_key == "" and enc_hpcloud_os_key
             hpcloud_os_key = Encryptor.decrypt(:value => Base64::strict_decode64(enc_hpcloud_os_key), :key => entr[:key], :iv => entr[:iv], :salt => entr[:salt])
          else
-            Logging.message("The password cannot be empty.") if hpcloud_os_key == "" 
+            Logging.message("The password cannot be empty.") if hpcloud_os_key == ""
          end
       end
-      enc_hpcloud_os_key = Base64::strict_encode64(Encryptor.encrypt(:value => hpcloud_os_key, :key => entr[:key], :iv => entr[:iv], :salt => entr[:salt])) 
+      enc_hpcloud_os_key = Base64::strict_encode64(Encryptor.encrypt(:value => hpcloud_os_key, :key => entr[:key], :iv => entr[:iv], :salt => entr[:salt]))
 
       cloud_fog = File.join($FORJ_CREDS_PATH, @sAccountName+'.g64')
 

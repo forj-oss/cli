@@ -37,7 +37,7 @@ class ForjDefault
          Logging.fatal(1, 'Internal $LIB_PATH was not set.')
       end
 
-      Logging.info ('Reading default configuration...')
+      Logging.info('Reading default configuration...')
 
       @sDefaultsName=File.join($LIB_PATH,'defaults.yaml')
 
@@ -49,7 +49,8 @@ class ForjDefault
    end
 
    def get(key, section = 'default')
-      rhGet(@yDefaults, section, key)
+      return(rhGet(@yDefaults, section, key)) if key
+      rhGet(@yDefaults, section) if not key
    end
 
    def dump()
@@ -73,6 +74,7 @@ class ForjConfig
 
    def default_dump(interms = nil)
       # Build a config hash.
+
       res = {}
       @oDefaults.dump['default'].each_key { |key|
          dump_key = exist?(key)
@@ -91,7 +93,6 @@ class ForjConfig
                rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
                }
          elsif interms.instance_of? Array # Array of hash of hash
-            iCount=0
             interms.each { | elem |
                elem.each_key { | key|
                dump_key = exist?(key)
@@ -104,7 +105,7 @@ class ForjConfig
          dump_key = exist?(key)
          rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
          }
-      
+
       res
    end
 
@@ -155,7 +156,7 @@ class ForjConfig
        Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
        return false
      end
-     Logging.info ('Configuration file "%s" updated.' % @sConfigName)
+     Logging.info('Configuration file "%s" updated.' % @sConfigName)
      return true
    end
 
@@ -170,7 +171,7 @@ class ForjConfig
             Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
             return false
          end
-         Logging.info ('Configuration file "%s" updated.' % sFile)
+         Logging.info('Configuration file "%s" updated.' % sFile)
          return true
       end
    end
@@ -198,7 +199,7 @@ class ForjConfig
       rhGet(@yObjConfig, section, name)
    end
 
-   def ExtraSet(section, name, key = nil, value)
+   def ExtraSet(section, name, key, value)
       if key
          rhSet(@yObjConfig, value, section, name, key)
       else
@@ -254,7 +255,7 @@ class ForjConfig
       default
    end
 
-   def getAppDefault(section, key)
+   def getAppDefault(section, key = nil)
       @oDefaults.get(key, section)
    end
 
@@ -342,7 +343,6 @@ def rhExist?(yVal, *p)
    return 0 if not yVal or not yVal[p[0]]
    ret = rhExist?(yVal[p[0]], p.drop(1)) if yVal[p[0]]
    return 1 + ret
-   0
 end
 
 def rhGet(yVal, *p)

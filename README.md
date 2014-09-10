@@ -83,16 +83,35 @@ Commands:
   forj help [action]                             # Describe available FORJ actions or one specific action
   forj setup                                     # set the credentials for forj cli
   forj show defaults                             # Show list of predefined value you can update in your ~/.forj/config.yaml
-  forj ssh 
+  forj ssh
 
 
-#### config.yaml description
+#### Configuration
 
-While building your forge, forj needs to load some data by default. Those are listed in forj-<version>/lib/defaults.yaml
+While building your forge, forj needs to load some data by default. Those are listed in the application.
 
-If you need to change one of this default value, update a ~/.forj/config.yaml file, with any kind of data that need to be changed.
+You can show them with :
 
-Here are the variables list you can set:
+    $ forj show defaults
+
+If you need to change one of them:
+
+    $ forj set "keypair_name=MyKeypairName"
+
+ex:
+    forj set keypair_name=nova
+
+You can check what kind of value, forj will use to boot/access your forge:
+
+    $ forj get -a dev
+
+
+#### Your config.yaml
+
+The following list gives you some details about keys/values required to boot/access your forge.
+
+
+~/.forj/config.yaml:
 
      default:
        account_name: name       # Default forj account used to connect to your cloud. This setting is automatically set to the first account created with forj setup <CloudProvider>
@@ -107,8 +126,8 @@ Here are the variables list you can set:
        ports: [Port1,Port2,...] # list of additional ports to add in your cloud security group.
                                 # This list is added to the default one in defaults.yaml
        keypair_path: path       # Define the file path to your OpenSSH private key. Useful to access your box with ssh command line.
-                                # By default. ~/.forj/keypairs/nova
-       keypair_name: name       # keypair name defined in your cloud to access your server. By default we named it 'nova'. If it doesn't exist, it will be created.
+                                # By default. ~/.ssh/forj-id_rsa
+       keypair_name: name       # keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created.
        router: name             # Router name used by your forge boxes will use to access internet.
        security_group: name     # Security group name to configure and attach to each forge boxes.
        network: name            # Network name to attach to each forge boxes. By default we use 'private'. If it doesn't exist, it will be created.
@@ -143,12 +162,12 @@ Development installation:
 **Fedora/CentOS/Redhat rpm like package system**
 
     $ sudo yum install git gcc ruby-devel libxml2-devel rubygem-rspec libxslt-devel python-yaml rubygem-nokogiri -y
-    $ gem install rspec-rake rspec-mocks rspec-expectations 
+    $ gem install rspec-rake rspec-mocks rspec-expectations
 
 **Ubuntu/Debian deb like package system (not tested)**
 
     $ sudo apt-get install git ruby-dev build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev -y
-    $ gem install rspec rspec-rake rspec-mocks rspec-expectations 
+    $ gem install rspec rspec-rake rspec-mocks rspec-expectations
 
 Then execute the following:
 
