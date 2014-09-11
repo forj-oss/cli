@@ -101,17 +101,16 @@ forj command line details:
 
 
 ################################# BOOT
-  desc 'boot <Blueprint> on <Provider> as <InstanceName> [options]', 'boot a Maestro box and instruct it to provision the blueprint'
+  desc 'boot <blueprint> <InstanceName> [options]', 'boot a Maestro box and instruct it to provision the blueprint'
 
   long_desc <<-LONGDESC
 This task boot a new forge with the following options
-\x5- blueprint : Is the name of the blueprint (currently cli only supports redstone)
+\x5- blueprint : Is the name of the blueprint
 \x5- InstanceName : name of the forge
 
-    Ex: forj boot redstone on hpcloud as maestro_test
+    Ex: forj boot redstone maestro_test -a dev
 
-`forj boot` load predefined forj values from `lib/defaults.yaml`. If you need to change one of them, add the key/value in your local config (-c or `~/.forj/config.yaml`).
-The list of predefined values can be retrieved with forj show defaults
+When `forj boot` starts, some variables are loaded. If you want to check/updated them, use `forj get [-a account]` 
 
   LONGDESC
 
