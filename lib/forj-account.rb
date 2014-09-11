@@ -56,8 +56,8 @@ class ForjAccount
       # Initialize object
       @oConfig = oConfig
 
-      if @oConfig.get('account_name')
-         @sAccountName = @oConfig.get('account_name')
+      if @oConfig.get(:account_name)
+         @sAccountName = @oConfig.get(:account_name)
       else
          @sAccountName = 'hpcloud'
       end
@@ -78,6 +78,7 @@ class ForjAccount
    def get(key, default = nil)
       return nil if not key
 
+      key = key.to_sym if key.class == String
       section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
       yInterm = nil
       yInterm = rhGet(@hAccountData, section) if section
@@ -87,6 +88,7 @@ class ForjAccount
    def exist?(key)
       return nil if not key
 
+      key = key.to_sym if key.class == String
       section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
       yInterm = nil
       yInterm = rhGet(@hAccountData, section) if section
@@ -97,6 +99,7 @@ class ForjAccount
    def set(key, value)
       return nil if not key
 
+      key = key.to_sym if key.class == String
       section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
       return nil if not section
       rhSet(@hAccountData, value, section, key)
@@ -105,6 +108,7 @@ class ForjAccount
    def del(key)
       return nil if not key
 
+      key = key.to_sym if key.class == String
       section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
       return nil if not section
       rhSet(@hAccountData, nil, section, key)
@@ -125,10 +129,15 @@ class ForjAccount
 
       if File.exists?(@sAccountFile)
          @hAccountData = @oConfig.ExtraLoad(@sAccountFile, :forj_accounts, @sAccountName)
+         # Check if hAccountData are using symbol or needs to be updated.
          sProvider = @oConfig.get(:provider, nil, 'hpcloud')
          rhSet(@hAccountData, @sAccountName, :account, :name) if rhExist?(@hAccountData, :account, :name) != 2
          rhSet(@hAccountData, sProvider, :account, :provider) if rhExist?(@hAccountData, :account, :provider) != 2
          provider_load()
+         if rhKeyToSymbol?(@hAccountData, 2)
+            @hAccountData = rhKeyToSymbol(@hAccountData, 2) 
+            self.ac_save()
+         end
          return @hAccountData
       end
       nil
@@ -241,7 +250,7 @@ class ForjAccount
       sAsk = "Optionally, you can ask Maestro to use/manage a domain name on your cloud. It requires your DNS cloud service to be enabled.\nDo you want to configure it?"
       if agree(sAsk)
          # Getting tenants
-         tenants = @oConfig.get('tenants')
+         tenants = @oConfig.get(:tenants)
 
          # Question about DNS Tenant ID
          # In HPCloud : credentials/tenant_id
@@ -303,8 +312,8 @@ class ForjAccount
 
       # Getting Account keypair information
       yCreds = rhGet(@hAccountData, :credentials)
-      key_name = @oConfig.get('keypair_name', yCreds )
-      orig_key_path = File.expand_path(@oConfig.get('keypair_path', yCreds))
+      key_name = @oConfig.get(:keypair_name, yCreds )
+      orig_key_path = File.expand_path(@oConfig.get(:keypair_path, yCreds))
 
       Logging.warning("'keypair_path' is missing at least from defaults.yaml. To fix it, set it in your configuration file ~/.forj/config.yaml under default section") if not orig_key_path
       key_path = nil

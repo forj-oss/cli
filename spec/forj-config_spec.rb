@@ -29,6 +29,7 @@ include Logging
 
 $FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
 
+
 describe "class: forj-config," do
     context "when creating a new instance" do
 
@@ -45,13 +46,13 @@ describe "class: forj-config," do
       end
 
       it 'should be able to create a key/value in local config' do
-         @config.LocalSet('test1','value')
-         expect(@config.LocalGet('test1')).to eq('value')
+         @config.LocalSet(:test1,'value')
+         expect(@config.LocalGet(:test1)).to eq('value')
       end
 
       it 'should be able to remove the previously created key/value from local config' do
-         @config.LocalDel('test1')
-         expect(@config.exist?('test1')).to equal(false)
+         @config.LocalDel(:test1)
+         expect(@config.exist?(:test1)).to equal(false)
       end
     end
 
@@ -61,16 +62,16 @@ describe "class: forj-config," do
       end
 
       after(:all)  do
-        @config.LocalDel('test1')
+        @config.LocalDel(:test1)
         @config.SaveConfig()
       end
 
       it 'should save a key/value in local config' do
-         @config.LocalSet('test1','value')
+         @config.LocalSet(:test1,'value')
          expect(@config.SaveConfig()).to equal(true)
 
          oConfig=ForjConfig.new()
-         expect(@config.LocalGet('test1')).to eq('value')
+         expect(@config.LocalGet(:test1)).to eq('value')
       end
 
     end
@@ -81,7 +82,7 @@ describe "class: forj-config," do
         if File.exists?('~/.forj/test.yaml')
            File.delete(File.expand_path('~/.forj/test.yaml'))
         end
-        File.open(File.expand_path('~/.forj/test1.yaml'), 'w+') { |file| file.write("default:\n") }
+        File.open(File.expand_path('~/.forj/test1.yaml'), 'w+') { |file| file.write(":default:\n") }
         @config=ForjConfig.new('test.yaml')
         @config2=ForjConfig.new('test1.yaml')
       end
@@ -128,59 +129,72 @@ describe "class: forj-config," do
       
       context 'from defaults,' do
          it 'can get application defaults' do
-            expect(@config.get('maestro_url').class).to equal(String)
-            expect(@config.getAppDefault('default', 'maestro_url').class).to equal(String)
+            expect(@config.get(:maestro_url).class).to equal(String)
+            expect(@config.getAppDefault(:default, :maestro_url).class).to equal(String)
             expect(@config.getAppDefault(:description, 'FORJ_HPC').class).to equal(String)
 
          end
          it 'can get Local defaults instead of application' do
-            expect(@config.LocalSet('maestro_url','local')).to equal(true)
-            expect(@config.LocalGet('maestro_url')).to eq('local')
-            expect(@config.get('maestro_url')).to eq('local')
+            expect(@config.LocalSet(:maestro_url,'local')).to equal(true)
+            expect(@config.LocalGet(:maestro_url)).to eq('local')
+            expect(@config.get(:maestro_url)).to eq('local')
          end
 
          it 'can get runtime defaults instead of Local/application' do
-            expect(@config.set('maestro_url', 'runtime')).to equal(true)
-            expect(@config.get('maestro_url')).to eq('runtime')
-            expect(@config.LocalGet('maestro_url')).to eq('local')
+            expect(@config.set(:maestro_url, 'runtime')).to equal(true)
+            expect(@config.get(:maestro_url)).to eq('runtime')
+            expect(@config.LocalGet(:maestro_url)).to eq('local')
          end
 
          it 'can get runtime defaults instead of application' do
-            expect(@config.LocalDel('maestro_url')).to equal(true)
-            expect(@config.get('maestro_url')).to eq('runtime')
-            expect(@config.LocalGet('maestro_url')).to equal(nil)
+            expect(@config.LocalDel(:maestro_url)).to equal(true)
+            expect(@config.get(:maestro_url)).to eq('runtime')
+            expect(@config.LocalGet(:maestro_url)).to equal(nil)
          end
 
          it 'can get defaults if no key' do
             expect(@config.set(:test1, nil)).to equal(true)
             expect(@config.get(:test1, nil, 'default')).to eq('default')
             expect(@config.get(:test1, nil, nil)).to equal(nil)
-            expect(@config.set('maestro_url',nil)).to equal(true)
-            expect(@config.get('maestro_url')).to eq(@url)
+            expect(@config.set(:maestro_url,nil)).to equal(true)
+            expect(@config.get(:maestro_url)).to eq(@url)
          end
       end
       
       context 'with intermediates,' do
          before(:all) do
-            @yYAML1={ 'maestro_url' => 'url1' }
+            @yYAML1={ :maestro_url => 'url1' }
             @aArray1=[]
-            @aArray1[0]={ 'maestro_url' => 'url2' }
+            @aArray1[0]={ :maestro_url => 'url2' }
             @aArray1[1]=@yYAML1
             @aArray2=[]
             @aArray2[0] = @aArray1[1]
             @aArray2[1] = @aArray1[0]
+            @aArray3=[]
+            @aArray3[0] = { :hash_1 => { :maestro_url => 'url3'  }}
+            @aArray3[1] = { :hash_2 => { :keypair_name => 'nova' }}
+            @aArray4=[]
+            @aArray4[0] = { :hash_1 => { :keypair_name => 'nova' }}
+            @aArray4[1] = { :hash_2 => { :maestro_url => 'url4'  }}
          end
 
          it 'can get data from one hash' do
-            expect(@config.get('maestro_url', @yYAML1)).to eq('url1')
-            @config.set('maestro_url', 'runtime')
-            expect(@config.get('maestro_url', @yYAML1)).to eq('runtime')
+            expect(@config.get(:maestro_url, @yYAML1)).to eq('url1')
+            @config.set(:maestro_url, 'runtime')
+            expect(@config.get(:maestro_url, @yYAML1)).to eq('runtime')
          end
          
-         it 'can get data from several hashes' do
+         it 'can get data from array of hash' do
+            @config.set(:maestro_url, nil)
+            expect(@config.get(:maestro_url, @aArray1)).to eq('url2')
+            expect(@config.get(:maestro_url, @aArray2)).to eq('url1')
+         end
+         it 'can get data from array of hashes' do
             @config.set('maestro_url', nil)
-            expect(@config.get('maestro_url', @aArray1)).to eq('url2')
-            expect(@config.get('maestro_url', @aArray2)).to eq('url1')
+            expect(@config.exist?(:maestro_url, @aArray3)).to eq('hash_1')
+            expect(@config.exist?(:maestro_url, @aArray4)).to eq('hash_2')
+            expect(@config.get(:maestro_url, @aArray3)).to eq('url3')
+            expect(@config.get(:maestro_url, @aArray4)).to eq('url4')
          end
       end
    end

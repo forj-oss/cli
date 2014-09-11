@@ -38,7 +38,7 @@ module Boot
       branch, boothook, box_name, oConfig)
     begin
 
-      Logging.fatal(1, 'FORJ account not specified. Did you used `forj setup`, before?') if not oConfig.get('account_name')
+      Logging.fatal(1, 'FORJ account not specified. Did you used `forj setup`, before?') if not oConfig.get(:account_name)
 
       oForjAccount = ForjAccount.new(oConfig)
 
@@ -46,8 +46,8 @@ module Boot
 
 
       # Load Forj account data
-      forjAccountFile = File.join($FORJ_ACCOUNTS_PATH, oConfig.get('account_name'))
-      oConfig.ExtraLoad(forjAccountFile, :forj_accounts, oConfig.get('account_name'))
+      forjAccountFile = File.join($FORJ_ACCOUNTS_PATH, oConfig.get(:account_name))
+      oConfig.ExtraLoad(forjAccountFile, :forj_accounts, oConfig.get(:account_name))
 
       # Check options and set data
       cloud_provider = oForjAccount.getAccountData(:account, :provider, 'hpcloud')
@@ -60,9 +60,9 @@ module Boot
       Logging.high_level_msg(initial_msg) #################
 
       # Initialize defaults
-      maestro_url =  oConfig.get('maestro_url')
+      maestro_url =  oConfig.get(:maestro_url)
 
-      infra_dir = File.expand_path(oForjAccount.get('infra_repo'))
+      infra_dir = File.expand_path(oForjAccount.get(:infra_repo))
 
 
       # Check about infra repo compatibility with forj cli
@@ -84,7 +84,7 @@ module Boot
       yDNS = rhGet(oForjAccount.hAccountData, :dns)
       Logging.fatal(1, "DNS or domain name are missing. Please execute forj setup %s" % oForjAccount.getAccountData(:account, 'name')) if not yDNS
 
-      branch = oConfig.get('branch') unless branch
+      branch = oConfig.get(:branch) unless branch
 
       # Step Maestro Clone
       if not oForjAccount.get(:maestro_repo)
@@ -122,7 +122,7 @@ module Boot
 
       Logging.info('Configuring Security Group \'%s\'' % [oForjAccount.get('security_group')])
       security_group = SecurityGroup.get_or_create_security_group(oFC, oForjAccount.get('security_group'))
-      ports = oConfig.get('ports')
+      ports = oConfig.get(:ports)
 
       ports.each do |port|
         port = port.to_s if port.class != String
@@ -210,11 +210,11 @@ class BuildEnv
 
    def initialize(oConfig)
 
-      oConfig.fatal_if_inexistent('infra_repo')
-      oConfig.fatal_if_inexistent('account_name')
+      oConfig.fatal_if_inexistent(:infra_repo)
+      oConfig.fatal_if_inexistent(:account_name)
 
-      sBuildDir = File.expand_path(File.join(oConfig.get('infra_repo'),'build'))
-      @sBuildEnvFile = File.join(sBuildDir, oConfig.get('account_name')+'.build.env')
+      sBuildDir = File.expand_path(File.join(oConfig.get(:infra_repo),'build'))
+      @sBuildEnvFile = File.join(sBuildDir, oConfig.get(:account_name)+'.build.env')
       Helpers.ensure_dir_exists(sBuildDir)
       @yBuildEnvVar = {}
       @oConfig = oConfig

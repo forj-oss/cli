@@ -37,7 +37,7 @@ class ForjConnection
      Logging.fatal(1, 'Internal Error: Missing global $HPC_ACCOUNTS') if not $HPC_ACCOUNTS
      
      @oConfig = oConfig
-     @sAccountName = @oConfig.get('account_name')
+     @sAccountName = @oConfig.get(:account_name)
      @provider='HP' # TODO: Support multiple provider. (Generic Provider object required)
      @sAccountName = @oConfig.get(:provider) if not @sAccountName
      @sAccountName = 'hpcloud' if not @sAccountName

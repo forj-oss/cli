@@ -125,7 +125,7 @@ module Repositories
 
             # SET_DOMAIN="{SET_DOMAIN!}" => Setting for Maestro (required) and DNS if enabled. 
             # ==> :forj_accounts, sAccountName, :dns, :domain_name
-            sAccountName = oConfig.get('account_name')
+            sAccountName = oConfig.get(:account_name)
 
             yDns = {}
             yDns = oConfig.ExtraGet(:forj_accounts, sAccountName, :dns) if oConfig.ExtraExist?(:forj_accounts, sAccountName, :dns)

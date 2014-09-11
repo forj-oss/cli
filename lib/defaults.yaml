@@ -12,82 +12,82 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-default:
-  maestro_url: https://github.com/forj-oss/maestro.git
+:default:
+  :maestro_url: https://github.com/forj-oss/maestro.git
 
   # Default Infra repository to use. If missing, it will be proposed to be created.
-  infra_repo: ~/.forj/infra
+  :infra_repo: ~/.forj/infra
 
   # You can set proto2b in your ~/.forj/config.yaml if you built it from maestro/build. Read the maestro/README.md to create it.
-  image: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
+  :image: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
 
   # Flavor to use for Maestro
-  flavor: standard.medium
+  :flavor: standard.medium
   # Default flavor to use for all Blueprint nodes.
-  bp_flavor: standard.small
+  :bp_flavor: standard.small
 
   # Ports to open for Maestro, added to the security group
-  security_group: forj
-  ports: [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
+  :security_group: forj
+  :ports: [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
 
   # Private key file path. Those files (private/public key) will be added to ~/.forj/keypairs/ as respectively 'keypair_name' and 'keypair_name'.pub
-  keypair_path: ~/.ssh/forj-id_rsa
-  keypair_name: forj
+  :keypair_path: ~/.ssh/forj-id_rsa
+  :keypair_name: forj
 
   # Network: If network doesn't exist, forj cli will try to create it, and attach it a router.
-  network: forj
+  :network: forj
 
   # build.sh internal variables.
-  build_config: box
-  branch: master
-  box_name: maestro
+  :build_config: box
+  :branch: master
+  :box_name: maestro
 :description:
   # Description of build.sh environment variable defined by forj cli for build.sh. (~/.forj/infra/build/<Account>.build.env)
-  FORJ_HPC:             "HPCloud cli Account used to build your Maestro box"
-  FORJ_HPC_COMPUTE:     "HPCloud Compute service (like region-b.geo-1) used to run your Maestro Box"
-  FORJ_TENANT_NAME:     "HPCloud Tenant name used build your <Blueprint> nodes"
-  FORJ_HPC_NET:         "HPCloud Network name to use, while booting all boxes."
-  FORJ_KEYPAIR:         "Keypair used to access boxes."
-  FORJ_SECURITY_GROUP:  "Security group associated to each box"
-  FORJ_HPC_NOVA_KEYPUB: "Public key used by build.sh to ensure his existence on HPCloud"
-  FORJ_BASE_IMG:        "Base image used to build all boxes"
-  FORJ_FLAVOR:          "Flavor used to build Maestro"
+  :FORJ_HPC:             "HPCloud cli Account used to build your Maestro box"
+  :FORJ_HPC_COMPUTE:     "HPCloud Compute service (like region-b.geo-1) used to run your Maestro Box"
+  :FORJ_TENANT_NAME:     "HPCloud Tenant name used build your <Blueprint> nodes"
+  :FORJ_HPC_NET:         "HPCloud Network name to use, while booting all boxes."
+  :FORJ_KEYPAIR:         "Keypair used to access boxes."
+  :FORJ_SECURITY_GROUP:  "Security group associated to each box"
+  :FORJ_HPC_NOVA_KEYPUB: "Public key used by build.sh to ensure his existence on HPCloud"
+  :FORJ_BASE_IMG:        "Base image used to build all boxes"
+  :FORJ_FLAVOR:          "Flavor used to build Maestro"
   # DNS specific data
-  FORJ_DNS_TENANTID:    "HPCloud Project ID to use to create DNS entries for each boxes."
-  FORJ_DNS_ZONE:        "HPCloud Domain name service to use for each boxes DNS entries. (Ex: region-a.geo-1)"
-  FORJ_DNS_DOMAIN:      "Domain used for DNS. Each server will be attached to a public IP. An 'A' record in the DNS service will need to be added to your HPCloud DOMAIN."
+  :FORJ_DNS_TENANTID:    "HPCloud Project ID to use to create DNS entries for each boxes."
+  :FORJ_DNS_ZONE:        "HPCloud Domain name service to use for each boxes DNS entries. (Ex: region-a.geo-1)"
+  :FORJ_DNS_DOMAIN:      "Domain used for DNS. Each server will be attached to a public IP. An 'A' record in the DNS service will need to be added to your HPCloud DOMAIN."
 
 # Use by Object ForjAccount, function get, to identify the section name in ~/.forj/accounts/YourAccount. We can set those variables with 'forj set key=value [-a account]'
 :account_section_mapping:
-  security_group:
+  :security_group:
     :section:     :maestro
     :desc:        "Security group name to configure and attach to each forge boxes."
 
-  image:
+  :image:
     :section:    :maestro
     :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
 
-  flavor:
+  :flavor:
     :section:    :maestro
     :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
 
-  bp_flavor:
+  :bp_flavor:
     :section:    :maestro
     :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
 
-  build_config:
+  :build_config:
     :section:    :maestro
     :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
 
-  box_name:
+  :box_name:
     :section:    :maestro
     :desc:       "forj cli use 'build.sh' to create Maestro. See box_name option on build.sh to get more information. By default 'maestro'"
 
-  keypair_name:
+  :keypair_name:
     :section:    :credentials
     :desc:       "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
 
-  keypair_path:
+  :keypair_path:
     :section:    :credentials
     :desc:       "public key file to send to the cloud under keypair name, and private key to keep on your local forj environment to access your boxes."
 

@@ -155,7 +155,7 @@ Maestro/infra bootstrap debugging:"
             Logging.warning("%s -a '%s'` instead." % [msg, old_accountname])
          end
          name = old_name
-         oConfig.set('account_name', old_accountname)
+         oConfig.set(:account_name, old_accountname)
       else
          name = on_or_name
       end
@@ -163,15 +163,15 @@ Maestro/infra bootstrap debugging:"
       Logging.fatal( 1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not (/^[\d[[:lower:]]-]+$/ =~ name)
 
       # Options are added if they are set. Otherwise, get will retrieve the default value.
-      oConfig.set('account_name',   options[:account_name]) if options[:account_name]
-      oConfig.set('infra_repo',     options[:infra])
-      oConfig.set('keypair_name',   options[:key_name])
-      oConfig.set('keypair_path',   options[:key_path])
-      oConfig.set('security_group', options[:security_group])
-      oConfig.set('image',          options[:image])
-      oConfig.set('flavor',         options[:maestro_flavor])
-      oConfig.set('bp_flavor',      options[:bp_flavor])
-      oConfig.set(:maestro_repo ,   options[:maestro_repo])
+      oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
+      oConfig.set(:infra_repo,     options[:infra])
+      oConfig.set(:keypair_name,   options[:key_name])
+      oConfig.set(:keypair_path,   options[:key_path])
+      oConfig.set(:security_group, options[:security_group])
+      oConfig.set(:image,          options[:image])
+      oConfig.set(:flavor,         options[:maestro_flavor])
+      oConfig.set(:bp_flavor,      options[:bp_flavor])
+      oConfig.set(:maestro_repo ,  options[:maestro_repo])
       oConfig.set(:test_box, File.expand_path(options[:test_box])) if options[:test_box] and File.directory?(File.expand_path(options[:test_box]))
 
 
@@ -182,7 +182,7 @@ Maestro/infra bootstrap debugging:"
             if mFound[2] and not File.exists?(File.expand_path(mFound[1]+mFound[2]))
                Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
             end
-            oConfig.set('keypair_path', key_path)
+            oConfig.set(:keypair_path, key_path)
          else
             Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
          end
@@ -220,7 +220,7 @@ queriable Objects:
                oAccounts = ForjAccounts.new()
                puts oAccounts.dump().to_yaml
             else
-               oConfig.set('account_name', name)
+               oConfig.set(:account_name, name)
                oAccount = ForjAccount.new(oConfig)
                oAccount.ac_load()
 
@@ -312,7 +312,7 @@ Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. D
                puts "Updated:\n%s: %s => %s" % [mkey_val[1], sBef, sAft]
             else
                account_name = options[:account_name]
-               oConfig.set('account_name', account_name)
+               oConfig.set(:account_name, account_name)
                oForjAccount = ForjAccount.new(oConfig)
                oForjAccount.ac_load()
                if oForjAccount.exist?(mkey_val[1])
@@ -372,7 +372,7 @@ Ex: To get the keypair_name defined from the account, or from your ~/.forj/confi
             if oConfig.exist?(key)
                puts "%s:'%s'" % [oConfig.exist?(key), oConfig.get(key)]
             else
-               Logging.message("key '%s' not found"% [key])
+               Logging.message("key '%s' not found" % [key])
             end
          else
             puts "legend: default = Application defaults, local = Local default config\n\n" % [options[:account_name], options[:account_name]]
@@ -389,12 +389,15 @@ Ex: To get the keypair_name defined from the account, or from your ~/.forj/confi
          end
          puts "\nUse 'forj set <key>=<value>' to update defaults"
       else
-         oConfig.set('account_name', options[:account_name])
+         oConfig.set(:account_name, options[:account_name])
          oForjAccount = ForjAccount.new(oConfig)
          Logging.fatal(1, "Unable to load account '%s'. Not found." % options[:account_name]) if not oForjAccount.ac_load
          if key
             if oForjAccount.exist?(key)
                puts "%s: '%s'" % [oForjAccount.exist?(key).sub("hash", options[:account_name]), oForjAccount.get(key)]
+            elsif oForjAccount.exist?(key.parameterize.underscore.to_sym)
+               key_symb = key.parameterize.underscore.to_sym
+               puts "%s: '%s'" % [oForjAccount.exist?(key_symb).sub("hash", options[:account_name]), oForjAccount.get(key_symb)]
             else
                Logging.message("key '%s' not found"% [key])
             end
@@ -454,10 +457,10 @@ Several data will be requested like:
     Logging.set_level(Logger::INFO)  if options[:verbose]
     Logging.set_level(Logger::DEBUG) if options[:debug]
     oConfig=ForjConfig.new(options[:config])
-    oConfig.set('provider', sProvider)
-    oConfig.set('account_name', sAccountName)
-    oConfig.set('keypair_path', options[:keypair_path]) if options[:keypair_path]
-    oConfig.set('keypair_name', options[:keypair_name]) if options[:keypair_name]
+    oConfig.set(:provider, sProvider)
+    oConfig.set(:account_name, sAccountName)
+    oConfig.set(:keypair_path, options[:keypair_path]) if options[:keypair_path]
+    oConfig.set(:keypair_name, options[:keypair_name]) if options[:keypair_name]
     Setup.setup(oConfig)
   end
 

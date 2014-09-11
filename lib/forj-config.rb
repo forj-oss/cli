@@ -44,11 +44,13 @@ class ForjDefault
       @yDefaults=YAML.load_file(@sDefaultsName)
    end
 
-   def exist?(key, section = 'default')
+   def exist?(key, section = :default)
+      key = key.to_sym if key.class == String
       (rhExist?(@yDefaults, section, key) == 2)
    end
 
-   def get(key, section = 'default')
+   def get(key, section = :default)
+      key = key.to_sym if key.class == String
       return(rhGet(@yDefaults, section, key)) if key
       rhGet(@yDefaults, section) if not key
    end
@@ -76,12 +78,12 @@ class ForjConfig
       # Build a config hash.
 
       res = {}
-      @oDefaults.dump['default'].each_key { |key|
+      @oDefaults.dump[:default].each_key { |key|
          dump_key = exist?(key)
          rhSet(res, get(key), dump_key, key)
          }
-      if rhExist?(@yLocal, 'default') == 1
-         @yLocal['default'].each_key { |key|
+      if rhExist?(@yLocal, :default) == 1
+         @yLocal[:default].each_key { |key|
          dump_key = exist?(key)
          rhSet(res, get(key), dump_key, key) if rhExist?(res, dump_key, key) != 2
          }
@@ -136,8 +138,13 @@ class ForjConfig
 
       if File.exists?(@sConfigName)
          @yLocal = YAML.load_file(@sConfigName)
+         if rhKeyToSymbol?(@yLocal, 2)
+            @yLocal = rhKeyToSymbol(@yLocal, 2) 
+            self.SaveConfig()
+         end
+
       else
-         @yLocal = { 'default' => nil }
+         @yLocal = { :default => nil }
          # Write the empty file
          Logging.info('Creating your default configuration file ...')
          self.SaveConfig()
@@ -187,6 +194,8 @@ class ForjConfig
    def ExtraExist?(section, name, key = nil)
       return nil if not section or not name
 
+      key = key.to_sym if key.class == String
+
       return(rhExist?(@yObjConfig, section, name) == 2) if not key
       return(rhExist?(@yObjConfig, section, name, key) == 3)
    end
@@ -194,13 +203,15 @@ class ForjConfig
    def ExtraGet(section, name, key = nil, default = nil)
       return nil if not section or not name
 
+      key = key.to_sym if key.class == String
       return default unless ExtraExist?(section, name, key)
       return rhGet(@yObjConfig, section, name, key) if key
       rhGet(@yObjConfig, section, name)
    end
 
    def ExtraSet(section, name, key, value)
-      if key
+     key = key.to_sym if key.class == String
+     if key
          rhSet(@yObjConfig, value, section, name, key)
       else
          rhSet(@yObjConfig, value, section, name)
@@ -211,9 +222,10 @@ class ForjConfig
       # Function to set a runtime key/value, but remove it if value is nil.
       # To set in config.yaml, use LocalSet
       # To set on extra data, like account information, use ExtraSet
-      if not key
-         return false
-      end
+      
+      key = key.to_sym if key.class == String
+      return false if key.class != Symbol
+
       if value
          rhSet(@yRuntime, value, key)
       else
@@ -223,21 +235,28 @@ class ForjConfig
    end
 
    def get(key, interms = nil, default = nil)
+   
+      key = key.to_sym if key.class == String
+      return nil if key.class != Symbol
       # If key is in runtime
       return rhGet(@yRuntime, key) if rhExist?(@yRuntime, key) == 1
       # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
       if interms
          if interms.instance_of? Hash
             return rhGet(interms, key) if rhExist?(interms, key) == 1
-         elsif interms.instance_of? Array # Array of hash
+         elsif interms.instance_of? Array # Array of hashes
             iCount=0
+            oVal = nil
             interms.each { | elem |
                if elem.class == Hash
-                  oVal = nil
                   elem.each { | hashkey, value |
-                     if value.class == Hash and rhExist?(elem, hashkey, key) == 2
-                        oVal = rhGet?(elem, hashkey, key)
+                     if value.class == Hash and rhExist?(elem, hashkey, key) == 2 # hash of hash
+                        oVal = rhGet(elem, hashkey, key)
                         break
+                     elsif value.class != Hash and rhExist?(elem, hashkey) == 1 # single hash: key = value.
+                        oVal = rhGet(elem, hashkey)
+                        break
+
                      end
                      }
                   break if oVal
@@ -256,10 +275,15 @@ class ForjConfig
    end
 
    def getAppDefault(section, key = nil)
+
+      key = key.to_sym if key.class == String
+
       @oDefaults.get(key, section)
    end
 
    def exist?(key, interms = nil)
+      key = key.to_sym if key.class == String
+
       # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
       return "runtime" if rhExist?(@yRuntime, key) == 1
       if interms
@@ -267,10 +291,11 @@ class ForjConfig
             return 'hash' if rhExist?(interms, key) == 1
          elsif interms.instance_of? Array # Array of hash
             iCount = 0
-            Array.each { | elem |
+            interms.each { | elem |
                if elem.class == Hash
                   elem.each { | hashkey, value |
                      return ("%s" % hashkey)  if value.class == Hash and rhExist?(elem, hashkey, key) == 2
+                     return ("hash[%s]" % iCount)  if value.class != Hash and rhExist?(elem, hashkey) == 1
                      }
                end
                iCount += 1
@@ -287,12 +312,15 @@ class ForjConfig
       LocalExist?(key)
    end
 
-   def LocalExist?(key, section = 'default')
+   def LocalExist?(key, section = :default)
+
+      key = key.to_sym if key.class == String
       return true if rhExist?(@yLocal, section, key) == 2
       false
    end
 
-   def LocalSet(key, value, section = 'default')
+   def LocalSet(key, value, section = :default)
+     key = key.to_sym if key.class == String
      if not key or not value
         return false
      end
@@ -307,12 +335,15 @@ class ForjConfig
      return true
    end
 
-   def LocalGet(key, section = 'default', default = nil)
+   def LocalGet(key, section = :default, default = nil)
+     key = key.to_sym if key.class == String
+
      return default if rhExist?(@yLocal, section, key) != 2
      rhGet(@yLocal, section, key)
    end
 
-   def LocalDel(key, section = 'default')
+   def LocalDel(key, section = :default)
+     key = key.to_sym if key.class == String
      if not key
         return false
      end
@@ -367,10 +398,18 @@ def rhSet(yVal, value, *p)
    p=p.flatten
    if p.length() == 1
       if yVal
-         yVal[p[0]] = value
+         if value
+            yVal[p[0]] = value
+         else
+            yVal.delete(p[0])
+         end
          return yVal
       end
-      ret = { p[0] => value }
+      if value
+         ret = { p[0] => value }
+      else
+         ret = {}
+      end
       return ret
    end
    if yVal
@@ -381,4 +420,39 @@ def rhSet(yVal, value, *p)
       ret = rhSet(nil, value, p.drop(1))
       return { p[0] => ret }
    end
+end
+
+def rhKeyToSymbol(yVal, levels = 1)
+   return nil if not yVal
+   yRes = {}
+   yVal.each { | key, value |
+   if key.class == String
+      if levels <= 1
+         yRes[key.to_sym] = value
+      else
+         yRes[key.to_sym] = rhKeyToSymbol(value, levels - 1)
+      end
+   else
+      if levels <= 1
+         yRes[key] = value
+      else
+         yRes[key] = rhKeyToSymbol(value, levels - 1)
+      end
+   end
+   }
+   yRes
+end
+
+def rhKeyToSymbol?(yVal, levels = 1)
+   return false if not yVal
+   yVal.each { | key, value |
+   if key.class == String
+      return true
+   end
+   if levels >1
+      res = rhKeyToSymbol?(value, levels - 1)
+      return true if res
+   end
+   }
+   false
 end
