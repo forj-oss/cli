@@ -16,28 +16,32 @@
 #    limitations under the License.
 
 require 'rubygems'
-require 'require_relative'
 
-#require_relative 'log.rb'
-#include Logging
-
+require 'security.rb'
+include SecurityGroup
 #
 # ssh module
 #
 module Ssh
-  def connect(name, server)
+  def connect(name, server, oConfig)
     msg = 'logging into %s : %s' % [name, server]
     Logging.info(msg)
-    current_dir = Dir.pwd
-    Dir.chdir(current_dir + '/lib')
 
-    update = './ssh.sh -u'
-    connection = './ssh.sh %s %s' % [name, server]
+	oForjAccount = ForjAccount.new(oConfig)
+
+	oForjAccount.ac_load()
+
+	oKey = SecurityGroup.keypair_detect(oForjAccount.get(:keypair_name), oForjAccount.get(:keypair_path))
+
+    update = '%s/ssh.sh -u %s' % [ $LIB_PATH, oConfig.get(:account_name)]
+    connection = '%s/ssh.sh %s %s %s' % [$LIB_PATH, name, server, File.join(oKey[:keypair_path],oKey[:private_key_name]) ]
 
     # update the list of servers
+    Logging.debug("Executing '%s'" % update)
     Kernel.system(update)
 
     # connect to the server
+    Logging.debug("Executing '%s'" % connection)
     Kernel.system(connection)
   end
 end

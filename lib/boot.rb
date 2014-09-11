@@ -34,8 +34,7 @@ include Helpers
 # Boot module
 #
 module Boot
-  def boot(blueprint, name, build, build_config,
-      branch, boothook, box_name, oConfig)
+  def boot(blueprint, name, build, branch, boothook, box_name, oConfig)
     begin
 
       Logging.fatal(1, 'FORJ account not specified. Did you used `forj setup`, before?') if not oConfig.get(:account_name)

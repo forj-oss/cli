@@ -20,8 +20,8 @@ GRE="\e[92m"
 #    limitations under the License.
 
 NOW=$(date +%Y-%m-%d.%H%M%S)
-logpath=~/.ssh/
-DB=~/hosts
+logpath=~/.forj/
+DB=~/.forj/hosts
 #key_path=~/.ssh/
 #key_path=~/.hpcloud/keypairs/
 init_config=~/ssh_init
@@ -96,7 +96,7 @@ if [ $1 == '-u' ]; then
 	sed -i '/^$/d' $DB
 	echo -e "\n#### Below list are updated" >> $DB
 
-	hpcloud servers | awk -F"\|" '{print $3","$6","$9","$7}' | awk -F, '{print $1$3$4$5}' >> $DB
+	hpcloud servers -a $2 | awk -F"\|" '{print $3","$6","$9","$7}' | awk -F, '{print $1$3$4$5}' >> $DB
 	echo -e "\033[1;32m$DB Updated\033[00m"
 	linenum=$(cat $DB | grep -E -n "#### Below list are updated" | awk -F: '{print $1}')
 	new_serversnum=$(tail -n +$linenum $DB | grep -E " .*\..* " | wc -l)
@@ -122,6 +122,7 @@ if [[ $1 =~ ([0-9]{1,3}\.){3}[0-9]{1,3} ]]; then
 else
 	id=$1
 	node=$2
+	key=$3
 
 	if [ "$node" == "" ]; then
 		echo -e "${RED}Error, no server name sent.$RST"
@@ -140,7 +141,7 @@ else
 		echo -e "${RED}Error, the kit ${GRE}$node${RED} with id ${GRE}$id${RED} was not found.${RST}"
 		exit 1
 	fi
-	key=$(cat $DB | grep -iEw "$ip" | awk '{print $4}' | tr -d ' ')
+	#key=$(cat $DB | grep -iEw "$ip" | awk '{print $4}' | tr -d ' ')
 	message="$node.$id"
 	extended="($ip)"
 
@@ -155,7 +156,7 @@ if [ "$node" != "" ]; then
 else
 	logname="$ip"
 fi
-key="$key_path$key.pem"
+#key="$key_path$key.pem"
 
 echo -e "Connecting to $GRE$message$RST using $BLU$key$RST $extended"
 
