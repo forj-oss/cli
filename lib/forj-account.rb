@@ -327,7 +327,7 @@ class ForjAccount
             if agree("The key you entered was not found. Do you want to create this one?")
                base_dir = File.dirname(keys_entered[:keypair_path])
                if File.directory?(base_dir)
-                  if agree("'%s' doesn't exist. Do you want to create it?")
+                  if agree("'%s' doesn't exist. Do you want to create it?" % base_dir)
                      ensure_forj_dirs_exists(base_dir)
                   end
                end
