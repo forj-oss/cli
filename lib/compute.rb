@@ -16,7 +16,6 @@
 #    limitations under the License.
 
 require 'rubygems'
-require 'require_relative'
 
 #
 # compute module
@@ -24,10 +23,14 @@ require 'require_relative'
 module Compute
   def delete_forge(oFC, name)
     instances = oFC.oCompute.servers.all(:name => name)
+    iCount = 0
     instances.each do|instance|
       # make sure we don't delete another forge because fog filters
       # the name in a "like syntax" way
+      Logging.debug("Removing '%s'" % [instance.id])
       oFC.oCompute.servers.get(instance.id).destroy
+      iCount += 1
     end
+	Logging.message("Forge: %s - %d servers removed" % [name, iCount])
   end
 end

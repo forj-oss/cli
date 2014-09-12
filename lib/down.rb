@@ -35,21 +35,23 @@ include Compute
 # Down module
 #
 module Down
-  def down(oFC, name)
+  def down(oConfig, name)
     begin
 
       initial_msg = 'deleting forge "%s"' % [name]
       Logging.info(initial_msg)
 
-      Compute.delete_forge(name)
+      oFC=ForjConnection.new(oConfig)
 
-      router = Network.get_router(oFC, 'private-ext')
-      subnet = Network.get_subnet(oFC, name)
-      Network.delete_router_interface(subnet.id, router)
+      Compute.delete_forge(oFC, name)
 
-      Network.delete_subnet(oFC, subnet.id)
-      network = Network.get_network(oFC, name)
-      Network.delete_network(oFC, network.name)
+      #~ router = Network.get_router(oFC, 'private-ext')
+      #~ subnet = Network.get_subnet(oFC, name)
+      #~ Network.delete_router_interface(subnet.id, router)
+#~ 
+      #~ Network.delete_subnet(oFC, subnet.id)
+      #~ network = Network.get_network(oFC, name)
+      #~ Network.delete_network(oFC, network.name)
 
     rescue SystemExit, Interrupt
       Logging.error('process interrupted by user')

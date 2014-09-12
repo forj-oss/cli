@@ -187,8 +187,7 @@ Maestro/infra bootstrap debugging:"
          end
       end
 
-      Boot.boot(blueprint, name, options[:build],
-                options[:build_config], options[:branch],
+      Boot.boot(blueprint, name, options[:build],options[:branch],
                 options[:boothook], options[:box_name], oConfig)
   end
 
@@ -235,16 +234,21 @@ queriable Objects:
    end
 
 ################################# DOWN
-  desc 'down', 'delete the Maestro box and all systems installed by the blueprint'
-  long_desc <<-LONGDESC
-  Not yet implemented
-  LONGDESC
+   desc 'down <InstanceName>', 'delete the Maestro box and all systems installed by the blueprint'
+   long_desc <<-LONGDESC
+This action all servers that has been created under the instance name.
 
-  def down(name)
+Warning! This action don't removed any network/security groups cloud object.
+   LONGDESC
+
+   def down(name)
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
-      Down.down(name)
-  end
+      oConfig = ForjConfig.new(options[:config])
+      oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
+
+      Down.down(oConfig, name)
+   end
 
 ################################# SET
   desc 'set [key=value] [options]', 'Set some variables in defaults or account.'
@@ -427,8 +431,8 @@ ex: forj ssh myforge review
   def ssh(name, server)
     Logging.set_level(Logger::INFO) if options[:verbose]
     Logging.set_level(Logger::DEBUG) if options[:debug]
-	oConfig = ForjConfig.new(options[:config])
-	oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
+   oConfig = ForjConfig.new(options[:config])
+   oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
     Ssh.connect(name, server, oConfig)
   end
 
