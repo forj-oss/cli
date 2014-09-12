@@ -316,6 +316,13 @@ class ForjAccount
       orig_key_path = File.expand_path(@oConfig.get(:keypair_path, yCreds))
 
       Logging.warning("'keypair_path' is missing at least from defaults.yaml. To fix it, set it in your configuration file ~/.forj/config.yaml under default section") if not orig_key_path
+
+      key_name = ask ("Please provide the keypair name used by default on this account:") do | q |
+         q.default = key_name
+         q.validate = /.*+/
+      end
+      key_name = key_name.to_s
+
       key_path = nil
       while not key_path
          key_path = ask ("Please provide the SSH private key path used by default on this account:") do | q |
@@ -325,10 +332,10 @@ class ForjAccount
          keys_entered = keypair_detect(key_name, key_path)
          if not keys_entered[:private_key_exist?] and not keys_entered[:public_key_exist?]
             if agree("The key you entered was not found. Do you want to create this one?")
-               base_dir = File.dirname(keys_entered[:keypair_path])
-               if File.directory?(base_dir)
+               base_dir = keys_entered[:keypair_path]
+               if not File.directory?(base_dir)
                   if agree("'%s' doesn't exist. Do you want to create it?" % base_dir)
-                     ensure_forj_dirs_exists(base_dir)
+                     Helpers.ensure_dir_exists(base_dir)
                   end
                end
             else
@@ -344,11 +351,6 @@ class ForjAccount
          key_name = nil
       end
 
-      key_name = ask ("Please provide the keypair name used by default on this account:") do | q |
-         q.default = key_name
-         q.validate = /.*+/
-      end
-      key_name = key_name.to_s
 
       keys = keypair_detect(key_name, key_path)
 
@@ -362,7 +364,7 @@ class ForjAccount
       # Creation sequences
       if not keys[:private_key_exist?]
          # Need to create a key. ask if we need so.
-         Logging.message("Private key file '%s' was not found. forj will propose to create one for you. Please review the proposed private key file name and path.\nYou can press Enter to accept the default value." % keys[:private_key_path])
+         Logging.message("The private key file attached to keypair named '%s'  is not found. forj will propose to create one for you. Please review the proposed private key file name and path.\nYou can press Enter to accept the default value." % keys[:keypair_name])
          real_key_path = File.expand_path(ask("Private key file path:") do |q|
             q.validate = /\w+/
             q.default = private_key_file
