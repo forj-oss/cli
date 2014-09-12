@@ -91,7 +91,7 @@ module Boot
          Repositories.clone_repo(maestro_url)
          maestro_repo=File.expand_path('~/.forj/maestro')
       else
-         maestro_repo=File.expand_path(oConfig.get(:maestro_repo))
+         maestro_repo=File.expand_path(oForjAccount.get(:maestro_repo))
          if not File.exists?('%s/templates/infra/maestro.box.%s.env' % [maestro_repo, branch])
             Logging.fatal(1, "'%s' is not a recognized Maestro repository. forj cli searched for templates/infra/%s-maestro.box.GITBRANCH.env.tmpl" % [maestro_repo, cloud_provider])
          end
