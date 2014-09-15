@@ -173,7 +173,7 @@ module SecurityGroup
   def hpc_import_key(oForjAccount)
 
     keys = keypair_detect(oForjAccount.get('keypair_name'), oForjAccount.get('keypair_path'))
-    account = oForjAccount.get(:name)
+    account = oForjAccount.getAccountData(:account, :name)
 
     Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not keys[:keypair_path]
     Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not keys[:keypair_name]

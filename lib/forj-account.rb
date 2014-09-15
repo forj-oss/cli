@@ -81,7 +81,11 @@ class ForjAccount
       key = key.to_sym if key.class == String
       section = rhGet(@oConfig.getAppDefault(:account_section_mapping, key), :section)
       yInterm = nil
-      yInterm = rhGet(@hAccountData, section) if section
+      if section
+         yInterm = rhGet(@hAccountData, section)
+      else
+         Logging.debug("ForjAccount.get: No section found for key '%s'." % [key])
+      end
       @oConfig.get(key, yInterm , default )
    end
 
