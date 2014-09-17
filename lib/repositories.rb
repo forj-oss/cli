@@ -67,7 +67,7 @@ module Repositories
          Logging.debug("Cleaning up '%s'" % [infra])
          FileUtils.rm_r(infra)
       end
-      Helpers.ensure_dir_exists(dest_cloud_init)
+      AppInit.ensure_dir_exists(dest_cloud_init)
       Logging.debug("Copying recursively '%s' to '%s'" % [cloud_init, infra])
       FileUtils.copy_entry(cloud_init, dest_cloud_init)
 

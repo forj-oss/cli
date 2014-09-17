@@ -41,6 +41,8 @@
   :build_config: box
   :branch: master
   :box_name: maestro
+  
+  :provider_name: hpcloud
 :description:
   # Description of build.sh environment variable defined by forj cli for build.sh. (~/.forj/infra/build/<Account>.build.env)
   :FORJ_HPC:             "HPCloud cli Account used to build your Maestro box"
@@ -57,64 +59,95 @@
   :FORJ_DNS_ZONE:        "HPCloud Domain name service to use for each boxes DNS entries. (Ex: region-a.geo-1)"
   :FORJ_DNS_DOMAIN:      "Domain used for DNS. Each server will be attached to a public IP. An 'A' record in the DNS service will need to be added to your HPCloud DOMAIN."
 
-# Use by Object ForjAccount, function get, to identify the section name in ~/.forj/accounts/YourAccount. We can set those variables with 'forj set key=value [-a account]'
-:account_section_mapping:
-  :security_group:
-    :section:     :maestro
-    :desc:        "Security group name to configure and attach to each forge boxes."
+# Following declares generic FORJ data to handle Fog object (compute/network/dns/...)
+# It defines the account file structure. section/key=value
+# All data can be predefined by default value (config.yaml/defaults.yaml) except 
+# those identified by :account_exclusive: true
+:sections:
+  # This section define updatable data available from config.yaml. But will never be added in an account file.
+  # Used by forj set/get functions
+  :default:
+    :account_name:
+      :desc:              "Default account name used by forj cli"
+    :provider_name:
+      :desc:              "Default provider name while running forj setup. By default, hpcloud is selected."
+  # Defines account credentials data
+  :account:
+    :name:
+      :desc:              "Name of the Forj cli account. use forj account rename <oldName> <NewName> to update it."
+      :readonly:          true
+      :account_exclusive: true
+    :provider:
+      :desc:              "Provider name attached to the forj cli account. To update it, use forj setup."
+      :readonly:          true
+      :account_exclusive: true
+      :default:           :provider_name
 
-  :image:
-    :section:    :maestro
-    :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
+  # Defines services
+  :services:
+    :compute:
+      :desc:              "Generic service identification for compute"
+      :account_exclusive: true
+    :network:
+      :desc:              "Generic service identification for network"
+      :account_exclusive: true
 
-  :flavor:
-    :section:    :maestro
-    :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
+  # Defines ssh keys credentials
+  :credentials:
+    :keypair_path:
+      :desc:              "public key file to send to the cloud under keypair name, and private key to keep on your local forj environment to access your boxes."
+    :keypair_name:
+      :desc:              "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
+    :account_id:
+      :desc:              "Generic Cloud Account name."
+      :account_exclusive: true
+    :account_key:
+      :desc:              "Generic cloud account key"
+      :account_exclusive: true
+    :auth_uri:
+      :desc:              "Generic service auth url"
+      :account_exclusive: true
+    :tenant:
+      :desc:             "Generic Tenant identification"
+      :account_exclusive: true
+    :os_user:
+      :desc:              "User name required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
+      :account_exclusive: true
+    :os_enckey:
+      :desc:              "Encrypted password required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
+      :account_exclusive: true
+      
+  # Defines DNS services for maestro
+  :dns:
+    :service:
+      :desc:       "DNS service region name Maestro will use."
+      :account_exclusive: true
+    :tenant_id:
+      :desc:       "DNS Tenant ID Maestro will use"
+      :account_exclusive: true
+    :domain_name:
+      :desc:       "Domain name added to each hosts."
+      :account_exclusive: true
 
-  :bp_flavor:
-    :section:    :maestro
-    :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
-
-  :build_config:
-    :section:    :maestro
-    :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
-
-  :box_name:
-    :section:    :maestro
-    :desc:       "forj cli use 'build.sh' to create Maestro. See box_name option on build.sh to get more information. By default 'maestro'"
-
-  :keypair_name:
-    :section:    :credentials
-    :desc:       "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
-
-  :keypair_path:
-    :section:    :credentials
-    :desc:       "public key file to send to the cloud under keypair name, and private key to keep on your local forj environment to access your boxes."
-
-  :tenant_name:
-    :section:    :compute
-    :desc:       "Tenant name required by fog/openstack on gardener"
-
-  :domain_name:
-    :section:    :dns
-    :desc:       "Domain name added to each hosts."
-
-  :tenant_id:
-    :section:    :dns
-    :desc:       "DNS Tenant ID Maestro will use"
-
-  :service:
-    :section:    :dns
-    :desc:       "DNS service region name Maestro will use."
-
-  :network:
-    :section:    :network
-    :desc:       "Network name to attach to each forge boxes. By default we use 'private'. If it doesn't exist, it will be created."
-    
-  :infra_repo:
-    :section:    :maestro
-    :desc:       "Defines your Infra directory to use while booting."
-  
-  :maestro_repo:
-    :section:    :maestro
-    :desc:       "To use a different Maestro repository already cloned."
+  :maestro:
+    :tenant_name:
+      :desc:       "Tenant name required by fog/openstack on gardener"
+    :network_name:
+      :desc:       "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
+      :default:    network
+    :security_group:
+      :desc:        "Security group name to configure and attach to each forge boxes."
+    :maestro_repo:
+      :desc:       "To use a different Maestro repository already cloned."
+    :infra_repo:
+      :desc:       "Defines your Infra directory to use while booting."
+    :box_name:
+      :desc:       "forj cli use 'build.sh' to create Maestro. See box_name option on build.sh to get more information. By default 'maestro'"
+    :build_config:
+      :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
+    :bp_flavor:
+      :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
+    :flavor:
+      :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
+    :image: 
+      :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"

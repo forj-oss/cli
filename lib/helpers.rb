@@ -51,10 +51,6 @@ module Helpers
     false
   end
   
-  def ensure_dir_exists(path)
-    if not dir_exists?(path)
-       FileUtils.mkpath(path) if not File.directory?(path)
-    end
-  end
+
   
 end
