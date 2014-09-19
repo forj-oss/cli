@@ -434,12 +434,15 @@ class ForjAccount
          q.default = forj_user if forj_user
       end
 
-
       # Checking key file used to encrypt/decrypt passwords
       key_file = File.join($FORJ_CREDS_PATH, '.key')
       if not File.exists?(key_file)
          # Need to create a random key.
-         entr = { :key => rand(36**10).to_s(36), :salt => Time.now.to_i.to_s, :iv => OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv}
+         entr = {
+            :key => rand(36**10).to_s(36),
+            :salt => Time.now.to_i.to_s,
+            :iv => Base64::strict_encode64(OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv)
+         }
 
          Logging.debug("Writing '%s' key file" % key_file)
          File.open(key_file, 'w') do |out|
@@ -452,14 +455,20 @@ class ForjAccount
       end
 
       if enc_hpcloud_os_key
-         hpcloud_os_key_hidden = '*' * Encryptor.decrypt(
-             :value => Base64::strict_decode64(enc_hpcloud_os_key),
-             :key   => entr[:key],
-             :iv    => entr[:iv],
-             :salt  => entr[:salt]
+         begin
+            hpcloud_os_key_hidden = '*' * Encryptor.decrypt(
+               :value => Base64::strict_decode64(enc_hpcloud_os_key),
+               :key   => entr[:key],
+               :iv    => Base64::strict_decode64(entr[:iv]),
+               :salt  => entr[:salt]
             ).length
-         hpcloud_os_key_hidden="[%s]" % hpcloud_os_key_hidden
-         Logging.message("A password is already set for '%s'. If you want to keep it, just press Enter" %  [hpcloud_os_user])
+         rescue => e
+            Logging.error("Unable to decrypt your password. You will need to re-enter it.")
+            enc_hpcloud_os_key = ""
+         else
+            hpcloud_os_key_hidden="[%s]" % hpcloud_os_key_hidden
+            Logging.message("A password is already set for '%s'. If you want to keep it, just press Enter" %  [hpcloud_os_user])
+         end
       else
          hpcloud_os_key_hidden = ""
       end
@@ -471,12 +480,24 @@ class ForjAccount
             q.echo = '*'
          end
          if hpcloud_os_key == "" and enc_hpcloud_os_key
-            hpcloud_os_key = Encryptor.decrypt(:value => Base64::strict_decode64(enc_hpcloud_os_key), :key => entr[:key], :iv => entr[:iv], :salt => entr[:salt])
+            hpcloud_os_key = Encryptor.decrypt(
+               :value => Base64::strict_decode64(enc_hpcloud_os_key),
+               :key => entr[:key],
+               :iv => Base64::strict_decode64(entr[:iv]),
+               :salt => entr[:salt]
+            )
          else
             Logging.message("The password cannot be empty.") if hpcloud_os_key == ""
          end
       end
-      enc_hpcloud_os_key = Base64::strict_encode64(Encryptor.encrypt(:value => hpcloud_os_key, :key => entr[:key], :iv => entr[:iv], :salt => entr[:salt]))
+      enc_hpcloud_os_key = Base64::strict_encode64(
+         Encryptor.encrypt(
+            :value => hpcloud_os_key,
+            :key => entr[:key],
+            :iv => Base64::strict_decode64(entr[:iv]),
+            :salt => entr[:salt]
+         )
+      )
 
       cloud_fog = File.join($FORJ_CREDS_PATH, @sAccountName+'.g64')
 

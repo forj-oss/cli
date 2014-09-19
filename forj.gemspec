@@ -19,8 +19,8 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '0.0.42'
-  s.date        = '2014-09-12'
+  s.version     = '0.0.43'
+  s.date        = '2014-09-19'
   s.summary     = 'forj command line'
   s.description = 'forj cli - See https://www.forj.io for documentation/information'
 
