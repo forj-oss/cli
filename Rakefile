@@ -21,7 +21,7 @@ require 'rspec/core/rake_task'
 
 $stdout.sync = true
 $stderr.sync = true
-Bundler::GemHelper.install_task
+Bundler::GemHelper.install_tasks
 
 task :default => [:spec]
 
