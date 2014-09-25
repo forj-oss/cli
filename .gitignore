@@ -1,1 +1,6 @@
 Gemfile.lock
+
+## Directory-based project format
+.idea/
+*.swp
+.geanyprj

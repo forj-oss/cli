@@ -20,35 +20,31 @@ require 'spec_helper'
 
 require 'fog'
 
-require_relative '../lib/connection.rb'
-include Connection
+$APP_PATH = File.dirname(__FILE__)
+$LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
+$FORJ_DATA_PATH= File.expand_path('~/.forj')
 
-class TestClass
-end
+$LOAD_PATH << './lib'
 
-describe 'network' do
-  it 'is connecting to hpcloud' do
-    @test_class = TestClass.new
-    @test_class.extend(Connection)
+require 'forj-config.rb' # Load class ForjConfig
+require 'log.rb' # Load default loggers
+require 'connection.rb' # Load class ForjConnection
+require 'forj-account.rb'
 
-    Fog.mock!
+# Initialize forj paths
+ensure_forj_dirs_exists()
 
-    conn = @test_class.network
-    expect(conn).to be
+include Logging
 
-    Fog::Mock.reset
-  end
-end
+$FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
 
 
-describe 'compute' do
-  it 'is connecting to hpcloud' do
-    @test_class = TestClass.new
-    @test_class.extend(Connection)
+describe 'Module: forj-connection' do
+
+  it 'should connect to hpcloud (smoke test)' do
 
     Fog.mock!
-
-    conn = @test_class.compute
+    conn = ForjConnection.new(ForjConfig.new())
     expect(conn).to be
 
     Fog::Mock.reset

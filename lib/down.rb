@@ -24,38 +24,39 @@ require_relative 'yaml_parse.rb'
 include YamlParse
 require_relative 'security.rb'
 include SecurityGroup
+#require_relative 'log.rb'
+#include Logging
+require_relative 'ssh.rb'
+include Ssh
+require_relative 'compute.rb'
+include Compute
 
 #
 # Down module
 #
 module Down
-  def down(name)
+  def down(oConfig, name)
     begin
 
-      puts 'deleting %s...' % [name]
+      initial_msg = 'deleting forge "%s"' % [name]
+      Logging.info(initial_msg)
 
-      definitions = YamlParse::get_values('catalog.yaml')
+      oFC=ForjConnection.new(oConfig)
 
-      # get the subnet
-      subnet = Network::get_subnet(name)
+      Compute.delete_forge(oFC, name)
 
-      # delete the router interface
-      router = Network::get_router(definitions['redstone']['router'])
-      Network.delete_router_interface(subnet.id, router)
-
-      # delete subnet
-      Network.delete_subnet(subnet.id)
-
-      # delete security group
-      # Network.delete_security_group(security_group.id)
-
-      # delete network
-      Network.delete_network(name)
+      #~ router = Network.get_router(oFC, 'private-ext')
+      #~ subnet = Network.get_subnet(oFC, name)
+      #~ Network.delete_router_interface(subnet.id, router)
+#~ 
+      #~ Network.delete_subnet(oFC, subnet.id)
+      #~ network = Network.get_network(oFC, name)
+      #~ Network.delete_network(oFC, network.name)
 
     rescue SystemExit, Interrupt
-      puts 'process interrupted by user'
+      Logging.error('process interrupted by user')
     rescue Exception => e
-      puts e
+      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
   end
 end

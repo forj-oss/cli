@@ -17,8 +17,8 @@
 
 require 'rubygems'
 require 'yaml'
-require_relative 'log.rb'
-include Logging
+#require_relative 'log.rb'
+#include Logging
 
 #
 # YamlParse module
@@ -26,10 +26,20 @@ include Logging
 module YamlParse
   def get_values(path_to_yaml)
     begin
-      Logging.info('getting values from catalog.yaml, this will be a service catalog.forj.io')
+      Logging.info('getting values from defaults.yaml, this will be a service catalog.forj.io')
       YAML.load_file(path_to_yaml)
     rescue => e
-      Logging.error(e.message)
+      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
+    end
+  end
+
+  def dump_values(string, path)
+    begin
+      File.open(path, 'w') do |out|
+        YAML.dump(string, out)
+      end
+    rescue => e
+      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
   end
 end

@@ -14,3 +14,34 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+
+require 'rubygems'
+
+require 'security.rb'
+include SecurityGroup
+#
+# ssh module
+#
+module Ssh
+  def connect(name, server, oConfig)
+    msg = 'logging into %s : %s' % [name, server]
+    Logging.info(msg)
+
+	oForjAccount = ForjAccount.new(oConfig)
+
+	oForjAccount.ac_load()
+
+	oKey = SecurityGroup.keypair_detect(oForjAccount.get(:keypair_name), oForjAccount.get(:keypair_path))
+
+    update = '%s/ssh.sh -u %s' % [ $LIB_PATH, oConfig.get(:account_name)]
+    connection = '%s/ssh.sh %s %s %s' % [$LIB_PATH, name, server, File.join(oKey[:keypair_path],oKey[:private_key_name]) ]
+
+    # update the list of servers
+    Logging.debug("Executing '%s'" % update)
+    Kernel.system(update)
+
+    # connect to the server
+    Logging.debug("Executing '%s'" % connection)
+    Kernel.system(connection)
+  end
+end

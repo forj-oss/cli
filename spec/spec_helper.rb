@@ -5,7 +5,7 @@
 #
 # Given that it is always loaded, you are encouraged to keep this file as
 # light-weight as possible. Requiring heavyweight dependencies from this file
-# will add to the boot time of your test suite on EVERY test run, even for an
+# will add to the boot time of your test.rb suite on EVERY test.rb run, even for an
 # individual file that may not need all of that loaded. Instead, make a
 # separate helper file that requires this one and then use it only in the specs
 # that actually need it.
@@ -48,7 +48,7 @@ RSpec.configure do |config|
 
   # Seed global randomization in this process using the `--seed` CLI option.
   # Setting this allows you to use `--seed` to deterministically reproduce
-  # test failures related to randomization by passing the same `--seed` value
+  # test.rb failures related to randomization by passing the same `--seed` value
   # as the one that triggered the failure.
   Kernel.srand config.seed
 
@@ -62,7 +62,7 @@ RSpec.configure do |config|
     expectations.syntax = :expect
   end
 
-  # rspec-mocks config goes here. You can use an alternate test double
+  # rspec-mocks config goes here. You can use an alternate test.rb double
   # library (such as bogus or mocha) by changing the `mock_with` option here.
   config.mock_with :rspec do |mocks|
     # Enable only the newer, non-monkey-patching expect syntax.

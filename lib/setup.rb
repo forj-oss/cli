@@ -15,13 +15,29 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+require 'rubygems'
+
+
 #
 # Setup module call the hpcloud functions
 #
 module Setup
-  def setup
-    # delegate the initial configuration to hpcloud (unix_cli)
-    Kernel.system('hpcloud account:setup')
-    Kernel.system('hpcloud keypairs:add nova')
-  end
+   def setup(oConfig)
+
+      # TODO: Provide a way to re-edit all or partially elements set up by this function.
+      begin
+         oForjAccount = ForjAccount.new(oConfig)
+
+         oForjAccount.ac_load()
+         # TODO: Provide a way to update partially some account data.
+         oForjAccount.setup() # any kind of setup, ask from users.
+
+         oForjAccount.ac_save()
+
+      rescue RuntimeError => e
+         Logging.fatal(1,e.message)
+      rescue  => e
+         Logging.fatal(1,"Unable to run setup" , e)
+      end
+   end
 end

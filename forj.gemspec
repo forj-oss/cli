@@ -19,27 +19,31 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '0.0.26'
-  s.date        = '2014-06-12'
+  s.version     = '0.0.43'
+  s.date        = '2014-09-19'
   s.summary     = 'forj command line'
-  s.description = 'forj command line'
+  s.description = 'forj cli - See https://www.forj.io for documentation/information'
 
   s.authors     = ['forj team']
   s.email       = %w(forj@forj.io)
 
   s.executables = ['forj']
   s.files       = %w(bin/forj
+                     lib/compute.rb
                      lib/connection.rb
                      lib/network.rb
                      lib/security.rb
                      lib/yaml_parse.rb
-                     lib/catalog.yaml
+                     lib/defaults.yaml
                      lib/down.rb lib/boot.rb
                      lib/setup.rb
                      lib/repositories.rb
                      lib/ssh.rb
+                     lib/ssh.sh
                      lib/log.rb
                      lib/helpers.rb
+                     lib/forj-config.rb
+                     lib/forj-account.rb
                      spec/boot_spec.rb
                      spec/connection_spec.rb
                      spec/down_spec.rb
@@ -49,11 +53,10 @@ Gem::Specification.new do |s|
                      spec/spec_helper.rb
                      spec/ssh_spec.rb
                      spec/yaml_parse_spec.rb
+                     spec/forj-config_spec.rb
                      Rakefile
                      Gemfile
-                     README.md
-                     .rspec
-                     .rubocop.yml)
+                     README.md)
 
   s.homepage    = 'https://forj.io'
   s.license     = 'Apache License, Version 2.0.'
@@ -62,10 +65,14 @@ Gem::Specification.new do |s|
 
   s.bindir = 'bin'
 
-  s.add_runtime_dependency 'thor', '>=0.16.0'
+  s.add_runtime_dependency 'thor', '~>0.16.0'
   s.add_runtime_dependency 'nokogiri', '~>1.5.11'
   s.add_runtime_dependency 'fog', '~>1.19.0'
-  s.add_runtime_dependency 'hpcloud', '~>2.0.8'
+  s.add_runtime_dependency 'hpcloud', '~>2.0.9'
   s.add_runtime_dependency 'git', '>=1.2.7'
   s.add_runtime_dependency 'rbx-require-relative', '~>0.0.7'
+  s.add_runtime_dependency 'highline', '~> 1.6.21'
+  s.add_runtime_dependency 'ansi', '>= 1.4.3'
+  s.add_runtime_dependency 'encryptor', '1.3.0'
+
 end
