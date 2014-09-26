@@ -36,6 +36,7 @@ def rhExist?(yVal, *p)
       return 0
    end
    return 0 if yVal.nil? or not yVal.key?(p[0])
+   ret = 0
    ret = rhExist?(yVal[p[0]], p.drop(1)) if yVal[p[0]].class == Hash
    return 1 + ret
 end

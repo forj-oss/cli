@@ -151,3 +151,5 @@
       :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
     :image: 
       :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
+    :ports:
+      :desc:       "List of security group rules (1 port or range of ports) to open to the external network."

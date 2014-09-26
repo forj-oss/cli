@@ -17,21 +17,21 @@
 
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
-$FORJ_DATA_PATH= File.expand_path('~/.forj')
 
-$LOAD_PATH << './lib'
+$LOAD_PATH << $LIB_PATH
+
+require 'appinit.rb' # Load generic Application level function
+
+# Initialize forj paths
+AppInit::forj_initialize()
+
+# Initialize global Log object
+$FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
 
 require 'forj-config.rb' # Load class ForjConfig
 require 'forj-account.rb' # Load class ForjAccount
-require 'log.rb' # Load default loggers
 require 'ansi'
 
-include Logging
-
-$FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
-
-# Initialize forj paths
-ensure_forj_dirs_exists()
 
 describe "class: forj-account," do
     context "when creating a new instance" do
@@ -66,7 +66,7 @@ describe "class: forj-account," do
 
       it 'should be able to create a key/value in the account config' do
          @ForjAccount.set(:test1, 'value')
-         expect(@ForjAccount.get(:test1)).to equal(nil)
+         expect(@ForjAccount.get(:test1)).to eq('value')
          @ForjAccount.set(:keypair_name, 'value')
          expect(@ForjAccount.get(:keypair_name)).to eq('value')
       end
