@@ -61,7 +61,7 @@ class ForjObject
 
    # <sProcessClass>.rb file name is case sensible and respect RUBY Class name convention
 
-   # sControlerClass: Optional. string or symbol. Is the name of ControlerClass to use.
+   # sControllerClass: Optional. string or symbol. Is the name of ControlerClass to use.
    #                  This class is dynamically loaded and derived from BaseControler class.
    #                  It loads the Controler class content from a file '$PROVIDER_PATH/<sControlerClass>.rb'
    #
@@ -69,9 +69,9 @@ class ForjObject
    #                  ForjObject will load those redefinition from file:
    #                  '$PROVIDER_PATH/<sControlerClass>Process.rb'
 
-   # <sControlerClass>.rb or <sControlerClass>Process.rb file name is case sensible and respect RUBY Class name convention
-   
-   def initialize(oForjConfig, sProcessClass = nil, sControlerClass = nil)
+   # <sControllerClass>.rb or <sControllerClass>Process.rb file name is case sensible and respect RUBY Class name convention
+
+   def initialize(oForjConfig, sProcessClass = nil, sControllerClass = nil)
       # Loading ProcessClass
       # Create Process derived from respectively BaseProcess
       Logging.debug("Loading Process '%s'" % sProcessClass)
@@ -89,10 +89,10 @@ class ForjObject
          raise ForjError.new(), "Process file definition '%s' is missing. Cannot go on" % sFile
       end
 
-      if sControlerClass
-         Logging.debug("Loading Controler/definition '%s'" % sControlerClass)
+      if sControllerClass
+         Logging.debug("Loading Controler/definition '%s'" % sControllerClass)
          # Add Provider Object -------------
-         sProviderClass = sControlerClass.capitalize
+         sProviderClass = sControllerClass.capitalize
 
          # Initialize an empty class derived from BaseDefinition.
          # This to ensure provider Class will be derived from this Base Class
@@ -103,12 +103,12 @@ class ForjObject
          # Finally, name that class!
          Object.const_set sProviderClass, cBaseDefinition
 
-         cBaseControler = Class.new(BaseControler)
-         Object.const_set sProviderClass + 'Controler', cBaseControler
+         cBaseControler = Class.new(BaseController)
+         Object.const_set sProviderClass + 'Controller', cBaseControler
 
          # Loading Provider base file. This file should load a class
          # which have the same name as the file.
-         $PROVIDER_PATH = File.join($PROVIDERS_PATH, sControlerClass)
+         $PROVIDER_PATH = File.join($PROVIDERS_PATH, sControllerClass)
          sFile = File.join($PROVIDER_PATH, sProviderClass + '.rb')
          if File.exists?(sFile)
             load sFile
@@ -136,9 +136,9 @@ class ForjObject
          # - Process Class (sProviderClass + 'Process') - Provider Process object if defined
          begin
             # Get the same one suffixed with 'Provider' from Objects
-            oCoreObjectControlerClass = Object.const_get(sProviderClass + 'Controler')
+            oCoreObjectControllerClass = Object.const_get(sProviderClass + 'Controller')
          rescue
-            raise ForjError.new(), 'ForjCloud: Unable to find class "%s"' % sProviderClass + 'Controler'
+            raise ForjError.new(), 'ForjCloud: Unable to find class "%s"' % sProviderClass + 'Controller'
          end
 
          # Then, we create an BaseCloud Object with 2 objects joined:
@@ -146,7 +146,7 @@ class ForjObject
 
 
          # Load the Provider process Class if exists.
-         sProcessFile = File.join($PROVIDER_PATH, sControlerClass + 'Process.rb')
+         sProcessFile = File.join($PROVIDER_PATH, sControllerClass + 'Process.rb')
          if File.exist?(sProcessFile)
             # Create an object derived from sProcessClass (Ex: CloudProcess) named sProviderClass + 'Process'
             cBaseProcess = Class.new(sProcessClass)
@@ -155,7 +155,7 @@ class ForjObject
             byebug
          end
       else
-         oCoreObjectControlerClass = nil
+         oCoreObjectControllerClass = nil
       end
 
       # Add Process management object ---------------
@@ -164,10 +164,10 @@ class ForjObject
       rescue
          raise ForjError.new(), 'ForjCloud: Unable to find class "%s"' % sProcessClass
       end
-      
+
       # Ex: Hpcloud(ForjAccount, HpcloudProvider)
-      if oCoreObjectControlerClass
-         @oCoreObject = oDefClass.new(oForjConfig, oBaseProcessDefClass.new(), oCoreObjectControlerClass.new())
+      if oCoreObjectControllerClass
+         @oCoreObject = oDefClass.new(oForjConfig, oBaseProcessDefClass.new(), oCoreObjectControllerClass.new())
       else
          @oCoreObject = oDefClass.new(oForjConfig, oBaseProcessDefClass.new())
       end
@@ -218,7 +218,7 @@ class BaseProcess
    def initialize()
       @oDefinition = nil
    end
-   
+
    def set_BaseObject(oDefinition)
       @oDefinition = oDefinition
    end
@@ -240,7 +240,7 @@ class BaseProcess
    end
 end
 
-class BaseControler
+class BaseController
    # Default handlers which needs to be defined by the cloud provider,
    # called by BaseDefinition Create, Delete, Get, Query and Update functions.
    def connect(sObjectType, hParams)
@@ -294,8 +294,8 @@ class ObjectParams
       @hParams[key] = value
    end
 
-   def exist?(key, value)
-      (rhExist?(@hParams, key) != 1)
+   def exist?(key)
+      (rhExist?(@hParams, key) == 1)
    end
 
    def get(key)
@@ -340,7 +340,7 @@ class BaseDefinition
       aParams = _get_object_params(sCloudObj, pProc)
 
       oBaseObject = @oForjProcess.method(pProc).call(sCloudObj, aParams)
-      
+
       rhSet(@CloudData, oBaseObject, sCloudObj)
    end
 
@@ -467,7 +467,7 @@ class BaseDefinition
 
       @oProvider = oForjProvider
       if oForjProvider
-         raise ForjError.new(), "'%s' is not a valid ForjProvider Object type." % [oForjProvider.class] if not oForjProvider.is_a?(BaseControler)
+         raise ForjError.new(), "'%s' is not a valid ForjProvider Object type." % [oForjProvider.class] if not oForjProvider.is_a?(BaseController)
       end
 
       @oForjProcess = oForjProcess
@@ -503,7 +503,7 @@ class BaseDefinition
          if hValueMapping
             raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
             hReturn[hMap[key]] = hValueMapping[value]
-         else   
+         else
             hReturn[hMap[key]] = value
          end
       }
@@ -551,7 +551,7 @@ class BaseDefinition
          raise ForjError.new(), "%s.%s : %s" % [@oForjProcess.class, pProc, e.message]
       end
    end
-   
+
    def create(sObjectType, hParams)
       oControlerObject = @oProvider.create(sObjectType, hParams)
       begin
@@ -592,7 +592,7 @@ class BaseDefinition
       }
       Logging.debug("%s.%s - queried. Found %s object(s)." % [@oForjProcess.class, sObjectType, oObjects[:list].length()])
       oObjects
-      
+
    end
 
    def update(sObjectType, hParams)
@@ -660,7 +660,7 @@ class BaseDefinition
    end
 
    # ------------------------------------------------------
-   # Class Definition internal function. 
+   # Class Definition internal function.
    # ------------------------------------------------------
 
    def _return_map(sCloudObj, oControlerObject)
@@ -696,7 +696,7 @@ class BaseDefinition
                if hValueMapping
                   raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
                   aParams[key] = hValueMapping[value]
-               else   
+               else
                   aParams[key] = value
                end
                if rhExist?(hParams, :mapping) == 1
@@ -894,7 +894,7 @@ class BaseDefinition
 
       rhSet(@@meta_obj, map, sCloudObj, :value_mapping, key, value)
    end
-   
+
    def self.def_attribute(key)
       self.get_attr_mapping(key, key)
    end

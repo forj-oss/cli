@@ -95,7 +95,7 @@ end
 
 # Following class describe how FORJ should handle HP Cloud objects.
 # Except Cloud connection, all HPCloud objects management are described/called in HP* modules.
-class HpcloudControler < BaseControler
+class HpcloudController < BaseController
 
    def connect(sObjectType, hParams)
       case sObjectType

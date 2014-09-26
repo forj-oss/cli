@@ -220,7 +220,7 @@ class CloudProcess
             else
                Logging.warning("Unable to find the router id '%s'" % [ object.get_attr(router_port, :device_id) ])
                router = nil
-            
+
          end
       end
       router
@@ -231,7 +231,7 @@ class CloudProcess
             ################################
             #routers[0].external_gateway_info = { 'network_id' => external_network.id }
             #routers[0].save
-   
+
    end
 
    # Router Process internal functions  #
@@ -426,7 +426,7 @@ class CloudProcess
            hParams[:port_min]   = portmin
            hParams[:port_max]   = portmax
            hParams[:netmask]    = '0.0.0.0/0'
-           
+
            forj_get_or_create_rule(:rule, hParams)
         end
       end
@@ -464,7 +464,7 @@ class CloudProcess
             nil
          when 1
             Logging.debug("Found security group '%s'" % [object.get_attr(sgroups[:list][0], :name)])
-            sgroups[:list][0]  
+            sgroups[:list][0]
       end
    end
 
@@ -497,7 +497,7 @@ class CloudProcess
 
    # Process Delete handler
   def forj_delete_security_group_rule(sCloudObj, hParams)
-   
+
     oSSLError=SSLErrorMgt.new
     begin
       controler.delete(sCloudObj, hParams)
@@ -523,7 +523,7 @@ class CloudProcess
          else
             Logging.debug("Found security rule '%s'." % [ sRule ])
             sgroups[:list][0]
-         end      
+         end
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
@@ -584,10 +584,9 @@ class CloudProcess
       begin
          # Searching for external network
          sControlerQuery = object.query_map(:network, sQuery.merge({ :external => true }) )
-         byebug
 
          networks = controler.query(:network, sControlerQuery, hParams)
-         
+
          case networks[:list].length()
          when 0
             Logging.debug("No external network")
@@ -610,38 +609,6 @@ end
 # Internet network process
 # ---------------------------------------------------------------------------
 class CloudProcess
-   def forj_get_or_create_inet(sCloudObj, hParams)
-
-      Logging.state("Checking router's gateway...'")
-
-      oRouter = hParams.get(:router)
-      sRouterName = object.get_attr(oRouter, :name)
-
-      if object.get_attr(oRouter, :external_gateway_info)
-         Logging.debug("Found router '%s' attached to an external gateway." % [ sRouterName ] )
-      else
-         byebug
-         Logging.debug("Found router '%s' but need to be attached to an external gateway. Attaching..." % [ sRouterName ] )
-         netty=query_external_network(hParams)
-         if netty
-            routers[0].external_gateway_info = { 'network_id' => netty.id }
-            routers[0].save
-            Logging.debug("Router '%s' attached to the external network '%s'." % [  object.get_attr(routers[0], :name), netty.name ] )
-         else
-            Logging.fatal(1, "Unable to attach router '%s' to an external gateway. Required for boxes to get internet access. " % [ object.get_attr(routers[0], :name) ] )
-         end
-      end
-        network = hParams[:network]
-        
-        subnet = Network.get_or_create_subnet(oFC, network.id, network.name)
-        Network.get_or_create_router(oFC, network, subnet)
-   end
-
-               #~ if routers[0].external_gateway_info.has_key?('id')
-               #~ Logging.debug("Found router '%s' attached to an external gateway." % [ routers[0].name ] )
-            #~ else
-               #~ Logging.warning("Found router '%s' but not attached to an external." % [ routers[0].name ] )
-            #~ end
 
 
 end

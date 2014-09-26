@@ -37,7 +37,7 @@ class BaseDefinition
 
    get_attr_mapping :id, nil    # Do not return any predefined ID
    get_attr_mapping :name, nil  # Do not return any predefined NAME
-   
+
    # network_connection
    define_obj(:network_connection,
       {
@@ -164,10 +164,7 @@ class BaseDefinition
    # is capable to connect to internet
    # And to create this connection if possible.
 
-   define_obj(:internet_network,
-      {
-         :create_e   => :forj_get_or_create_inet
-      })
+   define_obj(:internet_network,    :nohandler => true )
 
    obj_needs   :CloudObject,  :external_network # External network to connect if needed.
 
@@ -190,7 +187,7 @@ class BaseDefinition
    obj_needs_optional
    obj_needs   :data,         :user_data
    obj_needs   :data,         :meta_data
-   
+
    # internet server is a server connected to the internet network.
    define_obj(:internet_server,    :nohandler => true )
 
