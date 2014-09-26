@@ -364,12 +364,19 @@ class ForjConfig
       true
    end
 
+   def runtimeExist?(key)
+      (rhExist?(@yRuntime, key) == 1)
+   end
+
+   def runtimeGet(key)
+      rhGet(@yRuntime, key) if runtimeExist?(key)
+   end
+
    def get(key, interms = nil, default = nil)
-   
       key = key.to_sym if key.class == String
       return nil if key.class != Symbol
       # If key is in runtime
-      return rhGet(@yRuntime, key) if rhExist?(@yRuntime, key) == 1
+      return runtimeGet(key) if runtimeExist?(key)
       # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
       if interms
          if interms.instance_of? Hash

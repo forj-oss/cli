@@ -7,6 +7,8 @@ $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 
 $LOAD_PATH << $LIB_PATH
 
+$LOAD_PATH << File.join($LIB_PATH, 'lib-forj', 'lib')
+
 require 'appinit.rb'
 
 # Initialize forj paths
@@ -15,7 +17,7 @@ AppInit::forj_initialize()
 # Initialize global Log object
 $FORJ_LOGGER=ForjLog.new()
 
-require 'forj-cloud.rb'
+require 'lib-forj.rb'
 
 Logging.set_level(Logger::DEBUG)
 

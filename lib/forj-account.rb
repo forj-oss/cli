@@ -99,14 +99,19 @@ class ForjAccount
       
    end
 
-   # oForjAccount data get are retrieved from the account file under section described in defaults.yaml (:account_section_mapping), as soon as this mapping exists.
-   # If not found, get the data from the local configuration file. Usually ~/.forj/config.yaml
-   # If not found, get the data from defaults.yaml
+   # oForjAccount data get at several levels:
+   # - get the data from runtime (runtimeSet/runtimeGet)
+   # - otherwise, get data from account file under section described in defaults.yaml (:account_section_mapping), as soon as this mapping exists.
+   # - otherwise, get the data from the local configuration file. Usually ~/.forj/config.yaml
+   # - otherwise, get the data from defaults.yaml
    # otherwise, use the get default parameter as value. Default is nil.
    def get(key, default = nil)
       return nil if not key
 
       key = key.to_sym if key.class == String
+
+      return @oConfig.runtimeGet(key) if @oConfig.runtimeExist?(key)
+      
       section = ForjDefault.get_meta_section(key)
       default_key = key
       
@@ -451,7 +456,7 @@ class ForjAccount
             q.validate = /.*+/
          end
          keys_entered = keypair_detect(key_name, key_path)
-         if not keys_entered[:private_key_exist?] and not keys_entered[:public_key_exist?]
+         if not keys_entered[:private_key_exist? ] and not keys_entered[:public_key_exist? ]
             if agree("The key you entered was not found. Do you want to create this one?")
                base_dir = keys_entered[:keypair_path]
                if not File.directory?(base_dir)

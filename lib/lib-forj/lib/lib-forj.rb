@@ -20,12 +20,16 @@
 
 # To use it, add require 'forj-cloud.rb'
 
-raise "$LIB_PATH is missing. Please set it." if not $LIB_PATH
+slib_forj = File.dirname(__FILE__)
+$FORJ_LIB = File.expand_path(File.join(File.dirname(slib_forj),'lib'))
 
-$PROVIDERS_PATH = File.expand_path(File.join($LIB_PATH, "forj-cloud", "providers"))
-$CORE_PROCESS_PATH = File.join($LIB_PATH, "forj-cloud", "core_process")
+
+raise "$FORJ_LIB is missing. Please set it." if not $FORJ_LIB
+
+$PROVIDERS_PATH = File.expand_path(File.join($FORJ_LIB,  "providers"))
+$CORE_PROCESS_PATH = File.join($FORJ_LIB, "core_process")
 
 require 'forj-config.rb'   # Load class ForjConfig
 require 'forj-account.rb'  # Load class ForjAccount
 
-require File.join($LIB_PATH, "forj-cloud", "core.rb")
+require File.join($FORJ_LIB, "core", "core.rb")
