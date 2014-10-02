@@ -65,6 +65,10 @@ Gem::Specification.new do |s|
 
   s.bindir = 'bin'
 
+  ## This gets added to the $LOAD_PATH so that 'lib/NAME.rb' can be required as
+  ## require 'NAME.rb' or'/lib/NAME/file.rb' can be as require 'NAME/file.rb'
+  s.require_paths = %w[lib]
+
   s.add_runtime_dependency 'thor', '~>0.16.0'
   s.add_runtime_dependency 'nokogiri', '~>1.5.11'
   s.add_runtime_dependency 'fog', '~>1.19.0'

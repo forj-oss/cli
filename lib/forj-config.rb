@@ -24,40 +24,172 @@ require 'yaml'
 #require_relative 'log.rb'
 #include Logging
 
+def rhExist?(yVal, *p)
+
+   if p.length() == 0
+      return 0
+   end
+   return 0 if yVal.class != Hash
+   p=p.flatten
+   if p.length() == 1
+      return 1 if yVal.key?(p[0])
+      return 0
+   end
+   return 0 if yVal.nil? or not yVal.key?(p[0])
+   ret = 0
+   ret = rhExist?(yVal[p[0]], p.drop(1)) if yVal[p[0]].class == Hash
+   return 1 + ret
+end
+
+def rhGet(yVal, *p)
+
+   if p.length() == 0 or not yVal
+      return nil
+   end
+   return nil if yVal.class != Hash
+   p=p.flatten
+   if p.length() == 1
+      return yVal[p[0]] if yVal.key?(p[0])
+      return nil
+   end
+   return nil if not yVal
+   return rhGet(yVal[p[0]], p.drop(1)) if yVal.key?(p[0])
+   nil
+end
+
+def rhSet(yVal, value, *p)
+   if p.length() == 0
+      return yVal
+   end
+   p=p.flatten
+   if p.length() == 1
+      if not yVal.nil?
+         if value
+            yVal[p[0]] = value
+         else
+            yVal.delete(p[0])
+         end
+         return yVal
+      end
+      if value
+         ret = { p[0] => value }
+      else
+         ret = {}
+      end
+      return ret
+   end
+   if not yVal.nil?
+      yVal[p[0]] = {} if not yVal[p[0]] or yVal[p[0]].class != Hash
+      ret=rhSet(yVal[p[0]], value, p.drop(1))
+      return yVal
+   else
+      ret = rhSet(nil, value, p.drop(1))
+      return { p[0] => ret }
+   end
+end
+
+def rhKeyToSymbol(yVal, levels = 1)
+   return nil if yVal.nil? or yVal.class != Hash
+   yRes = {}
+   yVal.each { | key, value |
+   if key.class == String
+      if levels <= 1
+         yRes[key.to_sym] = value
+      else
+         yRes[key.to_sym] = rhKeyToSymbol(value, levels - 1)
+      end
+   else
+      if levels <= 1
+         yRes[key] = value
+      else
+         yRes[key] = rhKeyToSymbol(value, levels - 1)
+      end
+   end
+   }
+   yRes
+end
+
+def rhKeyToSymbol?(yVal, levels = 1)
+   return false if yVal.nil? or yVal.class != Hash
+   yVal.each { | key, value |
+   if key.class == String
+      return true
+   end
+   if levels >1
+      res = rhKeyToSymbol?(value, levels - 1)
+      return true if res
+   end
+   }
+   false
+end
+
 class ForjDefault
 
    # @sDefaultsName='defaults.yaml'
    # @yDefaults = defaults.yaml file data hash
 
-   def initialize()
-      # Load yaml documents (defaults)
-      # If config doesn't exist, it will be created, empty with 'defaults:' only
+   # Load yaml documents (defaults)
+   # If config doesn't exist, it will be created, empty with 'defaults:' only
 
-      if not $LIB_PATH
-         Logging.fatal(1, 'Internal $LIB_PATH was not set.')
-      end
 
-      Logging.info('Reading default configuration...')
-
-      @sDefaultsName=File.join($LIB_PATH,'defaults.yaml')
-
-      @yDefaults=YAML.load_file(@sDefaultsName)
-   end
-
-   def exist?(key, section = :default)
+   def self.exist?(key, section = :default)
       key = key.to_sym if key.class == String
-      (rhExist?(@yDefaults, section, key) == 2)
+      (rhExist?(@@yDefaults, section, key) == 2)
    end
 
-   def get(key, section = :default)
+   def self.get(key, section = :default)
       key = key.to_sym if key.class == String
-      return(rhGet(@yDefaults, section, key)) if key
-      rhGet(@yDefaults, section) if not key
+      return(rhGet(@@yDefaults, section, key)) if key
+      rhGet(@@yDefaults, section) if not key
    end
 
-   def dump()
-      @yDefaults
+   def self.dump()
+      @@yDefaults
    end
+      # Loop on Config metadata
+   def self.meta_each
+      rhGet(@@yDefaults, :sections).each { | section, hValue |
+         hValue.each { | key, value |
+            yield section, key, value
+            }
+         }
+   end
+
+   def self.meta_exist?(key)
+      return nil if not key
+      
+      key = key.to_sym if key.class == String
+      section = rhGet(@@account_section_mapping, key)
+      rhExist?(@@yDefaults, :sections, section, key) == 3
+   end
+   
+   def self.build_section_mapping
+      @@account_section_mapping = {}
+      rhGet(@@yDefaults, :sections).each { | section, hValue |
+         next if section == :default
+         hValue.each_key { | map_key |
+            Logging.fatal(1, "defaults.yaml: Duplicate entry between sections. '%s' defined in section '%s' already exists in section '%s'" % [map_key, section, rhGet(@account_section_mapping, map_key) ])if rhExist?(@account_section_mapping, map_key) != 0
+            rhSet(@@account_section_mapping, section, map_key)
+            }
+         }
+   end
+
+   def self.get_meta_section(key)
+      key = key.to_sym if key.class == String
+      rhGet(@@account_section_mapping, key)
+   end
+
+   if not $LIB_PATH
+      Logging.fatal(1, 'Internal $LIB_PATH was not set.')
+   end
+
+   Logging.info('Reading default configuration...')
+
+   @@sDefaultsName=File.join($LIB_PATH,'defaults.yaml')
+
+   @@yDefaults=YAML.load_file(@@sDefaultsName)
+   
+   self.build_section_mapping
 end
 
 class ForjConfig
@@ -67,7 +199,7 @@ class ForjConfig
    # @yRuntime   = data in memory.
    # @yLocal     = config.yaml file data hash.
    # @yObjConfig = Extra loaded data
-   # @oDefaults  = Application defaults object
+   # ForjDefault  = Application defaults class
 
    attr_reader :sConfigName
 
@@ -78,7 +210,7 @@ class ForjConfig
       # Build a config hash.
 
       res = {}
-      @oDefaults.dump[:default].each_key { |key|
+      ForjDefault.dump[:default].each_key { |key|
          dump_key = exist?(key)
          rhSet(res, get(key), dump_key, key)
          }
@@ -133,8 +265,6 @@ class ForjConfig
       else
          @sConfigName = File.join($FORJ_DATA_PATH,sConfigDefaultName)
       end
-
-      @oDefaults = ForjDefault.new
 
       if File.exists?(@sConfigName)
          @yLocal = YAML.load_file(@sConfigName)
@@ -234,12 +364,19 @@ class ForjConfig
       true
    end
 
+   def runtimeExist?(key)
+      (rhExist?(@yRuntime, key) == 1)
+   end
+
+   def runtimeGet(key)
+      rhGet(@yRuntime, key) if runtimeExist?(key)
+   end
+
    def get(key, interms = nil, default = nil)
-   
       key = key.to_sym if key.class == String
       return nil if key.class != Symbol
       # If key is in runtime
-      return rhGet(@yRuntime, key) if rhExist?(@yRuntime, key) == 1
+      return runtimeGet(key) if runtimeExist?(key)
       # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
       if interms
          if interms.instance_of? Hash
@@ -269,7 +406,7 @@ class ForjConfig
       # else key in local default config of default section.
       return LocalGet(key) if LocalDefaultExist?(key)
       # else key in application defaults
-      return @oDefaults.get(key) if @oDefaults.exist?(key)
+      return ForjDefault.get(key) if ForjDefault.exist?(key)
       # else default
       default
    end
@@ -278,7 +415,7 @@ class ForjConfig
 
       key = key.to_sym if key.class == String
 
-      @oDefaults.get(key, section)
+      ForjDefault.get(key, section)
    end
 
    def exist?(key, interms = nil)
@@ -304,7 +441,7 @@ class ForjConfig
       end
       return 'local' if LocalDefaultExist?(key)
       # else key in application defaults
-      return 'default' if @oDefaults.exist?(key)
+      return 'default' if ForjDefault.exist?(key)
       false
    end
 
@@ -358,101 +495,12 @@ class ForjConfig
    def fatal_if_inexistent(key)
       Logging.fatal(1, "Internal error - %s: '%s' is missing" % [caller(), key]) if not self.get(key)
    end
-end
 
-def rhExist?(yVal, *p)
+   def meta_each
+      ForjDefault.meta_each { |section, key, value| 
+         next if rhGet(value, :account_exclusive)
+         yield section, key, value
+      }
+   end
 
-   if p.length() == 0
-      return 0
-   end
-   return 0 if yVal.class != Hash
-   p=p.flatten
-   if p.length() == 1
-      return 1 if yVal[p[0]]
-      return 0
-   end
-   return 0 if not yVal or not yVal[p[0]]
-   ret = rhExist?(yVal[p[0]], p.drop(1)) if yVal[p[0]]
-   return 1 + ret
-end
-
-def rhGet(yVal, *p)
-
-   if p.length() == 0 or not yVal
-      return nil
-   end
-   p=p.flatten
-   if p.length() == 1
-      return yVal[p[0]] if yVal[p[0]]
-      return nil
-   end
-   return nil if not yVal
-   return rhGet(yVal[p[0]], p.drop(1)) if yVal[p[0]]
-   nil
-end
-
-def rhSet(yVal, value, *p)
-   if p.length() == 0
-      return yVal
-   end
-   p=p.flatten
-   if p.length() == 1
-      if yVal
-         if value
-            yVal[p[0]] = value
-         else
-            yVal.delete(p[0])
-         end
-         return yVal
-      end
-      if value
-         ret = { p[0] => value }
-      else
-         ret = {}
-      end
-      return ret
-   end
-   if yVal
-      yVal[p[0]] = {} if not yVal[p[0]] or yVal[p[0]].class != Hash
-      ret=rhSet(yVal[p[0]], value, p.drop(1))
-      return yVal
-   else
-      ret = rhSet(nil, value, p.drop(1))
-      return { p[0] => ret }
-   end
-end
-
-def rhKeyToSymbol(yVal, levels = 1)
-   return nil if not yVal
-   yRes = {}
-   yVal.each { | key, value |
-   if key.class == String
-      if levels <= 1
-         yRes[key.to_sym] = value
-      else
-         yRes[key.to_sym] = rhKeyToSymbol(value, levels - 1)
-      end
-   else
-      if levels <= 1
-         yRes[key] = value
-      else
-         yRes[key] = rhKeyToSymbol(value, levels - 1)
-      end
-   end
-   }
-   yRes
-end
-
-def rhKeyToSymbol?(yVal, levels = 1)
-   return false if not yVal
-   yVal.each { | key, value |
-   if key.class == String
-      return true
-   end
-   if levels >1
-      res = rhKeyToSymbol?(value, levels - 1)
-      return true if res
-   end
-   }
-   false
 end

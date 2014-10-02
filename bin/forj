@@ -25,6 +25,18 @@ $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 
 $LOAD_PATH << $LIB_PATH
 
+require 'appinit.rb' # Load generic Application level function
+
+# Initialize forj paths
+AppInit::forj_initialize()
+
+# Initialize global Log object
+$FORJ_LOGGER=ForjLog.new()
+
+require 'forj-config.rb' # Load class ForjConfig and Meta data class variables. Requires Logging to be fully set.
+require 'forj-account.rb' # Load class ForjAccount
+require 'connection.rb' # Load class ForjConnection
+
 require 'boot.rb'
 require 'down.rb'
 require 'setup.rb'
@@ -34,25 +46,14 @@ include Boot
 include Down
 include Setup
 include Ssh
-
-require 'forj-config.rb' # Load class ForjConfig
-require 'forj-account.rb' # Load class ForjAccount
-require 'log.rb' # Load default loggers
-require 'connection.rb' # Load class ForjConnection
+require 'forj-settings.rb' # Settings features
 
 #require 'debugger' # Use to debug with Ruby < 2.0
-#require 'byebug'   # Use to debug with Ruby >= 2.0
-
-include Logging
-
-# Initialize forj paths
-ensure_forj_dirs_exists()
-
-# Initialize global Log object
-$FORJ_LOGGER=ForjLog.new()
+require 'byebug'   # Use to debug with Ruby >= 2.0
 
 
-class Forj < Thor
+
+class ForjThor < Thor
 
   class_option :debug,   :aliases => '-d', :desc => 'Set debug mode'
   class_option :verbose, :aliases => '-v', :desc => 'Set verbose mode'
@@ -251,9 +252,9 @@ Warning! This action don't removed any network/security groups cloud object.
    end
 
 ################################# SET
-  desc 'set [key=value] [options]', 'Set some variables in defaults or account.'
+  desc 'set [key=value] [...] [options]', 'Set one or more variables in defaults or a forj account.'
   long_desc <<-LONGDESC
-You can set some variables to change 'forj' defaults or specifically for a FORJ account.
+You can set some variables to change 'forj' defaults or specifically some account data.
 
 Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. During setup, if this keypair doesn't exist, it proposes to create it for you, with ssh-keygen.
     If you want to use a keypair that already exists, you can set it as your default, with:
@@ -280,65 +281,23 @@ Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. D
 
   method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
 
-   def set(key_val = nil)
+   def set(*p)
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
 
       oConfig=ForjConfig.new()
-      if not key_val
-         puts "List of FORJ settings: Use 'forj set KeyName=Value [-a YourAccount]' to set one. Use `forj show defaults` / `account` to check values."
-         hMaps = oConfig.getAppDefault(:account_section_mapping)
-         hMaps.each_key { | key |
-            sDesc = rhGet(hMaps, key, :desc)
-            puts "%-15s : %s" % [key, sDesc]
-            }
+
+      if    p.length == 0 and not options[:account_name]
+         Forj::Settings::config_show_all(oConfig)
+
+      elsif p.length == 0 and options[:account_name]
+         Forj::Settings::account_show_all(oConfig, options[:account_name]) 
+
+      elsif p.length != 0 and options[:account_name]
+         Forj::Settings::account_set(oConfig, options[:account_name], p)
+
       else
-         mkey_val = key_val.match(/^(.*) *= *(.*)$/)
-         if mkey_val
-            if not options[:account_name]
-               if oConfig.exist?(mkey_val[1])
-                  sBef = "%s: '%s'" % [oConfig.exist?(mkey_val[1]), oConfig.get(mkey_val[1])]
-               else
-                  sBef = "unset"
-               end
-               if mkey_val[2] != ""
-                  oConfig.LocalSet(mkey_val[1], mkey_val[2])
-               else
-                  oConfig.LocalDel(mkey_val[1])
-               end
-               oConfig.SaveConfig()
-               if oConfig.exist?(mkey_val[1])
-                  sAft = "%s: '%s'" % [oConfig.exist?(mkey_val[1]), oConfig.get(mkey_val[1])]
-               else
-                  sAft = "unset"
-               end
-               puts "Updated:\n%s: %s => %s" % [mkey_val[1], sBef, sAft]
-            else
-               account_name = options[:account_name]
-               oConfig.set(:account_name, account_name)
-               oForjAccount = ForjAccount.new(oConfig)
-               oForjAccount.ac_load()
-               if oForjAccount.exist?(mkey_val[1])
-                  sBef = "%s: '%s'" % [oForjAccount.exist?(mkey_val[1]).sub("hash", account_name), oForjAccount.get(mkey_val[1])]
-               else
-                  sBef = "unset"
-               end
-               if mkey_val[2] == ""
-                  oForjAccount.del(mkey_val[1])
-               else
-                  oForjAccount.set(mkey_val[1], mkey_val[2])
-               end
-               oForjAccount.ac_save()
-               if oForjAccount.exist?(mkey_val[1])
-                  sAft = "%s: '%s'" % [oForjAccount.exist?(mkey_val[1]).sub("hash", account_name), oForjAccount.get(mkey_val[1])]
-               else
-                  sAft = "unset"
-               end
-               puts "Updated:\n%s: %s => %s" % [mkey_val[1], sBef, sAft]
-            end
-         else
-            Logging.fatal(1 ,"Syntax error. Please set your value like: 'key=value' and retry.")
-         end
+         Forj::Settings::config_set(oConfig, p)
       end
    end
 
@@ -369,54 +328,18 @@ Ex: To get the keypair_name defined from the account, or from your ~/.forj/confi
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
 
-      oConfig=ForjConfig.new()
-      if not options[:account_name]
-         if key
-            if oConfig.exist?(key)
-               puts "%s:'%s'" % [oConfig.exist?(key), oConfig.get(key)]
-            else
-               Logging.message("key '%s' not found" % [key])
-            end
-         else
-            puts "legend: default = Application defaults, local = Local default config\n\n" % [options[:account_name], options[:account_name]]
-            puts "%-15s(%-7s) %-12s:\n--------------------------------------" % ['key', 'origin', 'section name']
-            hMaps = oConfig.getAppDefault(:account_section_mapping)
-            hMaps.each { |map_key, value|
-               if oConfig.exist?(map_key)
-                  puts "%-15s(%-7s) %-12s: '%s'" % [map_key, oConfig.exist?(map_key), value[:section], oConfig.get(map_key)]
-               else
-                  puts "%-15s(       ) %-12s: unset" % [map_key, value[:section]]
-               end
-
-               }
-         end
-         puts "\nUse 'forj set <key>=<value>' to update defaults"
+      oConfig = ForjConfig.new()
+      if    not options[:account_name] and not key
+         Forj::Settings::config_get_all(oConfig)
+         
+      elsif     options[:account_name] and     key
+         Forj::Settings::account_get(oConfig, options[:account_name], key)
+         
+      elsif not options[:account_name] and     key
+         Forj::Settings::config_get(oConfig, key)
+         
       else
-         oConfig.set(:account_name, options[:account_name])
-         oForjAccount = ForjAccount.new(oConfig)
-         Logging.fatal(1, "Unable to load account '%s'. Not found." % options[:account_name]) if not oForjAccount.ac_load
-         if key
-            if oForjAccount.exist?(key)
-               puts "%s: '%s'" % [oForjAccount.exist?(key).sub("hash", options[:account_name]), oForjAccount.get(key)]
-            elsif oForjAccount.exist?(key.parameterize.underscore.to_sym)
-               key_symb = key.parameterize.underscore.to_sym
-               puts "%s: '%s'" % [oForjAccount.exist?(key_symb).sub("hash", options[:account_name]), oForjAccount.get(key_symb)]
-            else
-               Logging.message("key '%s' not found"% [key])
-            end
-         else
-            puts "legend: default = Application defaults, local = Local default config, %s = '%s' account config\n\n" % [options[:account_name], options[:account_name]]
-            puts "%-15s(%-7s) %-12s:\n--------------------------------------" % ['key', 'origin', 'section name']
-            hMaps = oConfig.getAppDefault(:account_section_mapping)
-            hMaps.each { |map_key, value|
-               if oForjAccount.exist?(map_key)
-                  puts "%-15s(%-7s) %-12s: '%s'" % [map_key, oForjAccount.exist?(map_key).sub("hash", options[:account_name]), value[:section], oForjAccount.get(map_key)]
-               else
-                  puts "%-15s(       ) %12s: unset" % [map_key, value[:section]]
-               end
-               }
-         end
-         puts "\nUse 'forj set <key>=<value> -a %s' to update account data.\nOr  'forj set <key>= -a %s' to restore key default value." % [options[:account_name], options[:account_name]]
+         Forj::Settings::account_get_all(oConfig, options[:account_name])
       end
    end
 
@@ -472,4 +395,4 @@ Several data will be requested like:
 end
 
 
-Forj.start
+ForjThor.start

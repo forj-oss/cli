@@ -49,7 +49,7 @@ module Boot
       oConfig.ExtraLoad(forjAccountFile, :forj_accounts, oConfig.get(:account_name))
 
       # Check options and set data
-      cloud_provider = oForjAccount.getAccountData(:account, :provider, 'hpcloud')
+      cloud_provider = oForjAccount.get(:provider_name, 'hpcloud')
 
       if cloud_provider != 'hpcloud'
          Logging.fatal(1, "forj setup support only hpcloud. '%s' is currently not supported." % cloud_provider)
@@ -214,7 +214,7 @@ class BuildEnv
 
       sBuildDir = File.expand_path(File.join(oConfig.get(:infra_repo),'build'))
       @sBuildEnvFile = File.join(sBuildDir, oConfig.get(:account_name)+'.build.env')
-      Helpers.ensure_dir_exists(sBuildDir)
+      AppInit.ensure_dir_exists(sBuildDir)
       @yBuildEnvVar = {}
       @oConfig = oConfig
    end

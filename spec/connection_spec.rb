@@ -22,21 +22,20 @@ require 'fog'
 
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
-$FORJ_DATA_PATH= File.expand_path('~/.forj')
 
-$LOAD_PATH << './lib'
+$LOAD_PATH << $LIB_PATH
 
-require 'forj-config.rb' # Load class ForjConfig
-require 'log.rb' # Load default loggers
-require 'connection.rb' # Load class ForjConnection
-require 'forj-account.rb'
+require 'appinit.rb' # Load generic Application level function
 
 # Initialize forj paths
-ensure_forj_dirs_exists()
+AppInit::forj_initialize()
 
-include Logging
-
+# Initialize global Log object
 $FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
+
+require 'forj-config.rb' # Load class ForjConfig
+require 'connection.rb' # Load class ForjConnection
+require 'forj-account.rb'
 
 
 describe 'Module: forj-connection' do

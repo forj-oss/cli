@@ -17,14 +17,37 @@
 
 require 'rubygems'
 require 'fog'
-require 'require_relative'
-
-require_relative 'yaml_parse.rb'
+require 'yaml_parse.rb'
 include YamlParse
 
 #
 # Connection module
 #
+
+class SSLErrorMgt
+
+   def initialize()
+      @iRetry=0
+   end
+ 
+   def ErrorDetected(message,backtrace)
+      if message.match('SSLv2/v3 read server hello A: unknown protocol') 
+         if @iRetry <5
+            sleep(2)
+            @iRetry+=1
+            print "%s/5 try...\r" % @iRetry if $FORJ_LOGGER.level == 0
+            return false
+         else   
+            Logging.error('Too many retry. %s' % message)
+            return true
+         end
+      else   
+         Logging.error("%s\n%s" % [message,backtrace.join("\n")])
+         return true
+      end
+   end
+
+end
 
 class ForjConnection
 
