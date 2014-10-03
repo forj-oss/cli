@@ -43,11 +43,11 @@ end
 
 def rhGet(yVal, *p)
 
-   if p.length() == 0 or not yVal
-      return nil
-   end
    return nil if yVal.class != Hash
    p=p.flatten
+   if p.length() == 0 or not yVal
+      return yVal
+   end
    if p.length() == 1
       return yVal[p[0]] if yVal.key?(p[0])
       return nil
@@ -157,12 +157,20 @@ class ForjDefault
 
    def self.meta_exist?(key)
       return nil if not key
-      
+
       key = key.to_sym if key.class == String
       section = rhGet(@@account_section_mapping, key)
       rhExist?(@@yDefaults, :sections, section, key) == 3
    end
-   
+
+   def self.get_meta(key)
+      return nil if not key
+
+      key = key.to_sym if key.class == String
+      section = rhGet(@@account_section_mapping, key)
+      rhGet(@@yDefaults, :sections, section, key)
+   end
+
    def self.build_section_mapping
       @@account_section_mapping = {}
       rhGet(@@yDefaults, :sections).each { | section, hValue |
@@ -188,7 +196,7 @@ class ForjDefault
    @@sDefaultsName=File.join($LIB_PATH,'defaults.yaml')
 
    @@yDefaults=YAML.load_file(@@sDefaultsName)
-   
+
    self.build_section_mapping
 end
 
@@ -269,7 +277,7 @@ class ForjConfig
       if File.exists?(@sConfigName)
          @yLocal = YAML.load_file(@sConfigName)
          if rhKeyToSymbol?(@yLocal, 2)
-            @yLocal = rhKeyToSymbol(@yLocal, 2) 
+            @yLocal = rhKeyToSymbol(@yLocal, 2)
             self.SaveConfig()
          end
 
@@ -352,7 +360,7 @@ class ForjConfig
       # Function to set a runtime key/value, but remove it if value is nil.
       # To set in config.yaml, use LocalSet
       # To set on extra data, like account information, use ExtraSet
-      
+
       key = key.to_sym if key.class == String
       return false if key.class != Symbol
 
@@ -372,37 +380,37 @@ class ForjConfig
       rhGet(@yRuntime, key) if runtimeExist?(key)
    end
 
-   def get(key, interms = nil, default = nil)
+   def get(key, default = nil)
       key = key.to_sym if key.class == String
       return nil if key.class != Symbol
       # If key is in runtime
       return runtimeGet(key) if runtimeExist?(key)
-      # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
-      if interms
-         if interms.instance_of? Hash
-            return rhGet(interms, key) if rhExist?(interms, key) == 1
-         elsif interms.instance_of? Array # Array of hashes
-            iCount=0
-            oVal = nil
-            interms.each { | elem |
-               if elem.class == Hash
-                  elem.each { | hashkey, value |
-                     if value.class == Hash and rhExist?(elem, hashkey, key) == 2 # hash of hash
-                        oVal = rhGet(elem, hashkey, key)
-                        break
-                     elsif value.class != Hash and rhExist?(elem, hashkey) == 1 # single hash: key = value.
-                        oVal = rhGet(elem, hashkey)
-                        break
-
-                     end
-                     }
-                  break if oVal
-               end
-               iCount += 1
-               }
-            return oVal
-         end
-      end
+      #~ # Check data in intermediate hashes or array of hash. (like account data - key have to be identical)
+      #~ if interms
+         #~ if interms.instance_of? Hash
+            #~ return rhGet(interms, key) if rhExist?(interms, key) == 1
+         #~ elsif interms.instance_of? Array # Array of hashes
+            #~ iCount=0
+            #~ oVal = nil
+            #~ interms.each { | elem |
+               #~ if elem.class == Hash
+                  #~ elem.each { | hashkey, value |
+                     #~ if value.class == Hash and rhExist?(elem, hashkey, key) == 2 # hash of hash
+                        #~ oVal = rhGet(elem, hashkey, key)
+                        #~ break
+                     #~ elsif value.class != Hash and rhExist?(elem, hashkey) == 1 # single hash: key = value.
+                        #~ oVal = rhGet(elem, hashkey)
+                        #~ break
+#~
+                     #~ end
+                     #~ }
+                  #~ break if oVal
+               #~ end
+               #~ iCount += 1
+               #~ }
+            #~ return oVal
+         #~ end
+      #~ end
       # else key in local default config of default section.
       return LocalGet(key) if LocalDefaultExist?(key)
       # else key in application defaults
@@ -497,7 +505,7 @@ class ForjConfig
    end
 
    def meta_each
-      ForjDefault.meta_each { |section, key, value| 
+      ForjDefault.meta_each { |section, key, value|
          next if rhGet(value, :account_exclusive)
          yield section, key, value
       }

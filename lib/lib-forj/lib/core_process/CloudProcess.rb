@@ -24,6 +24,21 @@ class BaseDefinition
    # predefined list of objects.
    # Links between objects is not predefined. To do it, use needs declaration in your provider class.
 
+   # object to get list of services
+   # Defines Process handler to call
+   define_obj(:services,
+      {
+         :create_e => :connect
+      })
+   obj_needs   :data, :auth_uri
+   obj_needs   :data, :account_id
+   obj_needs   :data, :account_key
+   obj_needs   :data, :tenant
+
+   get_attr_mapping :id, nil    # Do not return any predefined ID
+   get_attr_mapping :name, nil  # Do not return any predefined NAME
+
+
    # compute_connection
    define_obj(:compute_connection,
       {
@@ -158,6 +173,22 @@ class BaseDefinition
          :delete_e   => :forj_delete_image
       })
 
+   obj_needs   :CloudObject,  :compute_connection
+   obj_needs   :data,         :image_name
+
+   # Identify flavor
+   define_obj(:flavor,
+      {
+         :create_e   => :forj_get_or_create_flavor,
+         :query_e    => :forj_query_flavor,
+         :get_e      => :forj_get_flavor,
+         :update_e   => :forj_update_flavor,
+         :delete_e   => :forj_delete_flavor
+      })
+
+   obj_needs   :CloudObject,  :compute_connection
+   obj_needs   :data,         :flavor
+
    # Define Internet network
    #
    # This object contains the logic to ensure the router's network has a gateway to the external network (internet)
@@ -179,6 +210,7 @@ class BaseDefinition
       })
 
    obj_needs   :CloudObject,  :image
+   obj_needs   :CloudObject,  :flavor
    obj_needs   :CloudObject,  :network
    obj_needs   :CloudObject,  :security_groups
    obj_needs   :CloudObject,  :keypairs

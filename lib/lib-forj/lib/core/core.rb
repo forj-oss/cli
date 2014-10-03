@@ -71,9 +71,12 @@ class ForjObject
 
    # <sControllerClass>.rb or <sControllerClass>Process.rb file name is case sensible and respect RUBY Class name convention
 
+   attr_reader :config
+
    def initialize(oForjConfig, sProcessClass = nil, sControllerClass = nil)
       # Loading ProcessClass
       # Create Process derived from respectively BaseProcess
+      @config = oForjConfig
       Logging.debug("Loading Process '%s'" % sProcessClass)
       cBaseProcess = Class.new(BaseProcess)
       Object.const_set sProcessClass, cBaseProcess
@@ -81,7 +84,16 @@ class ForjObject
       if sProcessClass.is_a?(Symbol)
          sFile = File.join($CORE_PROCESS_PATH, sProcessClass.to_s + '.rb')
       else
-         sFile = File.join($CORE_PROCESS_PATH, sProcessClass.capitalize + '.rb')
+         if sProcessClass.include?('/')
+            # Consider a path to the process file. File name is the name of the class.
+            sPath = File.dirname(File.expand_path(sProcessClass))
+            file = File.basename(sProcessClass)
+            file['.rb'] = '' if file['.rb']
+            sProcessClass = file
+         else
+            sPath = $CORE_PROCESS_PATH
+         end
+         sFile = File.join(sPath, sProcessClass.capitalize + '.rb')
       end
       if File.exists?(sFile)
          load sFile
@@ -108,8 +120,16 @@ class ForjObject
 
          # Loading Provider base file. This file should load a class
          # which have the same name as the file.
-         $PROVIDER_PATH = File.join($PROVIDERS_PATH, sControllerClass)
-         sFile = File.join($PROVIDER_PATH, sProviderClass + '.rb')
+         if sControllerClass.include?('/')
+            # Consider a path to the process file. File name is the name of the class.
+            sPath = File.dirname(File.expand_path(sControllerClass))
+            file = File.basename(sControllerClass)
+            file['.rb'] = '' if file['.rb']
+            sControllerClass = file
+         else
+            sPath = File.join($PROVIDERS_PATH, sControllerClass)
+         end
+         sFile = File.join(sPath, sProviderClass + '.rb')
          if File.exists?(sFile)
             load sFile
          else
@@ -146,12 +166,12 @@ class ForjObject
 
 
          # Load the Provider process Class if exists.
-         sProcessFile = File.join($PROVIDER_PATH, sControllerClass + 'Process.rb')
+         sProcessFile = File.join(sPath, sControllerClass + 'Process.rb')
          if File.exist?(sProcessFile)
             # Create an object derived from sProcessClass (Ex: CloudProcess) named sProviderClass + 'Process'
             cBaseProcess = Class.new(sProcessClass)
             Object.const_set sProviderClass + 'Process', cBaseProcess
-            load File.join($PROVIDER_PATH, sProcessFile)
+            load File.join(sPath, sProcessFile)
             byebug
          end
       else
@@ -196,17 +216,26 @@ class ForjObject
       @oCoreObject.Update(oCloudObj)
    end
 
+   # Function used to ask users about setting up his account.
+   def Setup(oCloudObj, sAccountName = nil)
+      return nil if not oCloudObj or not @oCoreObject
+      @oCoreObject.Setup(oCloudObj, sAccountName)
+   end
 end
 
 # This class based on generic ForjObject, defines a Cloud Process to use.
 class ForjCloud < ForjObject
-   def initialize(oConfig, sAccount)
+   def initialize(oConfig, sAccount = nil)
 
       oForjAccount = ForjAccount.new(oConfig)
-      oForjAccount.ac_load(sAccount)
+      unless sAccount.nil?
+         oForjAccount.ac_load(sAccount, false)
 
-      sProviderFileToLoad = oForjAccount.getAccountData(:account, :provider)
-
+         sProviderFileToLoad = oForjAccount.getAccountData(:account, :provider)
+      else
+         sProviderFileToLoad = oConfig.get(:provider_name)
+      end
+      raise ForjError.new(), "Provider_name not set. Unable to create instance ForjCloud." if sProviderFileToLoad.nil?
       super(oForjAccount, :CloudProcess, sProviderFileToLoad)
    end
 end
@@ -284,31 +313,40 @@ class ObjectParams
       }
    end
 
-   def [] (key)
+   def [] (*key)
 
-      return rhGet(@hParams, key, :object) if rhExist?(@hParams, key, :object) == 2
+      key = key.flatten
+      if not [:object, :attrs].include?(key[1]) and rhExist?(@hParams, key[0], :object) == 2
+         return rhGet(@hParams, key[0], :object,  key[1..-1])
+      end
+
       rhGet(@hParams, key)
    end
 
-   def []= (key, value)
-      @hParams[key] = value
+   def []= (*key, value)
+      return nil if key[1] == :object
+      rhSet(@hParams, value, key)
    end
 
-   def exist?(key)
+   def << (hHash)
+      @hParams.merge!(hHash)
+   end
+
+   def exist?(*key)
       (rhExist?(@hParams, key) == 1)
    end
 
-   def get(key)
+   def get(*key)
       rhGet(@hParams, key)
    end
 
-   def type?(key)
+   def type?(*key)
       nil if rhExist?(@hParams, key) != 1
       :data
       :CloudObject if rhExist?(@hParams, key, :object) == 2
    end
 
-   def cObj(key)
+   def cObj(*key)
       rhGet(@hParams, key, :object) if rhExist?(@hParams, key, :object) == 2
    end
 
@@ -338,10 +376,12 @@ class BaseDefinition
 
       # build Function params to pass to the event handler.
       aParams = _get_object_params(sCloudObj, pProc)
+      Logging.debug("Create Object '%s' - Running '%s'" % [sCloudObj, pProc])
 
       oBaseObject = @oForjProcess.method(pProc).call(sCloudObj, aParams)
 
       rhSet(@CloudData, oBaseObject, sCloudObj)
+      oBaseObject
    end
 
    def Delete(sCloudObj)
@@ -425,6 +465,7 @@ class BaseDefinition
       oObjValue = @oForjProcess.method(pProc).call(sCloudObj, sUniqId, aParams)
 
       rhSet(@CloudData, oObjValue, sCloudObj)
+      oObjValue
    end
 
    def Update(sCloudObj)
@@ -451,6 +492,145 @@ class BaseDefinition
       aParams = _get_object_params(sCloudObj, pProc)
 
       @oForjProcess.method(pProc).call(sCloudObj, aParams)
+   end
+
+   def Setup(sObjectType, sAccountName)
+      # Loop in dependencies to get list of data object to setup
+      raise ForjError,new(), "Setup: '%s' not a valid object type." if rhExist?(@@meta_obj, sObjectType) != 1
+
+      aSetup = [[]]
+      oInspectedObjects = []
+      oInspectObj = [sObjectType]
+
+      @oForjConfig.ac_load(sAccountName) if sAccountName
+
+      Logging.debug("Setup is identifying account data to ask for '%s'" % sObjectType)
+      while oInspectObj.length() >0
+         # Identify data to ask
+         sObjectType = oInspectObj.pop
+         Logging.debug("Checking '%s'" % sObjectType)
+         hTopParams = rhGet(@@meta_obj,sObjectType, :params)
+         if hTopParams[:list].nil?
+            Logging.debug("Warning! Object '%s' has no data/object needs. Check the process" % sObjectType)
+            next
+         end
+         hTopParams[:list].each { |sKeypath|
+            hParams = rhGet(hTopParams, :keys, sKeypath)
+            sKey = _2tree_array(sKeypath)[-1]
+            case hParams[:type]
+               when :data
+                  hMeta = _get_meta_data(sKey)
+                  next if hMeta.nil?
+
+                  if hMeta[:account].is_a?(TrueClass)
+                     if not hMeta[:depends_on].is_a?(Array)
+                        Logging.warning("'%s' depends_on definition have to be an array." % sKeypath) unless hMeta[:depends_on].nil?
+                        iLevel = 0
+                        bFound = true
+                     else
+                        # Searching highest level from dependencies.
+                        bFound = false
+                        iLevel = 0
+                        hMeta[:depends_on].each { |depend_key|
+                           aSetup.each_index { |iCurLevel|
+                              if aSetup[iCurLevel].include?(depend_key)
+                                 bFound = true
+                                 iLevel = [iLevel, iCurLevel + 1].max
+                              end
+                           }
+                              aSetup[iLevel] = [] if aSetup[iLevel].nil?
+                        }
+                     end
+                     if bFound
+                        if not aSetup[iLevel].include?(sKey)
+                           if hMeta[:ask_sort].is_a?(Fixnum)
+                              if aSetup[iLevel][hMeta[:ask_sort]].nil?
+                                 aSetup[iLevel][hMeta[:ask_sort]] = sKey
+                              else
+                                 aSetup[iLevel].insert(hMeta[:ask_sort], sKey)
+                              end
+                           else
+                              aSetup[iLevel] << sKey
+                           end
+                           Logging.debug("'%s' added in setup list. level %s." % [sKey, iLevel])
+                        end
+                     else
+                        oInspectedObjects << sKey
+                     end
+                  end
+               when :CloudObject
+                  oInspectObj << sKey if not oInspectObj.include?(sKey) and not oInspectedObjects.include?(sKey)
+            end
+         }
+         oInspectedObjects << sObjectType
+      end
+      Logging.debug("Setup will ask for :\n %s" % aSetup.to_yaml)
+
+      # Ask for user input
+      aSetup.each_index { | iIndex |
+         Logging.debug("Ask step %s:" % iIndex)
+         aSetup[iIndex].each { | sKey |
+            hParam = _get_meta_data(sKey)
+            hParam = {} if hParam.nil?
+            sDesc = "'%s' value" % sKey
+            sDesc = hParam[:desc] unless hParam[:desc].nil?
+            sDefault = @oForjConfig.get(sKey, hParam[:default])
+            rValidate = nil
+            
+            rValidate = hParam[:validate] unless hParam[:validate].nil?
+            bRequired = (hParam[:required] == true)
+            if not hParam[:list_values].nil?
+               hValues = hParam[:list_values]
+               sObjectToLoad = hValues[:object]
+               oObject = get_object(sObjectToLoad)
+               oObject = Create(sObjectToLoad) if oObject.nil?
+               return nil if oObject.nil?
+               oParams = ObjectParams.new
+               oParams[sObjectToLoad] = oObject
+               oParams<< hValues[:query_params]
+               bListStrict = (hValues[:validate] == :list_strict)
+               
+               case hValues[:query_type]
+                  when :controller_call
+                     raise ForjError.new(), "values_type => :provider_function requires missing :query_call declaration (Controller function)" if hValues[:query_call].nil?
+                     pProc = hValues[:query_call]
+                     begin
+                        aList = @oProvider.method(pProc).call(sObjectToLoad, oParams)
+                     rescue => e
+                        raise ForjError.new(), "Error during call of '%s':\n%s" % [pProc, e.message]
+                     end
+                  when :process_call
+                     raise ForjError.new(), "values_type => :process_function requires missing :query_call declaration (Provider function)" if hValues[:query_call].nil?
+                     pProc = hValues[:query_call]
+                     sObjectToLoad = hValues[:object]
+                     begin
+                        aList = @oForjProcess.method(pProc).call(sObjectToLoad, oParams)
+                     rescue => e
+                        raise ForjError.new(), "Error during call of '%s':\n%s" % [pProc, e.message]
+                     end
+                  else
+                     raise ForjError.new, "'%s' invalid. %s/list_values/values_type supports %s. " % [hValues[:values_type], sKey, [:provider_function]]
+               end
+               Logging.fatal(1, "%s requires a value from the '%s' query which is empty." % [sKey, sObjectToLoad])if aList.nil? and bListStrict
+               aList = [] if aList.nil?
+               if not bListStrict
+                  aList << "other"
+               end
+               say("Enter %s" % ((sDefault.nil?)? sDesc : sDesc + " |%s|" % sDefault))
+               value = choose { | q |
+                  q.choices(*aList)
+                  q.default = sDefault if sDefault
+               }
+               if not bListStrict and value == "other"
+                  value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+               end
+            else
+               value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+            end
+
+            @oForjConfig.set(sKey, value)
+         }
+      }
    end
 
    # Initialize Cloud object Data
@@ -548,7 +728,7 @@ class BaseDefinition
       begin
          _return_map(sObjectType, oControlerObject)
       rescue => e
-         raise ForjError.new(), "%s.%s : %s" % [@oForjProcess.class, pProc, e.message]
+         raise ForjError.new(), "connect %s.%s : %s" % [@oForjProcess.class, sObjectType, e.message]
       end
    end
 
@@ -557,7 +737,7 @@ class BaseDefinition
       begin
          _return_map(sObjectType, oControlerObject)
       rescue => e
-         raise ForjError.new(), "%s.%s : %s" % [@oForjProcess.class, pProc, e.message]
+         raise ForjError.new(), "create %s.%s : %s" % [@oForjProcess.class, sObjectType, e.message]
       end
       Logging.debug("%s.%s - loaded." % [@oForjProcess.class, sObjectType])
    end
@@ -571,7 +751,7 @@ class BaseDefinition
       begin
          _return_map(sObjectType, oControlerObject)
       rescue => e
-         raise ForjError.new(), "%s.%s : %s" % [@oForjProcess.class, pProc, e.message]
+         raise ForjError.new(), "get %s.%s : %s" % [@oForjProcess.class, e.message]
       end
    end
 
@@ -587,7 +767,7 @@ class BaseDefinition
          begin
             oObjects[:list] << _return_map(sObjectType, key)
          rescue => e
-            raise ForjError.new(), "%s.%s : %s" % [@oForjProcess.class, pProc, e.message]
+            raise ForjError.new(), "each %s.%s : %s" % [@oForjProcess.class, sObjectType, e.message]
          end
       }
       Logging.debug("%s.%s - queried. Found %s object(s)." % [@oForjProcess.class, sObjectType, oObjects[:list].length()])
@@ -617,7 +797,7 @@ class BaseDefinition
       begin
          _return_map(sObjectType, oControlerObject)
       rescue => e
-         raise ForjError.new(), "%s.%s : %s" % [@oForjProcess.class, pProc, e.message]
+         raise ForjError.new(), "update %s.%s : %s" % [@oForjProcess.class, sObjectType, e.message]
       end
    end
 
@@ -636,8 +816,21 @@ class BaseDefinition
       rhGet(@@meta_obj,sCloudObj, :params).each { |key, hParams|
          case hParams[:type]
             when :data
-               if hParams[:required] and @oForjConfig.get(key).nil?
-                  res[key] = hParams
+               if  hParams.key?(:array)
+                  hParams[:array].each{ | aElem |
+                     aElem = aElem.clone
+                     aElem.pop # Do not go until last level, as used to loop next.
+                     rhGet(hParams, aElem).each { | subkey, hSubParam |
+                        next if aElem.length == 0 and [:array, :type].include?(subkey)
+                        if hSubParams[:required] and @oForjConfig.get(subkey).nil?
+                           res[subkey] = hSubParams
+                        end
+                     }
+                  }
+               else
+                  if hParams[:required] and @oForjConfig.get(key).nil?
+                     res[key] = hParams
+                  end
                end
             when :CloudObject
                if hParams[:required] and rhExist?(@CloudData, sCloudObj) != 1
@@ -654,342 +847,12 @@ class BaseDefinition
       rhGet(@CloudData, sCloudObj)
    end
 
+   def objectExist?(sCloudObj)
+      (rhExist?(@CloudData, sCloudObj) != 1)
+   end
+
    def get_forjKey(oCloudData, key)
       return nil if rhExist?(oCloudData, sCloudObj) != 1
       rhGet(oCloudData, sCloudObj, :attrs, key)
    end
-
-   # ------------------------------------------------------
-   # Class Definition internal function.
-   # ------------------------------------------------------
-
-   def _return_map(sCloudObj, oControlerObject)
-
-      return nil if not sCloudObj or not [String, Symbol].include?(sCloudObj.class)
-      return {} if not oControlerObject
-
-      sCloudObj = sCloudObj.to_sym if sCloudObj.class == String
-
-      oCoreObject = {
-         :object_type => sCloudObj,
-         :attrs => {},
-         :object => oControlerObject,
-      }
-      hMap = rhGet(@@meta_obj, sCloudObj, :returns)
-      hMap.each { |key, map|
-         next if not map
-         oCoreObject[:attrs][key] = @oProvider.get_attr(oControlerObject, map)
-         raise ForjError.new(), "Unable to map returned value '%s'. Not detected by provider_object_mapping in '%s'" % [key, oCloudObject.class] if oCoreObject[:attrs][key].nil?
-      }
-      oCoreObject
-   end
-
-   def _get_object_params(sCloudObj, fname)
-
-      aParams = ObjectParams.new # hdata is built from scratch everytime
-
-      rhGet(@@meta_obj,sCloudObj, :params).each { |key, hParams|
-         case hParams[:type]
-            when :data
-               hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, key)
-               value = @oForjConfig.get(key)
-               if hValueMapping
-                  raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
-                  aParams[key] = hValueMapping[value]
-               else
-                  aParams[key] = value
-               end
-               if rhExist?(hParams, :mapping) == 1
-                  aParams[:hdata][rhGet(hParams, :mapping)] = aParams[key]
-               end
-            when :CloudObject
-               if hParams[:required] and rhExist?(@CloudData, key, :object) != 2
-                  byebug
-                  raise ForjError.new(), "Object '%s/%s' is not defined. '%s' requirement failed." % [ self.class, key, fname]
-               end
-               aParams[key] = get_object(key)
-            else
-               raise ForjError.new(), "Undefined ObjectData '%s'." % [ hParams[:type]]
-         end
-      }
-      aParams
-   end
-
-   def _check_required(sCloudObj, fname)
-      aCaller = caller
-      aCaller.pop
-
-      oObjMissing=[]
-
-      rhGet(@@meta_obj,sCloudObj, :params).each { |key, hParams|
-         case hParams[:type]
-            when :data
-               if hParams[:required] and @oForjConfig.get(key).nil?
-                  sSection = ForjDefault.get_meta_section(key)
-                  sSection = 'runtime' if not sSection
-                  raise ForjError.new(), "key '%s/%s' is not set. '%s' requirement failed." % [ sSection, key, fname], aCaller
-               end
-            when :CloudObject
-               if hParams[:required] and rhExist?(@CloudData, key, :object) != 2
-                  oObjMissing << key
-               end
-         end
-      }
-      return oObjMissing
-   end
-
-
-   ###################################################
-   # Class management Section
-   ###################################################
-
-   # Meta Object declaration structure
-   # <Object>:
-   #   :lambdas:
-   #     :create_e:          function to call at 'Create' task
-   #     :delete_e:          function to call at 'Delete' task
-   #     :update_e:          function to call at 'Update' task
-   #     :get_e:             function to call at 'Get'    task
-   #     :query_e:           function to call at 'Query'  task
-   #   :params:              Defines CloudData (:data) or CloudObj (:CloudObj) needs by the <Object>
-   #     :type:              :data or :CloudObj
-   #     :mapping:           To automatically create a provider hash data mapped.
-   #     :required:          True if this parameter is required.
-   #     :setup:             True if this parameter will need to be asked during Forj Account setup.
-   #
-   @@meta_obj =  {}
-
-   # meta data are defined in defaults.yaml and loaded in ForjDefault class definition
-   # Cloud provider can redefine ForjData defaults and add some extra parameters.
-   # To get Application defaults, read defaults.yaml, under :sections:
-   @@meta_data = {}
-   # <Section>:
-   #   <CloudData>:          CloudData name. This symbol must be unique, across sections.
-   #     :desc:              Description
-   #     :readonly:          oForjConfig.set() will fail if readonly is true.
-   #                         Can be set, only thanks to oForjConfig.setup()
-   #                         or using private oForjConfig._set()
-   #     :account_exclusive: Only oForjConfig.get/set() can handle the value
-   #                         oConfig.set/get cannot.
-
-      @@Context = {
-      :oCurrentObj      => nil, # Defines the Current Object to manipulate
-      :needs_optional   => nil, # set optional to true for any next needs declaration
-      :needs_setup      => nil  # set setup needs to true for any next needs declaration
-   }
-
-   def self.obj_needs_setup
-      @@Context[:needs_setup] = true
-   end
-
-   def self.obj_needs_NOsetup
-      @@Context[:needs_setup] = false
-   end
-
-   def self.obj_needs_optional
-      @@Context[:needs_optional] = true
-   end
-
-   def self.obj_needs_requires
-      @@Context[:needs_optional] = false
-   end
-
-   # Defines Object and connect to functions events
-   def self.define_obj(sCloudObj, hParam = nil)
-      return nil if not sCloudObj
-      return nil if not [String, Symbol].include?(sCloudObj.class)
-
-      aCaller = caller
-      aCaller.pop
-
-      sCloudObj = sCloudObj.to_sym if sCloudObj.class == String
-      @@Context[:oCurrentObj] = sCloudObj
-      @@Context[:needs_optional] = false
-      @@Context[:needs_setup] = false
-
-      if not [Hash].include?(hParam.class)
-         if rhExist?(@@meta_obj, sCloudObj) != 1
-            raise ForjError.new(), "New undefined object '%s' requires at least one handler. Ex: define_obj :%s, :create_e => myhandler " % [sCloudObj, sCloudObj]
-         end
-         hParam = {}
-      end
-
-      oCloudObj = rhGet(@@meta_obj, sCloudObj)
-      if not oCloudObj
-         oCloudObj = {
-            :lambdas => {:create_e => nil, :delete_e => nil, :update_e => nil, :get_e => nil, :query_e => nil},
-            :params => {},
-            :query_mapping => { :id => :id, :name => :name},
-            :returns => {:id => :id, :name => :name}
-         }
-         msg = nil
-      else
-         msg = ""
-      end
-
-      sObjectName = "'%s.%s'" %  [self.class, sCloudObj]
-
-      # Checking hParam data
-      if not rhGet(hParam, :nohandler)
-         hParam.each_key do | key |
-            raise ForjError.new(), "'%s' parameter is invalid. Use '%s'" % [key, oCloudObj[:lambdas].keys.join(', ')], aCaller if rhExist?(oCloudObj, :lambdas, key)!= 2
-         end
-         msg = "%-28s object declared." %  [sObjectName] if not msg
-      else
-         msg = "%-28s meta object declared." %  [sObjectName] if not msg
-      end
-      Logging.debug(msg) if msg != ""
-
-      # Setting procs
-      rhGet(oCloudObj, :lambdas).each_key { |key|
-         next if not hParam.key?(key)
-
-         if self.methods.include?(hParam[key])
-            raise ForjError.new(), "'%s' parameter requires a valid instance method." % [key], aCaller
-         end
-         if hParam[key] == :default
-            # By default, we use the event name as default function to call.
-            # Those function are predefined in ForjProvider
-            # The Provider needs to derive from ForjProvider and redefine those functions.
-            oCloudObj[:lambdas][key] = key
-         else
-            # If needed, ForjProviver redefined can contains some additionnal functions
-            # to call.
-            oCloudObj[:lambdas][key] = hParam[key]
-         end
-         }
-      rhSet(@@meta_obj, oCloudObj, sCloudObj)
-   end
-
-   def self.def_query_attribute(key)
-      self.query_mapping(key, key)
-   end
-
-   def self.query_mapping(key, map)
-      return nil if not [String, Symbol].include?(key.class)
-      return nil if not [NilClass, Symbol, String].include?(map.class)
-
-      aCaller = caller
-      aCaller.pop
-
-      raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
-
-      sCloudObj = @@Context[:oCurrentObj]
-      key = key.to_sym if key.class == String
-
-      @@Context[:oCurrentKey] = key
-
-      rhSet(@@meta_obj, map, sCloudObj, :query_mapping, key)
-   end
-
-   def self.data_value_mapping(value, map)
-      return nil if not [String, Symbol].include?(value.class)
-      return nil if not [NilClass, Symbol, String].include?(map.class)
-
-      aCaller = caller
-      aCaller.pop
-
-      sCloudObj = @@Context[:oCurrentObj]
-      key = @@Context[:oCurrentKey]
-
-      rhSet(@@meta_obj, map, sCloudObj, :value_mapping, key, value)
-   end
-
-   def self.def_attribute(key)
-      self.get_attr_mapping(key, key)
-   end
-
-   def self.get_attr_mapping(key, map = key)
-      return nil if not [String, Symbol].include?(key.class)
-      return nil if not [NilClass, Symbol, String, Array].include?(map.class)
-
-      aCaller = caller
-      aCaller.pop
-
-      raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
-
-      sCloudObj = @@Context[:oCurrentObj]
-      key = key.to_sym if key.class == String
-
-      rhSet(@@meta_obj, map, sCloudObj, :returns, key)
-   end
-
-   # Defines Object CloudData/CloudObj dependency
-   def self.obj_needs(sType, sParam, hParams = {})
-      return nil if not [String, Symbol].include?(sType.class)
-      return nil if not [String, Symbol].include?(sParam.class)
-
-      hParams = {} if not hParams
-
-      hParams[:setup] = @@Context[:needs_setup] if rhExist?(hParams, :setup) != 1
-      hParams[:required] = not(@@Context[:needs_optional]) if rhExist?(hParams, :required) != 1
-
-      aCaller = caller
-      aCaller.pop
-
-      raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
-
-      sCloudObj = @@Context[:oCurrentObj]
-      sType = sType.to_sym if sType.class == String
-      sParam = sParam.to_sym if sParam.class == String
-
-      @@Context[:oCurrentKey] = sParam
-
-      raise ForjError.new(), "%s: '%s' not declared. Missing define_obj(%s)?" % [ self.class, sCloudObj, sCloudObj], aCaller if rhExist?(@@meta_obj, sCloudObj) != 1
-
-      oCloudObjParam = rhGet(@@meta_obj, sCloudObj, :params, sParam)
-      if not oCloudObjParam
-         oCloudObjParam = {}
-         sMsgAction = "Added"
-      else
-         sMsgAction = "Updated"
-      end
-      sObjectName = "'%s.%s'" %  [self.class, sCloudObj]
-      case sType
-         when :data
-            if ForjDefault.meta_exist?(sParam)
-               Logging.debug("%-28s: %s predefined config '%s'." % [sObjectName, sMsgAction, sParam])
-            else
-               Logging.debug("%-28s: %s runtime    config '%s'." % [sObjectName, sMsgAction, sParam])
-            end
-            oCloudObjParam = hParams.merge({:type => sType}) if not oCloudObjParam.key?(sParam)
-         when :CloudObject
-            raise ForjError.new(), "%s: '%s' not declared. Missing define_obj(%s)?" % [self.class, sParam, sParam], aCaller if not @@meta_obj.key?(sParam)
-            oCloudObjParam = hParams.merge({:type => sType}) if not oCloudObjParam.key?(sParam)
-         else
-            raise ForjError.new(), "%s: Object parameter type '%s' unknown." % [ self.class, sType ], aCaller
-      end
-      rhSet(@@meta_obj, oCloudObjParam, sCloudObj, :params, sParam)
-   end
-
-
-   # Defines/update CloudData parameters
-   def self.define_data(sCloudData, hMeta)
-      return nil if not sCloudData or not hMeta
-      return nil if not [String, Symbol].include?(sCloudData.class)
-      return nil if hMeta.class != Hash
-
-      aCaller = caller
-      aCaller.pop
-
-      sCloudData = sCloudData.to_sym if sCloudData.class == String
-      raise ForjError.new(), "%s: Config meta '%s' unknown" % [self.class, sCloudData], aCaller if not ForjDefault.meta_exist?(sCloudData)
-
-      section = ForjDefault.get_meta_section(sCloudData)
-      if rhExist?(@@meta_data, section, sCloudData) == 2
-         rhGet(@@meta_data, section, sCloudData).merge!(hMeta)
-      else
-         rhSet(@@meta_data, hMeta, section, sCloudData)
-      end
-
-   end
-
-   def self.provides(aObjType)
-      @aObjType = aObjType
-   end
-
-   def self.defined?(objType)
-      @aObjType.include?(objType)
-   end
-
 end

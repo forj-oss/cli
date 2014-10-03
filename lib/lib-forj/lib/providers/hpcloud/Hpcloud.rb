@@ -20,12 +20,23 @@
 
 require 'fog' # We use fog to access HPCloud
 
-require File.join($PROVIDER_PATH, "compute.rb")
-require File.join($PROVIDER_PATH, "network.rb")
-require File.join($PROVIDER_PATH, "security_groups.rb")
+$HPCLOUD_PATH = File.expand_path(File.dirname(__FILE__))
+
+require File.join($HPCLOUD_PATH, "compute.rb")
+require File.join($HPCLOUD_PATH, "network.rb")
+require File.join($HPCLOUD_PATH, "security_groups.rb")
 
 # Defines Meta HPCloud object
 class Hpcloud < BaseDefinition
+
+   define_obj :services
+   obj_needs   :data, :account_id,      :mapping => :hp_access_key
+   obj_needs   :data, :account_key,     :mapping => :hp_secret_key
+   obj_needs   :data, :auth_uri,        :mapping => :hp_auth_uri
+   obj_needs   :data, :tenant,          :mapping => :hp_tenant_id
+   obj_needs   :data, [:excon_opts, :connect_timeout], :default => 30
+   obj_needs   :data, ":excon_opts/:read_timeout",    :default => 240
+   obj_needs   :data, ":excon_opts/:write_timeout",   :default => 240
 
    # Defines Object structure and function stored on the Hpcloud class object.
    # Compute Object
@@ -81,14 +92,50 @@ class Hpcloud < BaseDefinition
    # The FORJ gateway_network_id is extracted from Fog::HP::Network::Router[:external_gateway_info][:network_id]
    get_attr_mapping :gateway_network_id, [:external_gateway_info, 'network_id']
 
-   
+
    # defines setup Cloud data
-   define_data(:account_id,  {:account => true, :desc => 'HPCloud Access Key'})
-   define_data(:account_key, {:account => true, :desc => 'HPCloud secret Key'})
-   define_data(:auth_uri,    {:account => true, :desc => 'HPCloud Authentication service URL'})
-   define_data(:tenant,      {:account => true, :desc => 'HPCloud Tenant ID'})
-   define_data(:compute,     {:account => true, :desc => 'HPCloud Compute service zone (Ex: region-a.geo-1)'})
-   define_data(:network,     {:account => true, :desc => 'HPCloud Network service zone (Ex: region-a.geo-1)'})
+   define_data(:account_id, {
+      :desc => 'HPCloud Access Key (From horizon, user drop down, manage keys)',
+      :validate => /^[A-Z0-9]*$/
+   })
+   define_data(:account_key, {
+      :desc => 'HPCloud secret Key (From horizon, user drop down, manage keys)',
+      :encrypted => false,
+      :validate => /^.+/
+   })
+   define_data(:auth_uri, {
+      :desc => 'HPCloud Authentication service URL (default is HP Public cloud)',
+      :validate => /^http(s)?:\/\/.*$/,
+      :default => "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/"
+   })
+   define_data(:tenant, {
+      :desc => 'HPCloud Tenant ID (from horizon, identity, projecs, Project ID)',
+      :validate => /^[0-9]+$/
+   })
+
+   define_data(:compute, {
+      :desc => 'HPCloud Compute service zone (Ex: region-a.geo-1)',
+      :depends_on => [:account_id, :account_key, :auth_uri,:tenant ],
+      :list_values => {
+         :query_type  => :controller_call,
+         :object       => :services,
+         :query_call   => :get_services,
+         :query_params => { :list_services => :Compute },
+         :validate     => :list_strict
+      }
+   })
+
+   define_data(:network, {
+      :desc => 'HPCloud Network service zone (Ex: region-a.geo-1)',
+      :depends_on => [:account_id, :account_key, :auth_uri,:tenant ],
+      :list_values => {
+         :query_type  => :controller_call,
+         :object       => :services,
+         :query_call   => :get_services,
+         :query_params => { :list_services => :Networking },
+         :validate     => :list_strict
+      }
+   })
 
 
 end
@@ -99,12 +146,14 @@ class HpcloudController < BaseController
 
    def connect(sObjectType, hParams)
       case sObjectType
+         when :services
+            Fog::HP.authenticate_v2(hParams[:hdata], hParams[:excon_opts])
          when :compute_connection
             Fog::Compute.new(hParams[:hdata].merge({:provider => :hp,:version => 'v2'}))
          when :network_connection
             Fog::HP::Network.new(hParams[:hdata])
          else
-            forjError "'%s' is not a valid object for 'connect" % sObjectType
+            forjError "'%s' is not a valid object for 'connect'" % sObjectType
       end
    end
 
@@ -133,13 +182,13 @@ class HpcloudController < BaseController
                hParams[:hdata][:external_gateway_info] = { 'network_id' => hParams[:external_gateway_id] }
             end
             hParams[:hdata] = hParams[:hdata].merge(:admin_state_up => true) # Forcelly used admin_status_up to true.
-            
+
             HPNetwork.create_router(hParams[:network_connection], hParams[:hdata])
          when :rule
             required?(hParams, :network_connection)
             HPSecurityGroups.create_rule(hParams[:network_connection], hParams[:hdata])
          else
-            forjError "'%s' is not a valid object for 'create" % sObjectType
+            forjError "'%s' is not a valid object for 'create'" % sObjectType
       end
    end
 
@@ -191,7 +240,7 @@ class HpcloudController < BaseController
          when :network
             HPNetwork.get_network(oNetworkConnect, sUniqId, name)
          else
-            forjError "'%s' is not a valid object for 'get" % sObjectType
+            forjError "'%s' is not a valid object for 'get'" % sObjectType
       end
    end
 
@@ -202,7 +251,7 @@ class HpcloudController < BaseController
                yield(value)
             }
          else
-            forjError "'%s' is not a valid list for 'each" % oFogObject.class
+            forjError "'%s' is not a valid list for 'each'" % oFogObject.class
       end
    end
 
@@ -230,7 +279,21 @@ class HpcloudController < BaseController
          when :router
             HPNetwork.update_router(hParams[:router])
          else
-            forjError "'%s' is not a valid list for 'each" % oFogObject.class
+            forjError "'%s' is not a valid list for 'update'" % oFogObject.class
+      end
+   end
+
+   # This function requires to return an Array of values or nil.
+   def get_services(sObjectType, oParams)
+      case sObjectType
+         when :services
+            result = oParams[:services, :service_catalog, oParams[:list_services]].keys
+            result.each_index { | iIndex |
+               result[iIndex] = result[iIndex].to_s if result[iIndex].is_a?(Symbol)
+            }
+            return result
+         else
+            forjError "'%s' is not a valid object for 'get_services'" % sObjectType
       end
    end
 end

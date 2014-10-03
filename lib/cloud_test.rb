@@ -24,7 +24,8 @@ Logging.set_level(Logger::DEBUG)
 # Load global Config
 oConfig = ForjConfig.new()
 
-oCloud = ForjCloud.new(oConfig, 'hpcloud')
+oCloud = ForjCloud.new(oConfig, 'test')
+#oCloud = ForjCloud.new(oConfig)
 
 oConfig.set(:blueprint, 'redstone')
 #oConfig.set(:sg_desc, "Security group for blueprint '%s'" % [oConfig.get(:blueprint)])
@@ -33,7 +34,11 @@ oConfig.set(:blueprint, 'redstone')
 #oCloud.Create(:router)
 #oCloud.Create(:keypairs)
 
-oCloud.Create(:internet_network)
+
+oCloud.Setup(:internet_server)
+oCloud.config.ac_save
+byebug
+oCloud.Create(:internet_server)
 
 oConfig.set(:server_name, 'test')
 byebug

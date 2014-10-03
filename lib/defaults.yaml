@@ -41,7 +41,7 @@
   :build_config: box
   :branch: master
   :box_name: maestro
-  
+
   :provider_name: hpcloud
 :description:
   # Description of build.sh environment variable defined by forj cli for build.sh. (~/.forj/infra/build/<Account>.build.env)
@@ -61,7 +61,7 @@
 
 # Following declares generic FORJ data to handle Fog object (compute/network/dns/...)
 # It defines the account file structure. section/key=value
-# All data can be predefined by default value (config.yaml/defaults.yaml) except 
+# All data can be predefined by default value (config.yaml/defaults.yaml) except
 # those identified by :account_exclusive: true
 :sections:
   # This section define updatable data available from config.yaml. But will never be added in an account file.
@@ -88,9 +88,11 @@
     :compute:
       :desc:              "Generic service identification for compute"
       :account_exclusive: true
+      :account:           true
     :network:
       :desc:              "Generic service identification for network"
       :account_exclusive: true
+      :account:           true
 
   # Defines ssh keys credentials
   :credentials:
@@ -98,25 +100,40 @@
       :desc:              "public key file to send to the cloud under keypair name, and private key to keep on your local forj environment to access your boxes."
     :keypair_name:
       :desc:              "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
-    :account_id:
-      :desc:              "Generic Cloud Account name."
-      :account_exclusive: true
-    :account_key:
-      :desc:              "Generic cloud account key"
-      :account_exclusive: true
     :auth_uri:
       :desc:              "Generic service auth url"
       :account_exclusive: true
+      :account:           true
+      :required:          true
+      :ask_sort:          0
+    :account_id:
+      :desc:              "Generic Cloud Account name."
+      :account_exclusive: true
+      :account:           true
+      :required:          true
+    :account_key:
+      :desc:              "Generic cloud account key"
+      :account_exclusive: true
+      :account:           true
+      :required:          true
     :tenant:
       :desc:             "Generic Tenant identification"
       :account_exclusive: true
+      :account:           true
+      :required:          true
     :os_user:
       :desc:              "User name required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
       :account_exclusive: true
+      :account:           true
+      :required:          true
+      :validate: !ruby/regexp /\w+/
     :os_enckey:
       :desc:              "Encrypted password required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
       :account_exclusive: true
-      
+      :encrypted:         true
+      :account:           true
+      :required:          true
+
   # Defines DNS services for maestro
   :dns:
     :service:
@@ -149,7 +166,9 @@
       :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
     :flavor:
       :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
-    :image: 
+    :image:
       :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
     :ports:
       :desc:       "List of security group rules (1 port or range of ports) to open to the external network."
+    :branch:
+      :desc:       "Branch to use to build your forge"

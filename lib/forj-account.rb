@@ -96,7 +96,7 @@ class ForjAccount
       @hAccountData = {}
       _set(:account, :name, @sAccountName) if exist?(:name) != 'hash'
       _set(:account, :provider, sProvider)  if exist?(:provider) != 'hash'
-      
+
    end
 
    # oForjAccount data get at several levels:
@@ -111,24 +111,24 @@ class ForjAccount
       key = key.to_sym if key.class == String
 
       return @oConfig.runtimeGet(key) if @oConfig.runtimeExist?(key)
-      
+
       section = ForjDefault.get_meta_section(key)
       default_key = key
-      
+
       if not section
          Logging.debug("ForjAccount.get: No section found for key '%s'." % [key])
       else
          return rhGet(@hAccountData, section, key) if rhExist?(@hAccountData, section, key) == 2
-      
+
          hMeta = @oConfig.getAppDefault(:sections)
          if rhExist?(hMeta, section, key, :default) == 3
-            default_key = rhGet(hMeta, section, key, :default) 
+            default_key = rhGet(hMeta, section, key, :default)
             Logging.debug("ForjAccount.get: Reading default key '%s' instead of '%s'" % [default_key, key])
          end
-         return nil if rhExist?(hMeta, section, key, :account_exclusive) == 3
+         return default if rhExist?(hMeta, section, key, :account_exclusive) == 3
       end
 
-      @oConfig.get(default_key, nil , default )
+      @oConfig.get(default_key , default )
    end
 
    def exist?(key)
@@ -144,7 +144,7 @@ class ForjAccount
 
       hMeta = @oConfig.getAppDefault(:sections)
       if rhExist?(hMeta, section, key, :default) == 3
-         default_key = rhGet(hMeta, section, key, :default) 
+         default_key = rhGet(hMeta, section, key, :default)
          Logging.debug("ForjAccount.exist?: Reading default key '%s' instead of '%s'" % [default_key, key])
       else
          default_key = key
@@ -155,7 +155,7 @@ class ForjAccount
 
    end
 
-   # Return true if readonly. set won't be able to update this value. 
+   # Return true if readonly. set won't be able to update this value.
    # Only _set (private function) is able.
    def readonly?(key)
       return nil if not key
@@ -175,15 +175,15 @@ class ForjAccount
          rhSet(hCurMeta, myvalue, mykey)
          }
    end
-   
+
    def meta_exist?(key)
       return nil if not key
-      
+
       key = key.to_sym if key.class == String
       section = ForjDefault.get_meta_section(key)
       rhExist?(@oConfig.getAppDefault(:sections, section), key) == 1
    end
-   
+
    def get_meta_section(key)
       key = key.to_sym if key.class == String
       rhGet(@account_section_mapping, key)
@@ -197,7 +197,7 @@ class ForjAccount
       return section if section == :default
       @sAccountName
    end
-   
+
    # Loop on account metadata
    def metadata_each
       rhGet(ForjDefault.dump(), :sections).each { | section, hValue |
@@ -245,23 +245,30 @@ class ForjAccount
       default
    end
 
-   def ac_load(sAccountName = @sAccountName)
+   def ac_new(sAccountName)
+      return nil if sAccountName.nil?
+      @sAccountName = sAccountName
+      @sAccountFile = File.join($FORJ_ACCOUNTS_PATH, @sAccountName)
+
+      @hAccountData = {:account => {:name => sAccountName, :provider => @oConfig.get(:provider_name)}}
+   end
+
+   def ac_load(sAccountName = @sAccountName, bHPCloudLoad = true)
       # Load Account Information
 
       if sAccountName != @sAccountName
-         @sAccountName = sAccountName
-         @sAccountFile = File.join($FORJ_ACCOUNTS_PATH, @sAccountName)
+         ac_new(sAccountName)
       end
 
       if File.exists?(@sAccountFile)
          @hAccountData = @oConfig.ExtraLoad(@sAccountFile, :forj_accounts, @sAccountName)
          # Check if hAccountData are using symbol or needs to be updated.
-         sProvider = @oConfig.get(:provider, nil, 'hpcloud')
+         sProvider = @oConfig.get(:provider, 'hpcloud')
          rhSet(@hAccountData, @sAccountName, :account, :name) if rhExist?(@hAccountData, :account, :name) != 2
          rhSet(@hAccountData, sProvider, :account, :provider) if rhExist?(@hAccountData, :account, :provider) != 2
-         provider_load()
+         provider_load() if bHPCloudLoad
          if rhKeyToSymbol?(@hAccountData, 2)
-            @hAccountData = rhKeyToSymbol(@hAccountData, 2) 
+            @hAccountData = rhKeyToSymbol(@hAccountData, 2)
             self.ac_save()
          end
          return @hAccountData
@@ -488,7 +495,7 @@ class ForjAccount
 
 
       # Creation sequences
-      if not keys[:private_key_exist?]
+      if not keys[:private_key_exist? ]
          # Need to create a key. ask if we need so.
          Logging.message("The private key file attached to keypair named '%s'  is not found. forj will propose to create one for you. Please review the proposed private key file name and path.\nYou can press Enter to accept the default value." % keys[:keypair_name])
          real_key_path = File.expand_path(ask("Private key file path:") do |q|
@@ -512,7 +519,7 @@ class ForjAccount
          end
       end
 
-      if not keys[:public_key_exist?]
+      if not keys[:public_key_exist? ]
          Logging.message("Your public key '%s' was not found. Getting it from the private one. It may require your passphrase." % [public_key_file])
          command = 'ssh-keygen -y -f %s > %s' % [private_key_file,public_key_file ]
          Logging.debug("Executing '%s'" % command)

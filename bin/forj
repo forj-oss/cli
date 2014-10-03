@@ -164,6 +164,9 @@ Maestro/infra bootstrap debugging:"
 
       # Options are added if they are set. Otherwise, get will retrieve the default value.
       oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
+      oForjAccount = ForjAccount.new(oConfig)
+      oForjAccount.ac_load()
+      
       oConfig.set(:infra_repo,     options[:infra])
       oConfig.set(:keypair_name,   options[:key_name])
       oConfig.set(:keypair_path,   options[:key_path])
@@ -172,6 +175,7 @@ Maestro/infra bootstrap debugging:"
       oConfig.set(:flavor,         options[:maestro_flavor])
       oConfig.set(:bp_flavor,      options[:bp_flavor])
       oConfig.set(:maestro_repo ,  options[:maestro_repo])
+      oConfig.set(:branch ,        options[:branch])
       oConfig.set(:test_box, File.expand_path(options[:test_box])) if options[:test_box] and File.directory?(File.expand_path(options[:test_box]))
 
 
@@ -188,8 +192,7 @@ Maestro/infra bootstrap debugging:"
          end
       end
 
-      Boot.boot(blueprint, name, options[:build],options[:branch],
-                options[:boothook], options[:box_name], oConfig)
+      Boot.boot(blueprint, name, options[:build], options[:boothook], options[:box_name], oForjAccount)
   end
 
 ################################# Show defaults

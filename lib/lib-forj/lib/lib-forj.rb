@@ -33,3 +33,5 @@ require 'forj-config.rb'   # Load class ForjConfig
 require 'forj-account.rb'  # Load class ForjAccount
 
 require File.join($FORJ_LIB, "core", "core.rb")
+require File.join($FORJ_LIB, "core", "definition.rb")
+require File.join($FORJ_LIB, "core", "definition_internal.rb")

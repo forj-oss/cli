@@ -154,8 +154,8 @@ describe "class: forj-config," do
 
          it 'can get defaults if no key' do
             expect(@config.set(:test1, nil)).to equal(true)
-            expect(@config.get(:test1, nil, 'default')).to eq('default')
-            expect(@config.get(:test1, nil, nil)).to equal(nil)
+            expect(@config.get(:test1, 'default')).to eq('default')
+            expect(@config.get(:test1, nil)).to equal(nil)
             expect(@config.set(:maestro_url,nil)).to equal(true)
             expect(@config.get(:maestro_url)).to eq(@url)
          end
@@ -178,24 +178,25 @@ describe "class: forj-config," do
             @aArray4[1] = { :hash_2 => { :maestro_url => 'url4'  }}
          end
 
-         it 'can get data from one hash' do
-            expect(@config.get(:maestro_url, @yYAML1)).to eq('url1')
-            @config.set(:maestro_url, 'runtime')
-            expect(@config.get(:maestro_url, @yYAML1)).to eq('runtime')
-         end
-         
-         it 'can get data from array of hash' do
-            @config.set(:maestro_url, nil)
-            expect(@config.get(:maestro_url, @aArray1)).to eq('url2')
-            expect(@config.get(:maestro_url, @aArray2)).to eq('url1')
-         end
-         it 'can get data from array of hashes' do
-            @config.set('maestro_url', nil)
-            expect(@config.exist?(:maestro_url, @aArray3)).to eq('hash_1')
-            expect(@config.exist?(:maestro_url, @aArray4)).to eq('hash_2')
-            expect(@config.get(:maestro_url, @aArray3)).to eq('url3')
-            expect(@config.get(:maestro_url, @aArray4)).to eq('url4')
-         end
+         # Obsolete.
+         #~ it 'can get data from one hash' do
+            #~ expect(@config.get(:maestro_url, @yYAML1)).to eq('url1')
+            #~ @config.set(:maestro_url, 'runtime')
+            #~ expect(@config.get(:maestro_url, @yYAML1)).to eq('runtime')
+         #~ end
+         #~ 
+         #~ it 'can get data from array of hash' do
+            #~ @config.set(:maestro_url, nil)
+            #~ expect(@config.get(:maestro_url, @aArray1)).to eq('url2')
+            #~ expect(@config.get(:maestro_url, @aArray2)).to eq('url1')
+         #~ end
+         #~ it 'can get data from array of hashes' do
+            #~ @config.set('maestro_url', nil)
+            #~ expect(@config.exist?(:maestro_url, @aArray3)).to eq('hash_1')
+            #~ expect(@config.exist?(:maestro_url, @aArray4)).to eq('hash_2')
+            #~ expect(@config.get(:maestro_url, @aArray3)).to eq('url3')
+            #~ expect(@config.get(:maestro_url, @aArray4)).to eq('url4')
+         #~ end
       end
    end
 end

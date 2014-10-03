@@ -51,11 +51,10 @@ class CloudProcess < BaseProcess
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
          end
-         Logging.error('Compute: Unable to connect.\n%s' % [ e.message ])
+         Logging.error('%s:%s: Unable to connect.\n%s' % [self.class, sCloudObj, e.message ])
          nil
       end
    end
-
 end
 
 class CloudProcess
@@ -143,7 +142,7 @@ class CloudProcess
 
       Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not keys[:keypair_path]
       Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not keys[:keypair_name]
-      Logging.fatal(1, "keypair '%s' are missing. Please call 'forj setup %s' to create the missing key pair required." % [keys[:keypair_name], account]) if not keys[:public_key_exist?]
+      Logging.fatal(1, "keypair '%s' are missing. Please call 'forj setup %s' to create the missing key pair required." % [keys[:keypair_name], account]) if not keys[:public_key_exist? ]
     
       public_key_path = File.join(keys[:keypair_path], keys[:public_key_name])
       private_key_path = File.join(keys[:keypair_path], keys[:private_key_name])
@@ -158,7 +157,7 @@ class CloudProcess
       end
 
       if not File.exists?(File.join($HPC_KEYPAIRS, keys[:keypair_name] + '.pem'))
-         if keys[:private_key_exist?]
+         if keys[:private_key_exist? ]
             Logging.info("Importing your forj private key '%s' to hpcloud." % private_key_path)
             command = 'hpcloud keypairs:private:add %s %s' % [keys[:keypair_name], private_key_path]
             Logging.debug("Executing command '%s'" % command)

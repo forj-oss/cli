@@ -34,22 +34,13 @@ include Helpers
 # Boot module
 #
 module Boot
-  def boot(blueprint, name, build, branch, boothook, box_name, oConfig)
+  def boot(blueprint, name, build, boothook, box_name, oConfig)
     begin
 
       Logging.fatal(1, 'FORJ account not specified. Did you used `forj setup`, before?') if not oConfig.get(:account_name)
 
-      oForjAccount = ForjAccount.new(oConfig)
-
-      oForjAccount.ac_load()
-
-
-      # Load Forj account data
-      forjAccountFile = File.join($FORJ_ACCOUNTS_PATH, oConfig.get(:account_name))
-      oConfig.ExtraLoad(forjAccountFile, :forj_accounts, oConfig.get(:account_name))
-
       # Check options and set data
-      cloud_provider = oForjAccount.get(:provider_name, 'hpcloud')
+      cloud_provider = oConfig.get(:provider_name, 'hpcloud')
 
       if cloud_provider != 'hpcloud'
          Logging.fatal(1, "forj setup support only hpcloud. '%s' is currently not supported." % cloud_provider)
@@ -61,7 +52,7 @@ module Boot
       # Initialize defaults
       maestro_url =  oConfig.get(:maestro_url)
 
-      infra_dir = File.expand_path(oForjAccount.get(:infra_repo))
+      infra_dir = File.expand_path(oConfig.get(:infra_repo))
 
 
       # Check about infra repo compatibility with forj cli
@@ -80,18 +71,18 @@ module Boot
       end
 
       # Get FORJ DNS setting
-      yDNS = rhGet(oForjAccount.hAccountData, :dns)
-      Logging.fatal(1, "DNS or domain name are missing. Please execute forj setup %s" % oForjAccount.getAccountData(:account, 'name')) if not yDNS
+      yDNS = rhGet(oConfig.hAccountData, :dns)
+      Logging.fatal(1, "DNS or domain name are missing. Please execute forj setup %s" % oConfig.getAccountData(:account, 'name')) if not yDNS
 
-      branch = oConfig.get(:branch) unless branch
+      branch = oConfig.get(:branch, 'master')
 
       # Step Maestro Clone
-      if not oForjAccount.get(:maestro_repo)
+      if not oConfig.get(:maestro_repo)
          Logging.info('cloning maestro repo from \'%s\'...' % maestro_url)
          Repositories.clone_repo(maestro_url)
          maestro_repo=File.expand_path('~/.forj/maestro')
       else
-         maestro_repo=File.expand_path(oForjAccount.get(:maestro_repo))
+         maestro_repo=File.expand_path(oConfig.get(:maestro_repo))
          if not File.exists?('%s/templates/infra/maestro.box.%s.env' % [maestro_repo, branch])
             Logging.fatal(1, "'%s' is not a recognized Maestro repository. forj cli searched for templates/infra/%s-maestro.box.GITBRANCH.env.tmpl" % [maestro_repo, cloud_provider])
          end
@@ -106,21 +97,21 @@ module Boot
       # Connect to services
       oFC=ForjConnection.new(oConfig)
 
-      Logging.info('Configuring network \'%s\'' % [oForjAccount.get('network')])
+      Logging.info('Configuring network \'%s\'' % [oConfig.get('network_name')])
       begin
-        network = Network.get_or_create_network(oFC, oForjAccount.get('network'))
+        network = Network.get_or_create_network(oFC, oConfig.get('network_name'))
         subnet = Network.get_or_create_subnet(oFC, network.id, network.name)
         Network.get_or_create_router(oFC, network, subnet)
       rescue => e
         Logging.fatal(1, "Network properly configured is required.", e)
       end
 
-      Logging.info('Configuring keypair \'%s\'' % [oForjAccount.get('keypair_name')])
-      SecurityGroup.hpc_import_key(oForjAccount)
+      Logging.info('Configuring keypair \'%s\'' % [oConfig.get('keypair_name')])
+      SecurityGroup.hpc_import_key(oConfig)
 
 
-      Logging.info('Configuring Security Group \'%s\'' % [oForjAccount.get('security_group')])
-      security_group = SecurityGroup.get_or_create_security_group(oFC, oForjAccount.get('security_group'))
+      Logging.info('Configuring Security Group \'%s\'' % [oConfig.get('security_group')])
+      security_group = SecurityGroup.get_or_create_security_group(oFC, oConfig.get('security_group'))
       ports = oConfig.get(:ports)
 
       ports.each do |port|
@@ -135,23 +126,19 @@ module Boot
         end
       end
 
-      # oForjAccount data get are retrieved from the account file under section described in defaults.yaml, as soon as this mapping exist.
-      # If not found, get the data from the local configuration file. Usually ~/.forj/config.yaml
-      # If not found, get the data from defaults.yaml
-      # otherwise, use the get default parameter as value. Default is nil.
 
 
       oBuildEnv = BuildEnv.new(oConfig)
       ENV['FORJ_CLI_ENV'] = oBuildEnv.sBuildEnvFile
       oBuildEnv.set('FORJ_HPC',             oFC.sAccountName)
       oBuildEnv.set('FORJ_HPC_NET',         network.name)
-      oBuildEnv.set('FORJ_SECURITY_GROUP',  oForjAccount.get('security_group'))
-      oBuildEnv.set('FORJ_KEYPAIR',         oForjAccount.get('keypair_name'))
-      oBuildEnv.set('FORJ_HPC_NOVA_KEYPUB', oForjAccount.get('keypair_path') + '.pub')
-      oBuildEnv.set('FORJ_BASE_IMG',        oForjAccount.get('image'))
-      oBuildEnv.set('FORJ_FLAVOR',          oForjAccount.get('flavor'))
-      oBuildEnv.set('FORJ_BP_FLAVOR',       oForjAccount.get('bp_flavor'))
-      oBuildEnv.set('FORJ_TENANT_NAME',     oForjAccount.get(:tenant_name))
+      oBuildEnv.set('FORJ_SECURITY_GROUP',  oConfig.get('security_group'))
+      oBuildEnv.set('FORJ_KEYPAIR',         oConfig.get('keypair_name'))
+      oBuildEnv.set('FORJ_HPC_NOVA_KEYPUB', oConfig.get('keypair_path') + '.pub')
+      oBuildEnv.set('FORJ_BASE_IMG',        oConfig.get('image'))
+      oBuildEnv.set('FORJ_FLAVOR',          oConfig.get('flavor'))
+      oBuildEnv.set('FORJ_BP_FLAVOR',       oConfig.get('bp_flavor'))
+      oBuildEnv.set('FORJ_TENANT_NAME',     oConfig.get(:tenant_name))
       oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.ExtraGet(:hpc_accounts,  oFC.sAccountName, :regions), :compute))
 
 
@@ -168,8 +155,8 @@ module Boot
 
       build = 'bin/build.sh' unless build
 
-      build_config = oForjAccount.get('build_config')
-      box_name =     oForjAccount.get('box_name')
+      build_config = oConfig.get('build_config')
+      box_name =     oConfig.get('box_name')
 
       arg = '--meta blueprint=%s ' % [blueprint]
       arg += "--test-box '%s' " % oConfig.get(:test_box) if oConfig.exist?(:test_box)
