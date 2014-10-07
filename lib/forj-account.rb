@@ -308,7 +308,7 @@ class ForjAccount
 
       # Checking cloud connection
       Logging.message("Checking cloud connection")
-      ForjConnection.new(@oConfig)
+      ForjConnection.new(self)
 
       Logging.message("Setup '%s' done. Thank you." % @sAccountName)
    end
@@ -366,7 +366,7 @@ class ForjAccount
       if tenant_name
          Logging.debug("Tenant ID '%s': '%s' found." % [tenant_id, tenant_name])
          hCompute = { :tenant_name => tenant_name }
-         rhSet(@hAccountData, hCompute, :compute)
+         rhSet(@hAccountData, hCompute, :maestro)
       else
          Logging.error("Unable to find the tenant Name for '%s' ID." % tenant_id)
       end

@@ -248,10 +248,13 @@ Warning! This action don't removed any network/security groups cloud object.
    def down(name)
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
+
       oConfig = ForjConfig.new(options[:config])
       oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
+      oForjAccount = ForjAccount.new(oConfig)
+      oForjAccount.ac_load() 
 
-      Down.down(oConfig, name)
+      Down.down(oForjAccount, name)
    end
 
 ################################# SET
