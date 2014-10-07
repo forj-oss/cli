@@ -56,7 +56,7 @@ module Repositories
 
 
 
-   def create_infra(maestro_repo)
+   def create_infra(maestro_repo, branch)
       # Build our own infra from maestro infra templates.
       infra = File.join($FORJ_DATA_PATH, 'infra')
       dest_cloud_init = File.join(infra, 'cloud-init')
@@ -71,7 +71,8 @@ module Repositories
       Logging.debug("Copying recursively '%s' to '%s'" % [cloud_init, infra])
       FileUtils.copy_entry(cloud_init, dest_cloud_init)
 
-      build_env = File.join(template,'maestro.box.master.env')
+      template_file = 'maestro.box.' + branch + '.env'
+      build_env = File.join(template,template_file)
       Logging.debug("Copying '%s' to '%s'" % [build_env, infra])
       FileUtils.copy(build_env, infra)
       

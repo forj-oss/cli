@@ -84,14 +84,14 @@ module Boot
       else
          maestro_repo=File.expand_path(oConfig.get(:maestro_repo))
          if not File.exists?('%s/templates/infra/maestro.box.%s.env' % [maestro_repo, branch])
-            Logging.fatal(1, "'%s' is not a recognized Maestro repository. forj cli searched for templates/infra/%s-maestro.box.GITBRANCH.env.tmpl" % [maestro_repo, cloud_provider])
+            Logging.fatal(1, "'%s' is not a recognized Maestro repository. forj cli searched for templates/infra/maestro.box.%s.env" % [maestro_repo, branch])
          end
          Logging.info('Using your maestro cloned repo \'%s\'...' % maestro_repo)
       end
 
       if bBuildInfra
          Logging.info('Building your infra... in \'%s\'' % [infra_dir])
-         Repositories.create_infra(maestro_repo)
+         Repositories.create_infra(maestro_repo, branch)
       end
 
       # Connect to services
