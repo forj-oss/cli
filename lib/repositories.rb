@@ -129,7 +129,7 @@ module Repositories
             sAccountName = oConfig.get(:account_name)
 
             yDns = {}
-            yDns = oConfig.ExtraGet(:forj_accounts, sAccountName, :dns) if oConfig.ExtraExist?(:forj_accounts, sAccountName, :dns)
+            yDns = oConfig.oConfig.ExtraGet(:forj_accounts, sAccountName, :dns) if oConfig.oConfig.ExtraExist?(:forj_accounts, sAccountName, :dns)
             build_env = File.join(infra_dir, 'maestro.box.master.env')
             Logging.debug("Reading data from '%s'" % build_env)
             tags = {'SET_DNS_TENANTID' => :tenant_id,

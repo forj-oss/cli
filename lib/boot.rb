@@ -139,7 +139,7 @@ module Boot
       oBuildEnv.set('FORJ_FLAVOR',          oConfig.get('flavor'))
       oBuildEnv.set('FORJ_BP_FLAVOR',       oConfig.get('bp_flavor'))
       oBuildEnv.set('FORJ_TENANT_NAME',     oConfig.get(:tenant_name))
-      oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.ExtraGet(:hpc_accounts,  oFC.sAccountName, :regions), :compute))
+      oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.oConfig.ExtraGet(:hpc_accounts,  oFC.sAccountName, :regions), :compute))
 
 
       oBuildEnv.set('FORJ_DOMAIN', yDNS[:domain_name])
@@ -196,8 +196,8 @@ class BuildEnv
 
    def initialize(oConfig)
 
-      oConfig.fatal_if_inexistent(:infra_repo)
-      oConfig.fatal_if_inexistent(:account_name)
+      oConfig.oConfig.fatal_if_inexistent(:infra_repo)
+      oConfig.oConfig.fatal_if_inexistent(:account_name)
 
       sBuildDir = File.expand_path(File.join(oConfig.get(:infra_repo),'build'))
       @sBuildEnvFile = File.join(sBuildDir, oConfig.get(:account_name)+'.build.env')
@@ -221,7 +221,7 @@ class BuildEnv
       begin
          File.open(@sBuildEnvFile, 'w') do |out|
             @yBuildEnvVar.each do | key, value |
-               desc = @oConfig.getAppDefault(:description, key)
+               desc = @oConfig.oConfig.getAppDefault(:description, key)
                out.write("# %s - %s\n" % [key, desc]) if desc
                value = "" if not value
                out.write("%s='%s'\n\n" % [key, value])

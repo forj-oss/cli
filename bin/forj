@@ -49,7 +49,7 @@ include Ssh
 require 'forj-settings.rb' # Settings features
 
 #require 'debugger' # Use to debug with Ruby < 2.0
-require 'byebug'   # Use to debug with Ruby >= 2.0
+#require 'byebug'   # Use to debug with Ruby >= 2.0
 
 
 

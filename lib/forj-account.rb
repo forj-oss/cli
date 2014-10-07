@@ -76,6 +76,7 @@ class ForjAccount
 
    attr_reader :sAccountName
    attr_reader :hAccountData
+   attr_reader :oConfig
 
    # This object manage data located in oConfig[:hpc_accounts/AccountName]
 

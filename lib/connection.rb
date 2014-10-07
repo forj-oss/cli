@@ -126,9 +126,9 @@ class ForjConnection
      if not File.exists?(creds)
         Logging.fatal(1, "'%s' was not configured. Did you executed 'forj setup %s'? Please do it and retry." % [@sAccountName, @sAccountName])
      end
-     @oConfig.ExtraLoad(creds, :hpc_accounts, @sAccountName)
+     @oConfig.oConfig.ExtraLoad(creds, :hpc_accounts, @sAccountName)
 
-     template = @oConfig.ExtraGet(:hpc_accounts, @sAccountName)
+     template = @oConfig.oConfig.ExtraGet(:hpc_accounts, @sAccountName)
      credentials = {}
      begin
        credentials['access_key'] = template[:credentials][:account_id]
