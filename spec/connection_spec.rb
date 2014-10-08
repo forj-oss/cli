@@ -43,7 +43,7 @@ describe 'Module: forj-connection' do
   it 'should connect to hpcloud (smoke test)' do
 
     Fog.mock!
-    conn = ForjConnection.new(ForjConfig.new())
+    conn = ForjConnection.new(ForjAccount.new(ForjConfig.new()))
     expect(conn).to be
 
     Fog::Mock.reset
