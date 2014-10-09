@@ -150,7 +150,7 @@ class BaseDefinition
       hMap.each { |key, map|
          next if not map
          oCoreObject[:attrs][key] = @oProvider.get_attr(oControlerObject, map)
-         raise ForjError.new(), "Unable to map returned value '%s'. Not detected by provider_object_mapping in '%s'" % [key, oCoreObject.class] if oCoreObject[:attrs][key].nil?
+         raise ForjError.new(), "Attribute '%s' mapped to '%s' is unknown in Controller object '%s'." % [key, map, oControlerObject] if oCoreObject[:attrs][key].nil?
       }
       oCoreObject
    end
@@ -160,7 +160,7 @@ class BaseDefinition
       aKeyPath = _2tree_array(sKeypath)
       sKey = aKeyPath[-1]
       hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, sKey)
-      sDefault = rhGet(hParams, :default)
+      sDefault = rhGet(hParams, :default_value)
       value = @oForjConfig.get(sKey, sDefault)
       if hValueMapping
          raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
@@ -189,14 +189,15 @@ class BaseDefinition
 
       hkeyPaths.each { | sKeypath|
          hParams = rhGet(hTopParams, :keys, sKeypath)
+         sKey = _2tree_array(sKeypath)[-1]
          case hParams[:type]
             when :data
                _build_data(sCloudObj, oParams, sKeypath, hParams)
             when :CloudObject
-               if hParams[:required] and rhExist?(@CloudData, key, :object) != 2
-                  raise ForjError.new(), "Object '%s/%s' is not defined. '%s' requirement failed." % [ self.class, key, fname]
+               if hParams[:required] and rhExist?(@CloudData, sKey, :object) != 2
+                  raise ForjError.new(), "Object '%s/%s' is not defined. '%s' requirement failed." % [ self.class, sKey, fname]
                end
-               oParams[key] = get_object(key)
+               oParams[sKey] = get_object(sKey)
             else
                raise ForjError.new(), "Undefined ObjectData '%s'." % [ hParams[:type]]
          end
@@ -240,7 +241,7 @@ class BaseDefinition
          sKey = _2tree_array(sKeypath)[-1]
          case hParams[:type]
             when :data
-               sDefault = rhGet(hParams, :default)
+               sDefault = rhGet(hParams, :default_value)
                if hParams[:required] and @oForjConfig.get(sKey, sDefault).nil?
                   sSection = ForjDefault.get_meta_section(sKey)
                   sSection = 'runtime' if not sSection

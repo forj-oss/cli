@@ -24,30 +24,46 @@ Logging.set_level(Logger::DEBUG)
 # Load global Config
 oConfig = ForjConfig.new()
 
-oCloud = ForjCloud.new(oConfig, 'test')
-#oCloud = ForjCloud.new(oConfig)
+aProcesses = []
+
+# Defines how to manage Maestro and forges
+# create a maestro box. Identify a forge instance, delete it,...
+aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
+
+# Defines how cli will control FORJ features
+# boot/down/ssh/...
+aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
+
+byebug
+
+oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
+
+byebug
+# For debugging security_groups
+#oCloud.Create(:security_groups)
 
 oConfig.set(:blueprint, 'redstone')
+oConfig.set(:instance_name, instance_name)
+oCloud.Create(:forge)
+
 #oConfig.set(:sg_desc, "Security group for blueprint '%s'" % [oConfig.get(:blueprint)])
 #puts 'Compute:'
 #oCloud.Create(:compute_connection)
 #oCloud.Create(:router)
-#oCloud.Create(:keypairs)
 
-
-oCloud.Setup(:internet_server)
-oCloud.config.ac_save
-byebug
-oCloud.Create(:internet_server)
-
-oConfig.set(:server_name, 'test')
-byebug
-oCloud.Create(:server)
-
-oConfig.set(:instance_name, 'test')
-
-oForj = ForjObject(oConfig, sProcessClass = :ForjProcess)
-oCloud.Create(:maestro_server)
+#~ oCloud.Setup(:internet_server)
+#~ oCloud.config.ac_save
+#~ byebug
+#~ oCloud.Create(:internet_server)
+#~
+#~ oConfig.set(:server_name, 'test')
+#~ byebug
+#~ oCloud.Create(:server)
+#~
+#~ oConfig.set(:instance_name, 'test')
+#~
+#~ oForj = ForjObject(oConfig, sProcessClass = :ForjProcess)
+#~ oCloud.Create(:maestro_server)
 
 #hp_test.Create(:internet_network)
 #puts 'ensure having an internet network'

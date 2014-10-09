@@ -425,7 +425,7 @@ class CloudProcess
            hParams[:rule_proto] = 'tcp'
            hParams[:port_min]   = portmin
            hParams[:port_max]   = portmax
-           hParams[:netmask]    = '0.0.0.0/0'
+           hParams[:addr_map]    = '0.0.0.0/0'
 
            forj_get_or_create_rule(:rule, hParams)
         end
@@ -482,10 +482,11 @@ class CloudProcess
 
   def create_rule(sCloudObj, hParams)
 
-      sRule = '%s %s:%s - %s to %s' % [ hParams[:dir], hParams[:rule_proto], hParams[:port_min], hParams[:port_max], hParams[:netmask] ]
+      sRule = '%s %s:%s - %s to %s' % [ hParams[:dir], hParams[:rule_proto], hParams[:port_min], hParams[:port_max], hParams[:addr_map] ]
       Logging.debug("Creating rule '%s'" % [sRule])
       oSSLError=SSLErrorMgt.new
       begin
+byebug
          controler.create(sCloudObj, hParams)
       rescue StandardError => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
@@ -510,7 +511,7 @@ class CloudProcess
 
    # Process Query handler
   def forj_query_rule(sCloudObj, sQuery, hParams)
-      sRule = '%s %s:%s - %s to %s' % [ hParams[:dir], hParams[:rule_proto], hParams[:port_min], hParams[:port_max], hParams[:netmask] ]
+      sRule = '%s %s:%s - %s to %s' % [ hParams[:dir], hParams[:rule_proto], hParams[:port_min], hParams[:port_max], hParams[:addr_map] ]
       Logging.state("Searching for rule '%s'" % [ sRule ])
       oSSLError = SSLErrorMgt.new
       begin
@@ -538,7 +539,7 @@ class CloudProcess
          :proto          => hParams[:rule_proto],
          :port_min       => hParams[:port_min],
          :port_max       => hParams[:port_max],
-         :netmask        => hParams[:netmask],
+         :addr_map       => hParams[:addr_map],
          :sg_id          => hParams[:sg_id]
       }
 

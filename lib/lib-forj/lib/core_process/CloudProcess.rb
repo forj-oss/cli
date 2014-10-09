@@ -20,7 +20,9 @@
 require File.join($CORE_PROCESS_PATH, "global_process.rb")
 require File.join($CORE_PROCESS_PATH, "network_process.rb")
 
+# Define framework object on BaseDefinition
 class BaseDefinition
+
    # predefined list of objects.
    # Links between objects is not predefined. To do it, use needs declaration in your provider class.
 
@@ -144,12 +146,16 @@ class BaseDefinition
          :delete_e   => :forj_delete_rule
       })
 
+   get_attr_mapping :name, nil  # Do not return any predefined name attribute
+
    obj_needs   :CloudObject,  :security_groups
    obj_needs   :data,         :dir
+   predefine_data_value :IN,  { :desc => "Input NAT/firewall rule map type" }
+   predefine_data_value :OUT, { :desc => "Output NAT/firewall rule map type" }
    obj_needs   :data,         :proto
    obj_needs   :data,         :port_min
    obj_needs   :data,         :port_max
-   obj_needs   :data,         :netmask
+   obj_needs   :data,         :addr_map
 
    # Identify keypair
    define_obj(:keypairs,
@@ -187,7 +193,20 @@ class BaseDefinition
       })
 
    obj_needs   :CloudObject,  :compute_connection
-   obj_needs   :data,         :flavor
+
+   obj_needs   :data,         :flavor_name,
+   # Cloud provider will need to map to one of those predefined flavors.
+   # limitation values may match exactly or at least ensure those limitation
+   # are under provider limitation
+   # ie, at least the CloudProcess limitation can less than the Cloud provider defines.
+   # CloudProcess EHD = 160, then Provider EHD = 200 is ok
+   # but Provider EHD = 150 is not ok.
+   predefine_data_value(:tiny,   { :desc => "VCU: 1,  RAM:512M, HD:1G,   EHD: 0G,   Swap: 0G" })
+   predefine_data_value(:xsmall, { :desc => "VCU: 1,  RAM:1G,   HD:10G,  EHD: 10G,  Swap: 0G" })
+   predefine_data_value(:small,  { :desc => "VCU: 2,  RAM:2G,   HD:30G,  EHD: 10G,  Swap: 0G" })
+   predefine_data_value(:medium, { :desc => "VCU: 2,  RAM:4G,   HD:30G,  EHD: 50G,  Swap: 0G" })
+   predefine_data_value(:large,  { :desc => "VCU: 4,  RAM:8G,   HD:30G,  EHD: 100G, Swap: 0G" })
+   predefine_data_value(:xlarge, { :desc => "VCU: 8,  RAM:16G,  HD:30G,  EHD: 200G, Swap: 0G" })
 
    # Define Internet network
    #
@@ -209,11 +228,11 @@ class BaseDefinition
          :delete_e   => :forj_delete_server
       })
 
-   obj_needs   :CloudObject,  :image
    obj_needs   :CloudObject,  :flavor
    obj_needs   :CloudObject,  :network
    obj_needs   :CloudObject,  :security_groups
    obj_needs   :CloudObject,  :keypairs
+   obj_needs   :CloudObject,  :image
    obj_needs   :data,         :server_name
 
    obj_needs_optional

@@ -164,8 +164,9 @@
       :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
     :bp_flavor:
       :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
-    :flavor:
+    :flavor_name:
       :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
+      :default:    :flavor
     :image:
       :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
     :ports:

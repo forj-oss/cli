@@ -47,27 +47,56 @@ class BaseDefinition
    # To get Application defaults, read defaults.yaml, under :sections:
    @@meta_data = {}
    # <Section>:
-   #   <Data>:               Data name. This symbol must be unique, across sections.
-   #     :desc:              Description
-   #     :readonly:          oForjConfig.set() will fail if readonly is true.
-   #                         Can be set, only thanks to oForjConfig.setup()
-   #                         or using private oForjConfig._set()
-   #     :account_exclusive: Only oForjConfig.get/set() can handle the value
-   #                         oConfig.set/get cannot.
-   #     :account:           If exists, setup will ask value
-   #     :depends_on:        Identify :data type required to be set before the current one.
+   #   <Data>:               Required. Symbol/String. default: nil
+   #                         => Data name. This symbol must be unique, across sections.
+   #     :desc:              Required. String. default: nil
+   #                         => Description
+   #     :readonly:          Optional. true/false. Default: false
+   #                         => oForjConfig.set() will fail if readonly is true.
+   #                            Can be set, only thanks to oForjConfig.setup()
+   #                            or using private oForjConfig._set()
+   #     :account_exclusive: Optional. true/false. Default: false
+   #                         => Only oConfig.account_get/set() can handle the value
+   #                            oConfig.set/get cannot.
+   #     :account:           Optional. default: False
+   #                         => setup will configure the account with this <Data>
+   #     :depends_on:        
+   #                         => Identify :data type required to be set before the current one.
+   #     :validate:          Regular expression to validate end user input during setup.
+   #     :defaut:            Default value
    #     :list_values:       Defines a list of valid values for the current data.
-   #       :object:          if set, setup will create that object to get data
-   #       :query:           or setup will query that object to get a list of data.
-   #                         the query string provided is transmitted to the query function.
-   #       :values:          when :object/:query is defined, identify the data
+   #       :query_type       :controller_call to execute a function defined in the controller object.
+   #                         :process_call to execute a function defined in the process object.
+   #                         :values to get list of values from :values.
+   #       :object           Object to load before calling the function.  Only :query_type = :*_call
+   #       :query_call       Symbol. function name to call.               Only :query_type = :*_call
+   #                         function must return an Array.
+   #       :query_params     Hash. Controler function parameters.         Only :query_type = :*_call
+   #       :validate         :list_strict. valid only if value is one of those listed.
+   #       :values:          
    #                         to retrieve from.
    #                         otherwise define simply a list of possible values.
+
+   # The Generic Process can pre-define some data and value (function predefine_data)
+   # The Generic Process (and external framework call) only knows about Generic data.
+   # information used 
+   # 
+   @@meta_predefined_values = {}
+
+   # <Data>:                  Data name
+   #   :values:               List of possible values
+   #      <Value>:            Value Name attached to the data
+   #        options:          Options
+   #          :desc:          Description of that predefine value.
 
    @@Context = {
       :oCurrentObj      => nil, # Defines the Current Object to manipulate
       :needs_optional   => nil  # set optional to true for any next needs declaration
    }
+
+   # Available functions for:
+   # - BaseDefinition class declaration
+   # - Controler (derived from BaseDefinition) class declaration
 
    def self.obj_needs_optional
       @@Context[:needs_optional] = true
@@ -132,8 +161,8 @@ class BaseDefinition
          end
          if hParam[key] == :default
             # By default, we use the event name as default function to call.
-            # Those function are predefined in ForjProvider
-            # The Provider needs to derive from ForjProvider and redefine those functions.
+            # Those function are predefined in ForjController
+            # The Provider needs to derive from ForjController and redefine those functions.
             oCloudObj[:lambdas][key] = key
          else
             # If needed, ForjProviver redefined can contains some additionnal functions
@@ -165,6 +194,7 @@ class BaseDefinition
       rhSet(@@meta_obj, map, sCloudObj, :query_mapping, key)
    end
 
+   # Available functions exclusively for Controler (derived from BaseDefinition) class declaration
    def self.data_value_mapping(value, map)
       return nil if not [String, Symbol].include?(value.class)
       return nil if not [NilClass, Symbol, String].include?(map.class)
@@ -265,6 +295,7 @@ class BaseDefinition
       oKeysList << sKeyAccess unless oKeysList.include?(sKeyAccess)
    end
 
+
    # Defines/update CloudData parameters
    def self.define_data(sCloudData, hMeta)
       return nil if not sCloudData or not hMeta
@@ -293,5 +324,23 @@ class BaseDefinition
    def self.defined?(objType)
       @aObjType.include?(objType)
    end
+
+   # Internal BaseDefinition function
+   
+   def self.predefine_data_value(data, hOptions)
+      return nil if self.class != BaseDefinition # Refuse to run if not a BaseDefinition call
+      return nil if not [String, Symbol].include?(value.class)
+      return nil if not [NilClass, Symbol, String].include?(map.class)
+
+      aCaller = caller
+      aCaller.pop
+
+      key = @@Context[:oCurrentKey]
+
+      value = {data => {:options => hOptions} }
+
+      rhSet(@@predefine_data_value, value, key, :values)
+   end
+
 
 end

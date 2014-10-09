@@ -34,9 +34,9 @@ class Hpcloud < BaseDefinition
    obj_needs   :data, :account_key,     :mapping => :hp_secret_key
    obj_needs   :data, :auth_uri,        :mapping => :hp_auth_uri
    obj_needs   :data, :tenant,          :mapping => :hp_tenant_id
-   obj_needs   :data, [:excon_opts, :connect_timeout], :default => 30
-   obj_needs   :data, ":excon_opts/:read_timeout",    :default => 240
-   obj_needs   :data, ":excon_opts/:write_timeout",   :default => 240
+   obj_needs   :data, ":excon_opts/:connect_timeout", :default_value => 30
+   obj_needs   :data, ":excon_opts/:read_timeout",    :default_value => 240
+   obj_needs   :data, ":excon_opts/:write_timeout",   :default_value => 240
 
    # Defines Object structure and function stored on the Hpcloud class object.
    # Compute Object
@@ -70,7 +70,7 @@ class Hpcloud < BaseDefinition
    obj_needs   :data, :proto,      :mapping => :protocol
    obj_needs   :data, :port_min,   :mapping => :port_range_min
    obj_needs   :data, :port_max,   :mapping => :port_range_max
-   obj_needs   :data, :netmask,    :mapping => :remote_ip_prefix
+   obj_needs   :data, :addr_map,   :mapping => :remote_ip_prefix
 
    obj_needs_optional
    obj_needs   :data, :sg_id,      :mapping => :security_group_id
@@ -81,7 +81,7 @@ class Hpcloud < BaseDefinition
    query_mapping :proto,      :protocol
    query_mapping :port_min,   :port_range_min
    query_mapping :port_max,   :port_range_max
-   query_mapping :netmask,    :remote_ip_prefix
+   query_mapping :addr_map,   :remote_ip_prefix
    query_mapping :sg_id,      :security_group_id
 
    define_obj :keypairs
@@ -130,13 +130,27 @@ class Hpcloud < BaseDefinition
       :depends_on => [:account_id, :account_key, :auth_uri,:tenant ],
       :list_values => {
          :query_type  => :controller_call,
-         :object       => :services,
+         :object       => :services ,
          :query_call   => :get_services,
          :query_params => { :list_services => :Networking },
          :validate     => :list_strict
       }
    })
 
+   define_data(:flavor_name, {
+      :desc => 'HPCloud flavor name',
+      :list_values => {
+         :query_type   => :process_call,
+         :object       => :flavor ,
+         :validate     => :list_strict
+      }
+   })
+
+   data_value_mapping :xsmall, "standard.xmall"
+   data_value_mapping :small, "standard.small"
+   data_value_mapping :medium, "standard.medium"
+   data_value_mapping :large, "standard.large"
+   data_value_mapping :xlarge, "standard.xlarge"
 
 end
 
