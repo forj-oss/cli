@@ -57,7 +57,7 @@ module HPKeyPairs
    end
 
    def HPKeyPairs.get_keypair(oComputeConnect, sId)
-      byebug
+      #byebug
       oComputeConnect.key_pairs.get(sId)
    end
 

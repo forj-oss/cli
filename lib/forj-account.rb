@@ -132,6 +132,10 @@ class ForjAccount
       @oConfig.get(default_key , default )
    end
 
+   def [](key, default = nil)
+      get(key, default)
+   end
+
    def exist?(key)
       return nil if not key
 
@@ -230,6 +234,10 @@ class ForjAccount
       return @oConfig.set(key, value) if not section
       return nil if readonly?(key)
       _set(section, key, value)
+   end
+
+   def []=(key, value)
+      set(key, value)
    end
 
    def del(key)

@@ -19,7 +19,7 @@
 class BaseDefinition
 
    private
-   
+
    ###################################################
    # Class management Section
    ###################################################
@@ -32,13 +32,21 @@ class BaseDefinition
    #     :update_e:          function to call at 'Update' task
    #     :get_e:             function to call at 'Get'    task
    #     :query_e:           function to call at 'Query'  task
+   #   :value_mapping:       Define list of Object's key values mapping.
+   #     <keypath>           key value mapping lists
+   #       <value> = <map>   Define the value mapping.
+   #   :returns
+   #     <keypath>           key value to extract from controller object.
    #   :params:              Defines CloudData (:data) or CloudObj (:CloudObj) needs by the <Object>
    #     :list:              Array defining a list of key path (array)
    #     :keys:              Contains keys in a tree of hash.
    #       <keypath>:        One element (string with : and /) of :list defining the key
    #         :type:          :data or :CloudObj
-   #         :mapping:       To automatically create a provider hash data mapped.
+   #         :mapping:       To automatically create a provider hash data mapped (hdata).
    #         :required:      True if this parameter is required.
+   #         :extract_from:  Array. Build the keypath value from another hParams value.
+   #                         Ex: This example will extract :id from :security_groups object
+   #                             :extract_from => [:security_groups, :id]
    #
    @@meta_obj =  {}
 
@@ -60,7 +68,7 @@ class BaseDefinition
    #                            oConfig.set/get cannot.
    #     :account:           Optional. default: False
    #                         => setup will configure the account with this <Data>
-   #     :depends_on:        
+   #     :depends_on:
    #                         => Identify :data type required to be set before the current one.
    #     :validate:          Regular expression to validate end user input during setup.
    #     :defaut:            Default value
@@ -73,14 +81,14 @@ class BaseDefinition
    #                         function must return an Array.
    #       :query_params     Hash. Controler function parameters.         Only :query_type = :*_call
    #       :validate         :list_strict. valid only if value is one of those listed.
-   #       :values:          
+   #       :values:
    #                         to retrieve from.
    #                         otherwise define simply a list of possible values.
 
    # The Generic Process can pre-define some data and value (function predefine_data)
    # The Generic Process (and external framework call) only knows about Generic data.
-   # information used 
-   # 
+   # information used
+   #
    @@meta_predefined_values = {}
 
    # <Data>:                  Data name
@@ -326,7 +334,7 @@ class BaseDefinition
    end
 
    # Internal BaseDefinition function
-   
+
    def self.predefine_data_value(data, hOptions)
       return nil if self.class != BaseDefinition # Refuse to run if not a BaseDefinition call
       return nil if not [String, Symbol].include?(value.class)

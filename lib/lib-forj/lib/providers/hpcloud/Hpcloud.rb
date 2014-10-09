@@ -71,8 +71,6 @@ class Hpcloud < BaseDefinition
    obj_needs   :data, :port_min,   :mapping => :port_range_min
    obj_needs   :data, :port_max,   :mapping => :port_range_max
    obj_needs   :data, :addr_map,   :mapping => :remote_ip_prefix
-
-   obj_needs_optional
    obj_needs   :data, :sg_id,      :mapping => :security_group_id
 
    query_mapping :dir,        :direction
@@ -200,6 +198,7 @@ class HpcloudController < BaseController
             HPNetwork.create_router(hParams[:network_connection], hParams[:hdata])
          when :rule
             required?(hParams, :network_connection)
+            required?(hParams, :security_groups)
             HPSecurityGroups.create_rule(hParams[:network_connection], hParams[:hdata])
          else
             forjError "'%s' is not a valid object for 'create'" % sObjectType

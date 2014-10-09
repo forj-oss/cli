@@ -34,16 +34,18 @@ aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
 # boot/down/ssh/...
 aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 
-byebug
-
 oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 
-byebug
 # For debugging security_groups
-#oCloud.Create(:security_groups)
+#byebug
+oCloud.Create(:security_groups)
 
+#oConfig.set(:blueprint, 'redstone')
+#oConfig.set(:instance_name, instance_name)
+#oCloud.Create(:forge)
 oConfig.set(:blueprint, 'redstone')
-oConfig.set(:instance_name, instance_name)
+oConfig.set(:instance_name, "test")
+#byebug
 oCloud.Create(:forge)
 
 #oConfig.set(:sg_desc, "Security group for blueprint '%s'" % [oConfig.get(:blueprint)])
@@ -92,38 +94,3 @@ oCloud.Create(:forge)
 
 # Load HPCloud Data
 
-
-#~ class A
-    #~ def initialize(par1)
-        #~ @par1 = par1
-    #~ end
-    #~ def func1()
-        #~ puts "Call func1"
-    #~ end
-    #~ def func2()
-        #~ puts "Call func2"
-    #~ end
-    #~
-    #~ private
-    #~ def provides(aArray)
-        #~ @aArray = aArray
-    #~ end
-#~ end
-#~
-#~ class B < A
-    #~ def initialize(par1, par2)
-        #~ super(par1)
-        #~ @par2 = par2
-        #~ provides([:test3])
-    #~ end
-    #~ def func2()
-        #~ byebug
-        #~ puts "Call func3"
-    #~ end
-    #~
-#~ end
-#~
-#~ myclass = Object.const_get('B')
-#~
-#~ byebug
-#~ test = myclass.new(:test, :test2)

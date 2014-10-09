@@ -20,7 +20,9 @@
 #
 # 'config' is the configuration system which implements:
 # - get(key):        Get the value to the associated key
+#   [key]            is the 'set' equivalent
 # - set(key, value): Set a value to a key.
+#   [key] = value    Is the 'set' equivalent
 #
 # 'object' contains Object definition, Object manipulation. It implements:
 # - query_map(sCloudObj, sQuery): transform Forj Object query request to
@@ -39,11 +41,9 @@ class CloudProcess < BaseProcess
    # Process Query handler
    def forj_query_network(sCloudObj, sQuery, hParams)
 
-      # query_map: Convert FORJ formated query to a Provider formated query
-      sControlerQuery = object.query_map(sCloudObj, sQuery)
 
       # Call Provider query function
-      controler.query(sObjectType, sControlerQuery, hParams)
+      controler.query(sObjectType, sControlerQuery)
    end
 
    # Process Create handler
@@ -95,7 +95,7 @@ class CloudProcess < BaseProcess
    def create_network(sCloudObj, hParams)
       begin
          Logging.debug('creating network %s' % [name])
-         controler.create(sCloudObj, hParams)
+         controler.create(sCloudObj)
       rescue => e
          Logging.fatal(1, "Unable to create '%s'network" % name, e)
       end
@@ -108,7 +108,7 @@ class CloudProcess < BaseProcess
    def find_network(sCloudObj, hParams)
       begin
          # retrieve the Provider collection object.
-         oResults = controler.query(sCloudObj, {:name => hParams[:network_name]}, hParams)
+         oResults = controler.query(sCloudObj, {:name => hParams[:network_name]})
 
          case oResults[:list].length()
          when 0
@@ -130,9 +130,8 @@ class CloudProcess < BaseProcess
 
       Logging.state("Searching for sub-network attached '%s'." % [hParams[:network_name]])
       #######################
-      sProviderQuery = object.query_map(:subnetwork, :network_id => object.get_attr(hParams.get(:network), :id))
       begin
-         subnets = controler.query(:subnetwork, sProviderQuery, hParams)
+         subnets = controler.query(:subnetwork, :network_id => object.get_attr(hParams.get(:network), :id))
       rescue => e
          Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
@@ -158,7 +157,7 @@ class CloudProcess < BaseProcess
             Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
          end
       end
-      object.set_data(subnet)
+      object.register(subnet)
       subnet
    end
 
@@ -204,12 +203,12 @@ class CloudProcess
 
       if not router_port
          # Trying to get router
-         router = get_router(hParams, router_name)
-         router = create_router(hParams, router_name) if not router
+         router = get_router(router_name)
+         router = create_router(router_name) if not router
          create_router_interface(oSubNetwork, router) if router
       else
-         sQuery = object.query_map(sCloudObj, {:id => object.get_attr(router_port, :device_id)})
-         routers = controler.query(:router, sQuery , hParams)
+         sQuery = {:id => object.get_attr(router_port, :device_id)}
+         routers = controler.query(:router, sQuery)
          case routers[:list].length()
             when 1
                Logging.debug("Found router '%s' attached to the network '%s'." % [
@@ -227,7 +226,7 @@ class CloudProcess
    end
 
    def forj_update_router(sCloudObj, hParams)
-      controler.update(sObjectType, hParams)
+      controler.update(sObjectType)
             ################################
             #routers[0].external_gateway_info = { 'network_id' => external_network.id }
             #routers[0].save
@@ -237,11 +236,10 @@ class CloudProcess
    # Router Process internal functions  #
    #------------------------------------#
 
-   def get_router(hParams, name)
+   def get_router(name)
       Logging.state("Searching for router '%s'..." % [name] )
       begin
-         sControlerQuery = object.query_map(:router, {:name => name})
-         routers = controler.query(:router, sControlerQuery, hParams)
+         routers = controler.query(:router, {:name => name})
          case routers[:list].length()
             when 1
                routers[:list][0]
@@ -254,7 +252,7 @@ class CloudProcess
       end
    end
 
-   def create_router(hParams, router_name, oExternalNetwork = nil)
+   def create_router(router_name, oExternalNetwork = nil)
 
       sExtNet = nil
       sExtNet = object.get_attr(oExternalNetwork, :name) if oExternalNetwork
@@ -271,8 +269,7 @@ class CloudProcess
          else
             Logging.debug("Creating router '%s' without external Network." % [router_name])
          end
-         hParams = object.hParams(:router, hRouter)
-         controler.create(:router, hParams)
+         controler.create(:router)
       rescue => e
          raise ForjError.new(), "Unable to create '%s' router\n%s" % [router_name, e.message]
       end
@@ -337,8 +334,8 @@ class CloudProcess
       begin
          # Searching for router port attached
          #################
-         sQuery = object.query_map(sCloudObj, {:network_id => object.get_attr(oNetwork, :id), :device_owner => 'network:router_interface'})
-         ports = controler.query(sCloudObj, sQuery, hParams)
+         sQuery = {:network_id => object.get_attr(oNetwork, :id), :device_owner => 'network:router_interface'}
+         ports = controler.query(sCloudObj, sQuery)
          case ports[:list].length()
             when 0
                Logging.debug("No router port attached to the network '%s'" % [object.get_attr(oNetwork, :name) ])
@@ -374,8 +371,8 @@ class CloudProcess
     begin
       # Searching for router port attached
       #################
-      sControlerQuery = object.query_map(:router, { :router_external => true })
-      networks = controler.query(:network, sControlerQuery, hParams)
+      sQuery = { :router_external => true }
+      networks = controler.query(:network, sQuery)
       case networks[:list].length()
         when 0
           Logging.debug("No external network")
@@ -407,28 +404,28 @@ class CloudProcess
 
       security_group = forj_query_sg(sCloudObj, {:name => sSGName}, hParams)
       security_group = create_security_group(sCloudObj, hParams) if not security_group
-      hParams[:security_groups] = security_group
+      object.register(security_group)
 
       Logging.info('Configuring Security Group \'%s\'' % [sSGName])
       ports = config.get(:ports)
 
       ports.each do |port|
-        port = port.to_s if port.class != String
-        if not (/^\d+(-\d+)?$/ =~ port)
-           Logging.error("Port '%s' is not valid. Must be <Port> or <PortMin>-<PortMax>" % [port])
-        else
-           mPortFound = /^(\d+)(-(\d+))?$/.match(port)
-           portmin = mPortFound[1]
-           portmax = (mPortFound[3]) ? (mPortFound[3]) : (portmin)
-           hParams[:sg_id] = object.get_attr(hParams.get(:security_groups), :id)
-           hParams[:dir] = :IN
-           hParams[:rule_proto] = 'tcp'
-           hParams[:port_min]   = portmin
-           hParams[:port_max]   = portmax
-           hParams[:addr_map]    = '0.0.0.0/0'
+         port = port.to_s if port.class != String
+         if not (/^\d+(-\d+)?$/ =~ port)
+            Logging.error("Port '%s' is not valid. Must be <Port> or <PortMin>-<PortMax>" % [port])
+         else
+            mPortFound = /^(\d+)(-(\d+))?$/.match(port)
+            portmin = mPortFound[1]
+            portmax = (mPortFound[3]) ? (mPortFound[3]) : (portmin)
+            # Need to set runtime data to get or if missing create the required rule.
+            config[:dir]        = :IN
+            config[:proto] = 'tcp'
+            config[:port_min]   = portmin
+            config[:port_max]   = portmax
+            config[:addr_map]   = '0.0.0.0/0'
 
-           forj_get_or_create_rule(:rule, hParams)
-        end
+            object.Create(:rule)
+         end
       end
       security_group
    end
@@ -449,9 +446,9 @@ class CloudProcess
    # Process Query handler
    def forj_query_sg(sCloudObj, sQuery, hParams)
       oSSLError=SSLErrorMgt.new
-      sProviderQuery = object.query_map(sCloudObj, sQuery)
+
       begin
-         sgroups = controler.query(sCloudObj, sProviderQuery, hParams)
+         sgroups = controler.query(sCloudObj, sQuery)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
@@ -470,38 +467,24 @@ class CloudProcess
 
    # SecurityGroups Process internal functions #
    #-------------------------------------------#
-
   def create_security_group(sCloudObj, hParams)
     Logging.debug("creating security group '%s'" % hParams[:name])
     begin
-      controler.create(sCloudObj, hParams)
+      controler.create(sCloudObj)
     rescue => e
       Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
   end
 
-  def create_rule(sCloudObj, hParams)
-
-      sRule = '%s %s:%s - %s to %s' % [ hParams[:dir], hParams[:rule_proto], hParams[:port_min], hParams[:port_max], hParams[:addr_map] ]
-      Logging.debug("Creating rule '%s'" % [sRule])
-      oSSLError=SSLErrorMgt.new
-      begin
-byebug
-         controler.create(sCloudObj, hParams)
-      rescue StandardError => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
-            retry
-         end
-         Logging.error 'error creating the rule for port %s' % [sRule]
-      end
-  end
+   # Rules handler #
+   #---------------#
 
    # Process Delete handler
   def forj_delete_security_group_rule(sCloudObj, hParams)
 
     oSSLError=SSLErrorMgt.new
     begin
-      controler.delete(sCloudObj, hParams)
+      controler.delete(sCloudObj)
     rescue => e
       if not oSSLError.ErrorDetected(e.message,e.backtrace)
          retry
@@ -515,8 +498,7 @@ byebug
       Logging.state("Searching for rule '%s'" % [ sRule ])
       oSSLError = SSLErrorMgt.new
       begin
-         sProviderQuery = object.query_map(sCloudObj, sQuery)
-         sgroups = controler.query(sCloudObj, sProviderQuery, hParams)
+         sgroups = controler.query(sCloudObj, sQuery)
          case sgroups[:list].length()
          when 0
             Logging.debug("No security rule '%s' found" % [ sRule ] )
@@ -534,9 +516,10 @@ byebug
 
    # Process Create handler
    def forj_get_or_create_rule(sCloudObj, hParams)
+
       sQuery = {
          :dir            => hParams[:dir],
-         :proto          => hParams[:rule_proto],
+         :proto          => hParams[:proto],
          :port_min       => hParams[:port_min],
          :port_max       => hParams[:port_max],
          :addr_map       => hParams[:addr_map],
@@ -548,6 +531,23 @@ byebug
          rule = create_rule(sCloudObj, hParams)
       end
       rule
+   end
+
+   # Rules internal #
+   #----------------#
+   def create_rule(sCloudObj, hParams)
+
+      sRule = '%s %s:%s - %s to %s' % [ hParams[:dir], hParams[:rule_proto], hParams[:port_min], hParams[:port_max], hParams[:addr_map] ]
+      Logging.debug("Creating rule '%s'" % [sRule])
+      oSSLError=SSLErrorMgt.new
+      begin
+         controler.create(sCloudObj)
+      rescue StandardError => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+            retry
+         end
+         Logging.error 'error creating the rule for port %s' % [sRule]
+      end
    end
 
 end
@@ -567,7 +567,7 @@ class CloudProcess
          Logging.debug("Found router '%s' attached to an external gateway." % [ sRouterName ] )
          forj_query_external_network(sCloudObj, {:id => sNetworkId}, hParams)
       else
-         byebug
+         #byebug
          Logging.debug("Found router '%s' but need to be attached to an external gateway. Attaching..." % [ sRouterName ] )
          external_network = forj_query_external_network(:network, {}, hParams)
          if external_network
@@ -584,9 +584,7 @@ class CloudProcess
       Logging.state("Identifying External gateway ...")
       begin
          # Searching for external network
-         sControlerQuery = object.query_map(:network, sQuery.merge({ :external => true }) )
-
-         networks = controler.query(:network, sControlerQuery, hParams)
+         networks = controler.query(:network, sQuery.merge({ :external => true }), hParams)
 
          case networks[:list].length()
          when 0

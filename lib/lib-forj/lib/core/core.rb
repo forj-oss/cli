@@ -51,9 +51,19 @@ class ForjObject
 
    # ForjObject parameters are:
    # oForjConfig : Required. an instance of a configuration system which HAVE to provide
-   #               2 functions:
-   #               - set (key, value)
-   #               - get (key)
+   #               2 kind of functions:
+   #               - set (key, value) and []=(key, value)
+   #                 From processes, you can set a runtime data with:
+   #                    config.set(key, value)
+   #                 OR
+   #                    config[key] = value
+   #
+   #               - get (key, default) and [](key, default)
+   #                 default is an optional value.
+   #                 From processes, you can get a data (runtime/account/config.yaml or defaults.yaml) with:
+   #                    config.get(key)
+   #                 OR
+   #                    config[key]
 
    # sProcessClass: Required. string or symbol. Is the name of ProcessClass to use.
    #                This class is dynamically loaded and derived from BaseProcess class.
@@ -287,7 +297,7 @@ class BaseProcess
 
    def config
       raise ForjError.new(), "No Base object loaded." if not @oDefinition
-      @oDefinition.get_config
+      @oDefinition.config
    end
 end
 
@@ -328,20 +338,29 @@ class BaseController
 end
 
 # This class represents Object Parameters
-class ObjectParams
-   def initialize()
-      @hParams = {
-         :hdata => {},
-      }
+class ObjectData
+   def initialize(bInternal = false)
+
+      @hParams = {}
+      @hParams[:hdata] = {} if not bInternal
    end
 
    def [] (*key)
 
       key = key.flatten
-      if not [:object, :attrs].include?(key[1]) and rhExist?(@hParams, key[0], :object) == 2
-         return rhGet(@hParams, key[0], :object,  key[1..-1])
-      end
+      # Return ObjectData Element if asked.
+      return @hParams[key[0]] if key[1] == :ObjectData
 
+      # Return attritutes if asked
+      return rhGet(@hParams, key[0], :attrs,  key[2..-1]) if key[1] == :attrs
+
+      # Return Controller object data if asked
+      return rhGet(@hParams, key[0], :object, key[2..-1]) if key[1] == :object
+
+      # By default, if key is detected as a controller object, return its data.
+      return rhGet(@hParams, key[0], :object,  key[1..-1]) if rhExist?(@hParams, key[0], :object) == 2
+
+      # otherwise, simply return what is found in keys hierarchy.
       rhGet(@hParams, key)
    end
 
@@ -350,12 +369,41 @@ class ObjectParams
       rhSet(@hParams, value, key)
    end
 
+   def add(oObject)
+      # Requires to be a valid framework object.
+      raise ForjError.new, "Invalid Framework object type" if rhExist?(oObject, :object_type) != 1
+
+      sObjectType = oObject[:object_type]
+
+      @hParams[sObjectType] = oObject
+   end
+
+   def delete(sObjectType)
+      @hParams[sObjectType] = nil
+   end
+
    def << (hHash)
       @hParams.merge!(hHash)
    end
 
    def exist?(*key)
-      (rhExist?(@hParams, key) == 1)
+      raise ForjError.new, "ObjectData: key is not list of values (string/symbol or array)" if not [Array, String, Symbol].include?(key.class)
+
+      key = [key] if key.is_a?(Symbol) or key.is_a?(String)
+
+      key = key.flatten
+
+      # Return true if ObjectData Element is found when asked.
+      return true if key[1] == :ObjectData and rhExist?(@hParams, key[0], :object) == 2
+
+      # Return true if attritutes or controller object attributes found when asked.
+      return (rhExist?(@hParams, key) == key.length) if [:object, :attrs].include?(key[1])
+
+      # By default, if key is detected as a controller object, return true if attribute is found.
+      return (rhExist?(@hParams, key[0], :object,  key[1..-1]) == key.length+1) if rhExist?(@hParams, key[0], :object) == 2
+
+      # By default true if found key hierarchy
+      (rhExist?(@hParams, key) == key.length)
    end
 
    def get(*key)
@@ -365,7 +413,7 @@ class ObjectParams
    def type?(*key)
       nil if rhExist?(@hParams, key) != 1
       :data
-      :CloudObject if rhExist?(@hParams, key, :object) == 2
+      :DataObject if rhExist?(@hParams, key, :object) == 2
    end
 
    def cObj(*key)
@@ -408,7 +456,8 @@ class BaseDefinition
 
       oBaseObject = @oForjProcess.method(pProc).call(sCloudObj, aParams)
 
-      rhSet(@CloudData, oBaseObject, sCloudObj)
+      @ObjectData.add oBaseObject
+      #~ rhSet(@CloudData, oBaseObject, sCloudObj)
       oBaseObject
    end
 
@@ -436,7 +485,8 @@ class BaseDefinition
 
       bState = @oForjProcess.method(pProc).call(sCloudObj, aParams)
 
-      rhSet(@CloudData, nil, sCloudObj) if bState
+      @ObjectData.delete(sCloudObj) if bState
+      #~ rhSet(@CloudData, nil, sCloudObj) if bState
    end
 
    # This function returns a list of objects
@@ -492,7 +542,8 @@ class BaseDefinition
 
       oObjValue = @oForjProcess.method(pProc).call(sCloudObj, sUniqId, aParams)
 
-      rhSet(@CloudData, oObjValue, sCloudObj)
+      @ObjectData.add(oObjValue)
+      #~ rhSet(@CloudData, oObjValue, sCloudObj)
       oObjValue
    end
 
@@ -613,8 +664,8 @@ class BaseDefinition
                oObject = get_object(sObjectToLoad)
                oObject = Create(sObjectToLoad) if oObject.nil?
                return nil if oObject.nil?
-               oParams = ObjectParams.new
-               oParams[sObjectToLoad] = oObject
+               oParams = ObjectData.new
+               oParams.add(oObject)
                oParams<< hValues[:query_params]
                bListStrict = (hValues[:validate] == :list_strict)
 
@@ -664,8 +715,9 @@ class BaseDefinition
    # Initialize Cloud object Data
 
    def initialize(oForjConfig, oForjProcess, oForjProvider = nil)
-      # Real Object Data
-      @CloudData = {}
+      # Object Data object. Contains all loaded object data.
+      # This object is used to build hParams as well.
+      @ObjectData = ObjectData.new(true)
       #
       @RuntimeContext = {
          :oCurrentObj => nil
@@ -689,9 +741,25 @@ class BaseDefinition
    # Functions used by processes functions
    # ------------------------------------------------------
    # Ex: object.query_map(...), object.set_data(...), object.hParams(...)
-   #     object.get_config
+   #     config
 
-   def get_config
+
+   # Function to manipulate the config object.
+   # 2 kind of functions:
+   # - set (key, value) and []=(key, value)
+   #   From processes, you can set a runtime data with:
+   #     config.set(key, value)
+   #   OR
+   #     config[key] = value
+   #
+   # - get (key, default) and [](key, default)
+   #   default is an optional value.
+   #   From processes, you can get a data (runtime/account/config.yaml or defaults.yaml) with:
+   #     config.get(key)
+   #   OR
+   #     config[key]
+
+   def config
       raise ForjError.new(), "No config object loaded." if not @oForjConfig
       @oForjConfig
    end
@@ -723,7 +791,11 @@ class BaseDefinition
       hReturn
    end
 
-   # Get ControllerObject Data value while the controller
+   # Used by the Process.
+   # Ask controller get_attr to get a data
+   # The result is the data of a defined data attribute.
+   # If the value is normally mapped (value mapped), the value is
+   # returned as a recognized data attribute value.
    def get_attr(oObject, key)
 
       raise ForjError.new(), "'%s' is not a valid Object type. " % [oObject.class] if not oObject.is_a?(Hash) and rhExist?(oObject, :object_type) != 1
@@ -731,21 +803,36 @@ class BaseDefinition
       raise ForjError.new(), "'%s' key is not declared as data of '%s' CloudObject. You may need to add obj_needs..." % [key, sCloudObj] if rhExist?(@@meta_obj, sCloudObj, :returns, key) != 3
       begin
          hMap = rhGet(@@meta_obj, sCloudObj, :returns, key)
-         @oProvider.get_attr(get_cObject(oObject), hMap)
+         value = @oProvider.get_attr(get_cObject(oObject), hMap)
+
+         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, key)
+
+         if hValueMapping
+            hValueMapping.each { | found_key, found_value |
+               if found_value == value
+                  value = found_key
+                  break
+               end
+            }
+         end
       rescue => e
          raise ForjError.new(), "'%s.get_attr' fails to provide value of '%s'" % [oProvider.class, key]
       end
    end
 
-   # Set Object Data
-   def set_data(oObject, sCloudObj = nil)
-      raise ForjError.new(), "set_data fails. The object type is not a DataObject." if rhExist?(oObject, :object_type) != 1
-      sCloudObj = oObject[:object_type]
-      @CloudData[sCloudObj] = oObject
+   # Register the object to the internal @ObjectData instance
+   def register(oObject)
+      raise ForjError.new(), "register fails. The object type is not a DataObject." if rhExist?(oObject, :object_type) != 1
+      @ObjectData.add oObject
+   end
+
+   # get an attribute/object/... from an object.
+   def get_data(sCloudObj, *key)
+      @ObjectData[sCloudObj, *key]
    end
 
    def hParams(sCloudObj, hParams)
-      aParams = _get_object_params(sCloudObj, pProc)
+      aParams = _get_object_params(sCloudObj, ":ObjectData.hParams")
    end
 
    def get_cObject(oObject)
@@ -754,9 +841,11 @@ class BaseDefinition
    end
 
    # a Process can execute any kind of predefined controler task.
-   # Those function will transform params or results to a valid
-   # Object type.
-   def connect(sObjectType, hParams)
+   # Those function assumes hParams are already prepared.
+   # Results are formatted as usual framework Data object.
+   def connect(sObjectType)
+
+      hParams = _get_object_params(sObjectType, :connect, true)
       oControlerObject = @oProvider.connect(sObjectType, hParams)
       begin
          _return_map(sObjectType, oControlerObject)
@@ -765,7 +854,10 @@ class BaseDefinition
       end
    end
 
-   def create(sObjectType, hParams)
+   def create(sObjectType)
+      # The process ask the controller to create the object.
+      # hParams have to be fully readable by the controller.
+      hParams = _get_object_params(sObjectType, :create, true)
       oControlerObject = @oProvider.create(sObjectType, hParams)
       begin
          _return_map(sObjectType, oControlerObject)
@@ -775,11 +867,15 @@ class BaseDefinition
       Logging.debug("%s.%s - loaded." % [@oForjProcess.class, sObjectType])
    end
 
-   def delete(sObjectType, hParams)
+   def delete(sObjectType)
+      hParams = _get_object_params(sObjectType, :delete, true)
       @oProvider.delete(sObjectType, hParams)
    end
 
-   def get(sObjectType, sUniqId, hParams)
+   def get(sObjectType, sUniqId)
+
+      hParams = _get_object_params(sObjectType, :get, true)
+
       oControlerObject = @oProvider.get(sObjectType, hParams)
       begin
          _return_map(sObjectType, oControlerObject)
@@ -788,8 +884,12 @@ class BaseDefinition
       end
    end
 
-   def query(sObjectType, sQuery, hParams)
-      oControlerObject = @oProvider.query(sObjectType, sQuery, hParams)
+   def query(sObjectType, sQuery)
+
+      hParams = _get_object_params(sObjectType, :query, true)
+      sProviderQuery = query_map(sObjectType, sQuery)
+
+      oControlerObject = @oProvider.query(sObjectType, sProviderQuery, hParams)
 
       oObjects = {
          :object      => oControlerObject,
@@ -808,8 +908,10 @@ class BaseDefinition
 
    end
 
-   def update(sObjectType, hParams)
+   def update(sObjectType)
       # Need to detect data updated and update the Controler object with the controler
+
+      hParams = _get_object_params(sObjectType, :update, true)
 
       oObject = hParams.get(sObjectType)
       oControlerObject = hParams[sObjectType]
@@ -844,7 +946,8 @@ class BaseDefinition
       aCaller = caller
       aCaller.pop
 
-      return res if rhExist?(@CloudData, sCloudObj) == 1
+      return res if @ObjectData.exist?(sCloudObj)
+      #~ return res if rhExist?(@CloudData, sCloudObj) == 1
 
       rhGet(@@meta_obj,sCloudObj, :params).each { |key, hParams|
          case hParams[:type]
@@ -866,7 +969,8 @@ class BaseDefinition
                   end
                end
             when :CloudObject
-               if hParams[:required] and rhExist?(@CloudData, sCloudObj) != 1
+               #~ if hParams[:required] and rhExist?(@CloudData, sCloudObj) != 1
+               if hParams[:required] and not @ObjectData.exist?(sCloudObj)
                   res[key] = hParams
                   cloud_obj_requires(key, res)
                end
@@ -876,16 +980,21 @@ class BaseDefinition
    end
 
    def get_object(sCloudObj)
-      return nil if rhExist?(@CloudData, sCloudObj) != 1
-      rhGet(@CloudData, sCloudObj)
+      #~ return nil if rhExist?(@CloudData, sCloudObj) != 1
+      return nil if not @ObjectData.exist?(sCloudObj)
+      @ObjectData[sCloudObj]
+      #~ rhGet(@CloudData, sCloudObj)
    end
 
    def objectExist?(sCloudObj)
-      (rhExist?(@CloudData, sCloudObj) != 1)
+      @ObjectData.exist?(sCloudObj)
+      #~ (rhExist?(@CloudData, sCloudObj) != 1)
    end
 
    def get_forjKey(oCloudData, key)
-      return nil if rhExist?(oCloudData, sCloudObj) != 1
-      rhGet(oCloudData, sCloudObj, :attrs, key)
+      return nil if not @ObjectData.exist?(sCloudObj)
+      @ObjectData[sCloudObj, :attrs, key]
+      #~ return nil if rhExist?(oCloudData, sCloudObj) != 1
+      #~ rhGet(oCloudData, sCloudObj, :attrs, key)
    end
 end

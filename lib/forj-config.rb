@@ -372,6 +372,10 @@ class ForjConfig
       true
    end
 
+   def []=(key, value)
+      set(key, value)
+   end
+
    def runtimeExist?(key)
       (rhExist?(@yRuntime, key) == 1)
    end
@@ -417,6 +421,10 @@ class ForjConfig
       return ForjDefault.get(key) if ForjDefault.exist?(key)
       # else default
       default
+   end
+
+   def [](key, default = nil)
+      get(key, default)
    end
 
    def getAppDefault(section, key = nil)

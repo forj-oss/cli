@@ -148,7 +148,9 @@ class BaseDefinition
 
    get_attr_mapping :name, nil  # Do not return any predefined name attribute
 
+   obj_needs   :CloudObject,  :network_connection
    obj_needs   :CloudObject,  :security_groups
+   obj_needs   :data,         :sg_id,           { :extract_from => [:security_groups, :attrs, :id] }
    obj_needs   :data,         :dir
    predefine_data_value :IN,  { :desc => "Input NAT/firewall rule map type" }
    predefine_data_value :OUT, { :desc => "Output NAT/firewall rule map type" }

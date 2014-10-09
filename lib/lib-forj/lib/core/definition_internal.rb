@@ -155,33 +155,40 @@ class BaseDefinition
       oCoreObject
    end
 
-   def _build_data(sCloudObj, oParam, sKeypath, hParams)
+   def _build_data(sCloudObj, oParam, sKeypath, hParams, bController = false)
 
       aKeyPath = _2tree_array(sKeypath)
       sKey = aKeyPath[-1]
-      hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, sKey)
       sDefault = rhGet(hParams, :default_value)
-      value = @oForjConfig.get(sKey, sDefault)
-      if hValueMapping
-         raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
-         value = hValueMapping[value]
+      if rhExist?(hParams, :extract_from) == 1
+         value = oParam[hParams[:extract_from]]
+      end
+      value = @oForjConfig.get(sKey, sDefault) if not value
+
+      if bController
+         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, sKey)
+
+         if hValueMapping
+            raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
+            value = hValueMapping[value]
+         end
+         if rhExist?(hParams, :mapping) == 1
+            # NOTE: if mapping is set, the definition subtree
+            # is ignored.
+            # if key map to mykey
+            # [:section1][subsect][key] = value
+            # oParam => [:hdata][mykey] = value
+            # not oParam => [:hdata][:section1][subsect][mykey] = value
+            oParam[:hdata][rhGet(hParams, :mapping)] = value
+         end
       end
 
       oParam[aKeyPath] = value
-      if rhExist?(hParams, :mapping) == 1
-         # NOTE: if mapping is set, the definition subtree
-         # is ignored.
-         # if key map to mykey
-         # [:section1][subsect][key] = value
-         # oParam => [:hdata][mykey] = value
-         # not oParam => [:hdata][:section1][subsect][mykey] = value
-         oParam[:hdata][rhGet(hParams, :mapping)] = value
-      end
    end
 
-   def _get_object_params(sCloudObj, fname)
+   def _get_object_params(sCloudObj, fname, bController = false)
 
-      oParams = ObjectParams.new # hdata is built from scratch everytime
+      oParams = ObjectData.new # hdata is built from scratch everytime
 
       hTopParams= rhGet(@@meta_obj,sCloudObj, :params)
       hkeyPaths = rhGet(hTopParams, :list)
@@ -192,12 +199,13 @@ class BaseDefinition
          sKey = _2tree_array(sKeypath)[-1]
          case hParams[:type]
             when :data
-               _build_data(sCloudObj, oParams, sKeypath, hParams)
+               _build_data(sCloudObj, oParams, sKeypath, hParams, bController)
             when :CloudObject
-               if hParams[:required] and rhExist?(@CloudData, sKey, :object) != 2
+               #~ if hParams[:required] and rhExist?(@CloudData, sKey, :object) != 2
+               if hParams[:required] and @ObjectData.type?(sKey) != :DataObject
                   raise ForjError.new(), "Object '%s/%s' is not defined. '%s' requirement failed." % [ self.class, sKey, fname]
                end
-               oParams[sKey] = get_object(sKey)
+               oParams.add(@ObjectData[sKey, :ObjectData])
             else
                raise ForjError.new(), "Undefined ObjectData '%s'." % [ hParams[:type]]
          end
@@ -242,13 +250,20 @@ class BaseDefinition
          case hParams[:type]
             when :data
                sDefault = rhGet(hParams, :default_value)
-               if hParams[:required] and @oForjConfig.get(sKey, sDefault).nil?
-                  sSection = ForjDefault.get_meta_section(sKey)
-                  sSection = 'runtime' if not sSection
-                  raise ForjError.new(), "key '%s/%s' is not set. '%s' requirement failed." % [ sSection, sKey, fname], aCaller
+               if hParams[:required]
+                  if hParams.key?(:extract_from)
+                     if not @ObjectData.exist?(hParams[:extract_from])
+                        raise ForjError.new(), "key '%s' was not extracted from '%s'. '%s' requirement failed." % [ sKey, hParams[:extract_from], fname], aCaller
+                     end
+                  elsif @oForjConfig.get(sKey, sDefault).nil?
+                     sSection = ForjDefault.get_meta_section(sKey)
+                     sSection = 'runtime' if not sSection
+                     raise ForjError.new(), "key '%s/%s' is not set. '%s' requirement failed." % [ sSection, sKey, fname], aCaller
+                  end
                end
             when :CloudObject
-               if hParams[:required] and rhExist?(@CloudData, sKey, :object) != 2
+               #~ if hParams[:required] and rhExist?(@CloudData, sKey, :object) != 2
+               if hParams[:required] and @ObjectData.type?(sKey) != :DataObject
                   oObjMissing << sKey
                end
          end

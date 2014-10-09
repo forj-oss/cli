@@ -46,7 +46,7 @@ class CloudProcess < BaseProcess
       oSSLError = SSLErrorMgt.new # Retry object
       Logging.debug("%s:%s Connecting to '%s' - Project '%s'" % [self.class, sCloudObj, config.get(:provider), hParams[:tenant]])
       begin
-         controler.connect(sCloudObj, hParams)
+         controler.connect(sCloudObj)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
@@ -71,8 +71,7 @@ class CloudProcess
       key_name = hParams[:keypair_name]
       oSSLError = SSLErrorMgt.new
       begin
-         sProviderQuery = object.query_map(sCloudObj, sQuery)
-         keypairs = controler.query(sCloudObj, sProviderQuery, hParams)
+         keypairs = controler.query(sCloudObj, sQuery)
          case keypairs[:list].length()
          when 0
             Logging.debug("No keypair '%s' found" % [ key_name ] )
@@ -94,7 +93,7 @@ class CloudProcess
       Logging.debug("Importing keypair '%s'" % [key_name])
       oSSLError=SSLErrorMgt.new
       begin
-         controler.create(sCloudObj, hParams)
+         controler.create(sCloudObj)
       rescue StandardError => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
@@ -192,8 +191,7 @@ class CloudProcess
       sFlavor_name = hParams[:flavor_name]
       oSSLError = SSLErrorMgt.new
       begin
-         sProviderQuery = object.query_map(sCloudObj, sQuery)
-         flavors = controler.query(sCloudObj, sProviderQuery, hParams)
+         flavors = controler.query(sCloudObj, sQuery)
          case flavors[:list].length()
          when 0
             Logging.debug("No %s '%s' found" % [sCloudObj, sFlavor_name] )
