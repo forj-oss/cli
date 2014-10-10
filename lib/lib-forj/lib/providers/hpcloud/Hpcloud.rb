@@ -171,6 +171,10 @@ class HpcloudController < BaseController
 
    def create(sObjectType, hParams)
       case sObjectType
+         when :image
+            required?(hParams, :compute_connection)
+            required?(hParams, :image_name)
+            HPCompute.get_image(hParams[:compute_connection], hParams[:image_name])
          when :network
             required?(hParams, :network_connection)
             required?(hParams, :network_name)
@@ -210,6 +214,10 @@ class HpcloudController < BaseController
    # Used by network process.
    def query(sObjectType, sQuery, hParams)
       case sObjectType
+         when :image
+            required?(hParams, :compute_connection)
+            required?(hParams, :image)
+            HPCompute.query_image(hParams[:compute_connection], sQuery)
          when :network
             required?(hParams, :network_connection)
             HPNetwork.query_network(hParams[:network_connection], sQuery)
@@ -250,6 +258,8 @@ class HpcloudController < BaseController
 
    def get(sObjectType, sUniqId, hParams)
       case sObjectType
+        when :image
+            HPCompute.get_image(oComputeConnect, name)
          when :network
             HPNetwork.get_network(oNetworkConnect, sUniqId, name)
          else

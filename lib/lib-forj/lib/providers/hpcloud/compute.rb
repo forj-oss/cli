@@ -15,6 +15,10 @@
 #    limitations under the License.
 
 module HPCompute
-   def HPCompute_create_server(oCompute, name)
+   def HPCompute.create_server(oCompute, name)
+   end
+
+   def HPCompute.query_image(oComputeConnect, sQuery)
+     oComputeConnect.images.all(sQuery)
    end
 end

@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'byebug'
+#require 'byebug'
 
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))

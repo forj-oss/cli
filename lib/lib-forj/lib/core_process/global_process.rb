@@ -208,3 +208,33 @@ class CloudProcess
 
    end
 end
+
+
+class CloudProcess < BaseProcess
+  def forj_get_or_create_image(sCloudObj, hParams)
+    sImage_name = hParams[:image]
+    Logging.state("Searching for image '%s'..." % [sImage_name] )
+
+    forj_query_image(sCloudObj, {:name => sImage_name}, hParams)
+  end
+
+  def forj_query_image(sCloudObj, sQuery, hParams)
+    image_name = hParams[:image]
+    oSSLError = SSLErrorMgt.new
+    begin
+      images = controler.query(sCloudObj, sQuery)
+      case images[:list].length()
+        when 0
+          Logging.debug("No image '%s' found" % [ image_name ] )
+          nil
+        else
+          Logging.debug("Found image '%s'." % [ image_name ])
+          images[:list][0]
+      end
+    rescue => e
+      if not oSSLError.ErrorDetected(e.message,e.backtrace)
+        retry
+      end
+    end
+  end
+end
