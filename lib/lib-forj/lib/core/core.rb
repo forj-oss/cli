@@ -189,6 +189,8 @@ class ForjObject
          end
          if File.exists?(sFile)
             cNewClass = Class.new(cBaseProcess)
+            sProcessClass = "%sProcess" %  sProcessClass if not /Process$/ =~ sProcessClass
+            Logging.debug("Declaring Process '%s'" % sProcessClass)
             cBaseProcess = Object.const_set(sProcessClass, cNewClass)
             cProcessClass = sProcessClass
             load sFile
@@ -375,6 +377,12 @@ class BaseProcess
       @oDefinition
    end
 
+   def format_object(sObjectType, oMiscObj)
+
+      raise ForjError.new(), "No Base object loaded." if not @oDefinition
+      @oDefinition.format_object(sObjectType, oMiscObj)
+   end
+
    def get_data(oObj, *key)
 
       raise ForjError.new(), "No Base object loaded." if not @oDefinition
@@ -399,8 +407,26 @@ class BaseProcess
             Logging.debug("No %s '%s' found" % [sCloudObj, name] )
             nil
          when 1
+            element = nil
+            oList[:list].each { | oElem |
+               bFound = true
+               sQuery.each { | key, value |
+                  if oElem[:attrs][key] != value
+                     bFound = false
+                     break
+                  end
+               }
+               if bFound
+                  element = oElem
+                  break
+               end
+            }
+            if element.nil?
+               Logging.debug("No %s '%s' match." % [sCloudObj, name])
+               return nil
+            end
             Logging.debug("Found %s '%s'." % [sCloudObj, name])
-            oList[:list][0]
+            element
          else
             Logging.debug("Found several %s. Searching for '%s'." % [sCloudObj, name])
             # Looping to find the one corresponding
@@ -904,6 +930,18 @@ class BaseDefinition
    def config
       raise ForjError.new(), "No config object loaded." if not @oForjConfig
       @oForjConfig
+   end
+
+   def format_object(sCloudObj, oMiscObject)
+      return nil if not sCloudObj or not [String, Symbol].include?(sCloudObj.class)
+
+      sCloudObj = sCloudObj.to_sym if sCloudObj.class == String
+
+      oCoreObject = {
+         :object_type => sCloudObj,
+         :attrs => {},
+         :object => oMiscObject,
+      }
    end
 
    def get_data_metadata(sKey)

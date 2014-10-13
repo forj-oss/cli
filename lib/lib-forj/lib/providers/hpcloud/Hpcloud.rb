@@ -82,6 +82,12 @@ class Hpcloud < BaseDefinition
    query_mapping :port_max,   :port_range_max
    query_mapping :addr_map,   :remote_ip_prefix
    query_mapping :sg_id,      :security_group_id
+   get_attr_mapping :dir,      :direction
+   get_attr_mapping :proto,    :protocol
+   get_attr_mapping :port_min, :port_range_min
+   get_attr_mapping :port_max, :port_range_max
+   get_attr_mapping :addr_map, :remote_ip_prefix
+   get_attr_mapping :sg_id,    :security_group_id
 
    define_obj :keypairs
 

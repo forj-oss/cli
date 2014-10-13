@@ -409,8 +409,8 @@ class CloudProcess
             # Need to set runtime data to get or if missing create the required rule.
             config[:dir]        = :IN
             config[:proto] = 'tcp'
-            config[:port_min]   = portmin
-            config[:port_max]   = portmax
+            config[:port_min]   = portmin.to_i
+            config[:port_max]   = portmax.to_i
             config[:addr_map]   = '0.0.0.0/0'
 
             object.Create(:rule)

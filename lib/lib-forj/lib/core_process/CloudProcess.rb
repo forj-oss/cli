@@ -185,7 +185,7 @@ class BaseDefinition
       })
 
    obj_needs   :CloudObject,  :compute_connection
-   obj_needs   :data,         :image,              { :for => [:create_e] }
+   obj_needs   :data,         :image_name,         { :for => [:create_e] }
 
    # Identify flavor
    define_obj(:flavor,

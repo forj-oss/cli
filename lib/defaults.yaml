@@ -19,7 +19,7 @@
   :infra_repo: ~/.forj/infra
 
   # You can set proto2b in your ~/.forj/config.yaml if you built it from maestro/build. Read the maestro/README.md to create it.
-  :image: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
+  :image_name: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
 
   # Flavor to use for Maestro
   :flavor: medium
@@ -167,7 +167,7 @@
     :flavor_name:
       :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
       :default:    :flavor
-    :image:
+    :image_name:
       :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
     :ports:
       :desc:       "List of security group rules (1 port or range of ports) to open to the external network."

@@ -40,19 +40,19 @@ oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 # For debugging security_groups
 #byebug
 
-server_name = "chl1"
-oConfig.set(:server_name, server_name)
-
-server = oCloud.Query(:server, {:name => server_name})
-
-oCloud.Create(:server) if not server
+#~ server_name = "chl1"
+#~ oConfig.set(:server_name, server_name)
+#~
+#~ server = oCloud.Query(:server, {:name => server_name})
+#~
+#~ oCloud.Create(:server) if not server
 
 #oConfig.set(:blueprint, 'redstone')
 #oConfig.set(:instance_name, instance_name)
 #oCloud.Create(:forge)
-oConfig.set(:blueprint, 'redstone')
+#~ oConfig.set(:blueprint, 'redstone')
 oConfig.set(:instance_name, "test")
-#byebug
+
 oCloud.Create(:forge)
 
 #oConfig.set(:sg_desc, "Security group for blueprint '%s'" % [oConfig.get(:blueprint)])

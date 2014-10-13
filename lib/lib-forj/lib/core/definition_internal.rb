@@ -135,17 +135,10 @@ class BaseDefinition
    end
 
    def _return_map(sCloudObj, oControlerObject)
+      oCoreObject = format_object(sCloudObj, oControlerObject)
 
-      return nil if not sCloudObj or not [String, Symbol].include?(sCloudObj.class)
-      return {} if not oControlerObject
+      return nil if oCoreObject.nil?
 
-      sCloudObj = sCloudObj.to_sym if sCloudObj.class == String
-
-      oCoreObject = {
-         :object_type => sCloudObj,
-         :attrs => {},
-         :object => oControlerObject,
-      }
       hMap = rhGet(@@meta_obj, sCloudObj, :returns)
       hMap.each { |key, map|
          oKeyPath = KeyPath.new(key)
@@ -155,7 +148,21 @@ class BaseDefinition
          if controller_attr_value.nil?
             raise ForjError.new(), "Attribute '%s' mapped to '%s' is unknown in Controller object '%s'." % [oKeyPath.to_s, oMapPath.to_s, oControlerObject]
          end
-         rhSet(oCoreObject, controller_attr_value, :attrs, oKeyPath.aTree)
+
+         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, oKeyPath.sFullPath)
+         if hValueMapping
+            attr_value = nil
+            hValueMapping.each { | map_key, map_value |
+               if controller_attr_value == map_value
+                  attr_value = map_key
+                  break
+               end
+            }
+            raise ForjError.new(), "'%s.%s': No controller value mapping for '%s'" % [sCloudObj, oKeyPath.sKey, controller_attr_value] if attr_value.nil?
+         else
+            attr_value = controller_attr_value
+         end
+         rhSet(oCoreObject, attr_value, :attrs, oKeyPath.aTree)
       }
       oCoreObject
    end

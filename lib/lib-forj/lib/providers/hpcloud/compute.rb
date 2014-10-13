@@ -16,7 +16,7 @@
 
 module HPCompute
    def HPCompute.query_server(oComputeConnect, sQuery)
-     oComputeConnect.servers.all(sQuery)
+      oComputeConnect.servers.all(sQuery)
    end
 
    def HPCompute.query_image(oComputeConnect, sQuery)
@@ -41,8 +41,8 @@ module HPCompute
                 :security_groups => [oSecurity_groups.name],
                 :networks => [oNetwork.id]
                 }
-      options[:user_data] = oUser_data.name if oUser_data
-      options[:metadata] = oMeta_data.list if oMeta_data
+      options[:user_data] = oUser_data if oUser_data
+      options[:metadata] = oMeta_data if oMeta_data
       oComputeConnect.servers.create(options)
    end
 

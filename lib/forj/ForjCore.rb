@@ -50,12 +50,14 @@ class BaseDefinition
          :create_e => :build_metadata
       }
 
+   obj_needs   :data,   :instance_name
    obj_needs   :data,   :network_name
    obj_needs   :data,   :security_group
    obj_needs   :data,   :keypair_name
    obj_needs   :data,   :image_name
    obj_needs   :data,   :bp_flavor
    obj_needs   :data,   :compute
+   obj_needs   :data,   :branch
 
    define_obj  :forge,
       {
@@ -63,7 +65,7 @@ class BaseDefinition
          :delete_e => :drop_forge
       }
    obj_needs   :CloudObject,  :metadata
-   obj_needs   :CloudObject,  :userdata
+   #~ obj_needs   :CloudObject,  :userdata
    obj_needs   :data,         :instance_name
 
    obj_needs_optional
@@ -71,7 +73,7 @@ class BaseDefinition
 
 end
 
-class ForjCoreProcess
+$FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
 
+require File.join($FORJCORE_PATH, "process", "ForjProcess.rb")
 
-end

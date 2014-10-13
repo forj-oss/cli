@@ -197,14 +197,14 @@ end
 
 class CloudProcess < BaseProcess
   def forj_get_or_create_image(sCloudObj, hParams)
-    sImage_name = hParams[:image]
+    sImage_name = hParams[:image_name]
     Logging.state("Searching for image '%s'..." % [sImage_name] )
 
     forj_query_image(sCloudObj, {:name => sImage_name}, hParams)
   end
 
   def forj_query_image(sCloudObj, sQuery, hParams)
-    image_name = hParams[:image]
+    image_name = hParams[:image_name]
     oSSLError = SSLErrorMgt.new
     begin
       images = controler.query(sCloudObj, sQuery)
