@@ -148,17 +148,21 @@ class BaseDefinition
       }
       hMap = rhGet(@@meta_obj, sCloudObj, :returns)
       hMap.each { |key, map|
+         oKeyPath = KeyPath.new(key)
+         oMapPath = KeyPath.new(map)
          next if not map
-         oCoreObject[:attrs][key] = @oProvider.get_attr(oControlerObject, map)
-         raise ForjError.new(), "Attribute '%s' mapped to '%s' is unknown in Controller object '%s'." % [key, map, oControlerObject] if oCoreObject[:attrs][key].nil?
+         controller_attr_value = @oProvider.get_attr(oControlerObject, oMapPath.aTree)
+         if controller_attr_value.nil?
+            raise ForjError.new(), "Attribute '%s' mapped to '%s' is unknown in Controller object '%s'." % [oKeyPath.to_s, oMapPath.to_s, oControlerObject]
+         end
+         rhSet(oCoreObject, controller_attr_value, :attrs, oKeyPath.aTree)
       }
       oCoreObject
    end
 
-   def _build_data(sCloudObj, oParam, sKeypath, hParams, bController = false)
+   def _build_data(sCloudObj, oParam, oKeyPath, hParams, bController = false)
 
-      aKeyPath = _2tree_array(sKeypath)
-      sKey = aKeyPath[-1]
+      sKey = oKeyPath.sKey
       sDefault = rhGet(hParams, :default_value)
       if rhExist?(hParams, :extract_from) == 1
          value = oParam[hParams[:extract_from]]
@@ -166,11 +170,22 @@ class BaseDefinition
       value = @oForjConfig.get(sKey, sDefault) if not value
 
       if bController
-         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, sKey)
+         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, oKeyPath.sFullPath)
 
+         # Mapping from Object/data definition
          if hValueMapping
-            raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
+            raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, sKey, value] if rhExist?(hValueMapping, value) != 1
             value = hValueMapping[value]
+# Will be moved to the setup section or while setting it for a controller attached account.
+         #~ else
+            #~ # Or mapping from Config/data definition
+            #~ section = ForjDefault.get_meta_section(sKey)
+            #~ section = :runtime if section.nil?
+            #~ hValueMapping = rhGet(@@meta_data, section, sKey, :value_mapping)
+            #~ if hValueMapping
+               #~ raise ForjError.new(), "'%s.%s': No Config value mapping for '%s'" % [section, sKey, value] if rhExist?(hValueMapping, value) != 1
+               #~ value = hValueMapping[value]
+            #~ end
          end
          if rhExist?(hParams, :mapping) == 1
             # NOTE: if mapping is set, the definition subtree
@@ -182,24 +197,24 @@ class BaseDefinition
             oParam[:hdata][rhGet(hParams, :mapping)] = value
          end
       end
-
-      oParam[aKeyPath] = value
+      oParam[oKeyPath.aTree] = value
    end
 
-   def _get_object_params(sCloudObj, fname, bController = false)
+   def _get_object_params(sCloudObj, sEventType, fname, bController = false)
 
-      oParams = ObjectData.new # hdata is built from scratch everytime
+      oParams = ObjectData.new(not(bController)) # hdata is built for controller. ie, ObjectData is NOT internal.
 
       hTopParams= rhGet(@@meta_obj,sCloudObj, :params)
-      hkeyPaths = rhGet(hTopParams, :list)
+      hkeyPaths = rhGet(hTopParams, :keys)
       raise ForjError.new(), "'%s' Object data needs not set. Forgot obj_needs?" % [sCloudObj] if hkeyPaths.nil?
 
-      hkeyPaths.each { | sKeypath|
-         hParams = rhGet(hTopParams, :keys, sKeypath)
-         sKey = _2tree_array(sKeypath)[-1]
+      hkeyPaths.each { | sKeypath, hParams|
+         next if not hParams[:for].include?(sEventType)
+         oKeyPath = KeyPath.new(sKeypath)
+         sKey = oKeyPath.sKey
          case hParams[:type]
             when :data
-               _build_data(sCloudObj, oParams, sKeypath, hParams, bController)
+               _build_data(sCloudObj, oParams, oKeyPath, hParams, bController)
             when :CloudObject
                #~ if hParams[:required] and rhExist?(@CloudData, sKey, :object) != 2
                if hParams[:required] and @ObjectData.type?(sKey) != :DataObject
@@ -213,40 +228,39 @@ class BaseDefinition
       oParams
    end
 
-   def _2tree_array(sKeyPath)
-      return sKeyPath if sKeyPath.is_a?(Array)
-      return nil if not sKeyPath.is_a?(String)
-
-      aResult = sKeyPath.split('/')
-      aResult.each_index { | iIndex |
-         next if not aResult[iIndex].is_a?(String)
-         aResult[iIndex] = aResult[iIndex][1..-1].to_sym if aResult[iIndex][0] == ":"
-      }
+   def _get_controller_map_value(keypath, sProcessValue)
+      section = ForjDefault.get_meta_section(sData)
+      section = :runtime if section.nil?
+      oKeypath = KeyPath.new(keypath)
+      sKeyPath = oKeypath.sKeyPath
+      return nil if rhExist?(@@meta_data, section, sKeyPath, :controller, sProcessValue) != 4
+      rhGet(@@meta_data, section, sKeyPath, :controller, sProcessValue)
    end
 
-   def _2path(aArray)
-
-      aKeyAccess = aArray.clone
-      aKeyAccess.each_index { |iIndex|
-         next if not sParam[iIndex].is_a?(Symbol)
-         aKeyAccess[iIndex] = ":" + aKeyAccess[iIndex].to_s
-      }
-      aKeyAccess.join('/')
+   def _get_process_map_value(keypath, sControllerValue)
+      section = ForjDefault.get_meta_section(sData)
+      section = :runtime if section.nil?
+      oKeypath = KeyPath.new(keypath)
+      sKeyPath = oKeypath.sKeyPath
+      return nil if rhExist?(@@meta_data, section, sKeyPath, :process, sControllerValue) != 4
+      rhGet(@@meta_data, section, sKeyPath, :process, sControllerValue)
    end
 
-   def _check_required(sCloudObj, fname)
+   def _check_required(sCloudObj, sEventType, fname)
       aCaller = caller
       aCaller.pop
 
       oObjMissing=[]
 
       hTopParams= rhGet(@@meta_obj,sCloudObj, :params)
-      hkeyPaths = rhGet(hTopParams, :list)
+      hkeyPaths = rhGet(hTopParams, :keys)
       raise ForjError.new(), "'%s' Object data needs not set. Forgot obj_needs?" % [sCloudObj] if hkeyPaths.nil?
 
-      hkeyPaths.each { | sKeypath|
-         hParams = rhGet(hTopParams, :keys, sKeypath)
-         sKey = _2tree_array(sKeypath)[-1]
+      hkeyPaths.each { | sKeypath, hParams|
+         next if not hParams[:for].include?(sEventType)
+         oKeyPath = KeyPath.new(sKeypath)
+
+         sKey = oKeyPath.sKey
          case hParams[:type]
             when :data
                sDefault = rhGet(hParams, :default_value)

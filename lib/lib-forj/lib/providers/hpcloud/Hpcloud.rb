@@ -67,6 +67,9 @@ class Hpcloud < BaseDefinition
 
    define_obj  :rule
    obj_needs   :data, :dir,        :mapping => :direction
+   attr_value_mapping  :IN,  'ingress'
+   attr_value_mapping  :OUT, 'egress'
+
    obj_needs   :data, :proto,      :mapping => :protocol
    obj_needs   :data, :port_min,   :mapping => :port_range_min
    obj_needs   :data, :port_max,   :mapping => :port_range_max
@@ -74,8 +77,6 @@ class Hpcloud < BaseDefinition
    obj_needs   :data, :sg_id,      :mapping => :security_group_id
 
    query_mapping :dir,        :direction
-   data_value_mapping  :IN,  'ingress'
-   data_value_mapping  :OUT, 'egress'
    query_mapping :proto,      :protocol
    query_mapping :port_min,   :port_range_min
    query_mapping :port_max,   :port_range_max
@@ -138,17 +139,18 @@ class Hpcloud < BaseDefinition
    define_data(:flavor_name, {
       :desc => 'HPCloud flavor name',
       :list_values => {
-         :query_type   => :process_call,
-         :object       => :flavor ,
+         :query_type   => :process_call, # Will execute a query on flavor, query_params is empty for all.
+         :object       => :flavor,
          :validate     => :list_strict
       }
    })
 
-   data_value_mapping :xsmall, "standard.xmall"
-   data_value_mapping :small, "standard.small"
-   data_value_mapping :medium, "standard.medium"
-   data_value_mapping :large, "standard.large"
-   data_value_mapping :xlarge, "standard.xlarge"
+   data_value_mapping 'xsmall', "standard.xsmall"
+   data_value_mapping 'small',  "standard.small"
+   data_value_mapping 'medium', "standard.medium"
+   data_value_mapping 'large',  "standard.large"
+   data_value_mapping 'xlarge', "standard.xlarge"
+
 
 end
 
@@ -171,6 +173,21 @@ class HpcloudController < BaseController
 
    def create(sObjectType, hParams)
       case sObjectType
+         when :server
+            required?(hParams, :compute_connection)
+            required?(hParams, :image)
+            required?(hParams, :network)
+            required?(hParams, :flavor)
+            required?(hParams, :keypairs)
+            required?(hParams, :security_groups)
+            required?(hParams, :server_name)
+            HPCompute.create_server(
+               hParams[:compute_connection],
+               hParams[:server_name], hParams[:security_groups],
+               hParams[:image],       hParams[:network],
+               hParams[:flavor],      hParams[:keypairs],
+               hParams[:user_data],   hParams[:meta_data]
+            )
          when :image
             required?(hParams, :compute_connection)
             required?(hParams, :image_name)
@@ -214,9 +231,11 @@ class HpcloudController < BaseController
    # Used by network process.
    def query(sObjectType, sQuery, hParams)
       case sObjectType
+         when :server
+            required?(hParams, :compute_connection)
+            HPCompute.query_server(hParams[:compute_connection], sQuery)
          when :image
             required?(hParams, :compute_connection)
-            required?(hParams, :image)
             HPCompute.query_image(hParams[:compute_connection], sQuery)
          when :network
             required?(hParams, :network_connection)
@@ -239,6 +258,9 @@ class HpcloudController < BaseController
          when :keypairs
             required?(hParams, :compute_connection)
             HPKeyPairs.query_keypair(hParams[:compute_connection], sQuery)
+         when :flavor
+            required?(hParams, :compute_connection)
+            HPCompute.query_flavor(hParams[:compute_connection], sQuery)
          else
             forjError "'%s' is not a valid object for 'query'" % sObjectType
       end
@@ -281,7 +303,7 @@ class HpcloudController < BaseController
    def get_attr(oControlerObject, key)
       begin
          attributes = oControlerObject.instance_variable_get(:@attributes)
-         rhGet(attributes,key)
+         rhGet(attributes, key)
       rescue => e
          forjError "Unable to map '%s' on '%s'" % [key, sObjectType]
       end

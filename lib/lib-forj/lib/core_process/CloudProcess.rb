@@ -77,15 +77,18 @@ class BaseDefinition
               :delete_e    => :forj_delete_network
              )
    obj_needs   :CloudObject,  :network_connection
-   obj_needs   :data,         :network_name
+   obj_needs   :data,         :network_name,       { :for => [:create_e] }
 
    obj_needs_optional
-   obj_needs   :data,         :subnetwork_name
+   obj_needs   :data,         :subnetwork_name,    { :for => [:create_e] }
 
    def_query_attribute :external # true if network is external or not.
 
    # Identify subnetwork as part of network.
    define_obj(:subnetwork,    :nohandler => true)
+
+   obj_needs   :CloudObject,  :network_connection
+   obj_needs   :CloudObject,  :network
 
    def_query_attribute :network_id
 
@@ -107,10 +110,10 @@ class BaseDefinition
          :delete_e   => :forj_delete_router
       })
    obj_needs   :CloudObject,  :network_connection
-   obj_needs   :CloudObject,  :network
-   obj_needs   :CloudObject,  :subnetwork
+   obj_needs   :CloudObject,  :network,            { :for => [:create_e] }
+   obj_needs   :CloudObject,  :subnetwork,         { :for => [:create_e] }
    obj_needs_optional
-   obj_needs   :data,         :router_name
+   obj_needs   :data,         :router_name,        { :for => [:create_e] }
 
    def_attribute :gateway_network_id
 
@@ -134,9 +137,9 @@ class BaseDefinition
       })
 
    obj_needs   :CloudObject,  :network_connection
-   obj_needs   :data,         :security_group
+   obj_needs   :data,         :security_group,     { :for => [:create_e] }
    obj_needs_optional
-   obj_needs   :data,         :sg_desc
+   obj_needs   :data,         :sg_desc,            { :for => [:create_e] }
 
    # Identify Rules attached to the security group
    define_obj(:rule,
@@ -149,15 +152,15 @@ class BaseDefinition
    get_attr_mapping :name, nil  # Do not return any predefined name attribute
 
    obj_needs   :CloudObject,  :network_connection
-   obj_needs   :CloudObject,  :security_groups
-   obj_needs   :data,         :sg_id,           { :extract_from => [:security_groups, :attrs, :id] }
-   obj_needs   :data,         :dir
+   obj_needs   :CloudObject,  :security_groups,    { :for => [:create_e] }
+   obj_needs   :data,         :sg_id,              { :for => [:create_e], :extract_from => [:security_groups, :attrs, :id] }
+   obj_needs   :data,         :dir,                { :for => [:create_e] }
    predefine_data_value :IN,  { :desc => "Input NAT/firewall rule map type" }
    predefine_data_value :OUT, { :desc => "Output NAT/firewall rule map type" }
-   obj_needs   :data,         :proto
-   obj_needs   :data,         :port_min
-   obj_needs   :data,         :port_max
-   obj_needs   :data,         :addr_map
+   obj_needs   :data,         :proto,              { :for => [:create_e] }
+   obj_needs   :data,         :port_min,           { :for => [:create_e] }
+   obj_needs   :data,         :port_max,           { :for => [:create_e] }
+   obj_needs   :data,         :addr_map,           { :for => [:create_e] }
 
    # Identify keypair
    define_obj(:keypairs,
@@ -168,8 +171,8 @@ class BaseDefinition
       })
 
    obj_needs   :CloudObject,  :compute_connection
-   obj_needs   :data,         :keypair_name
-   obj_needs   :data,         :keypair_path
+   obj_needs   :data,         :keypair_name,       { :for => [:create_e] }
+   obj_needs   :data,         :keypair_path,       { :for => [:create_e] }
 
    # Identify image
    define_obj(:image,
@@ -182,7 +185,7 @@ class BaseDefinition
       })
 
    obj_needs   :CloudObject,  :compute_connection
-   obj_needs   :data,         :image
+   obj_needs   :data,         :image,              { :for => [:create_e] }
 
    # Identify flavor
    define_obj(:flavor,
@@ -196,19 +199,19 @@ class BaseDefinition
 
    obj_needs   :CloudObject,  :compute_connection
 
-   obj_needs   :data,         :flavor_name,
+   obj_needs   :data,         :flavor_name,        { :for => [:create_e] }
    # Cloud provider will need to map to one of those predefined flavors.
    # limitation values may match exactly or at least ensure those limitation
    # are under provider limitation
    # ie, at least the CloudProcess limitation can less than the Cloud provider defines.
    # CloudProcess EHD = 160, then Provider EHD = 200 is ok
    # but Provider EHD = 150 is not ok.
-   predefine_data_value(:tiny,   { :desc => "VCU: 1,  RAM:512M, HD:1G,   EHD: 0G,   Swap: 0G" })
-   predefine_data_value(:xsmall, { :desc => "VCU: 1,  RAM:1G,   HD:10G,  EHD: 10G,  Swap: 0G" })
-   predefine_data_value(:small,  { :desc => "VCU: 2,  RAM:2G,   HD:30G,  EHD: 10G,  Swap: 0G" })
-   predefine_data_value(:medium, { :desc => "VCU: 2,  RAM:4G,   HD:30G,  EHD: 50G,  Swap: 0G" })
-   predefine_data_value(:large,  { :desc => "VCU: 4,  RAM:8G,   HD:30G,  EHD: 100G, Swap: 0G" })
-   predefine_data_value(:xlarge, { :desc => "VCU: 8,  RAM:16G,  HD:30G,  EHD: 200G, Swap: 0G" })
+   predefine_data_value('tiny',   { :desc => "VCU: 1,  RAM:512M, HD:1G,   EHD: 0G,   Swap: 0G" })
+   predefine_data_value('xsmall', { :desc => "VCU: 1,  RAM:1G,   HD:10G,  EHD: 10G,  Swap: 0G" })
+   predefine_data_value('small',  { :desc => "VCU: 2,  RAM:2G,   HD:30G,  EHD: 10G,  Swap: 0G" })
+   predefine_data_value('medium', { :desc => "VCU: 2,  RAM:4G,   HD:30G,  EHD: 50G,  Swap: 0G" })
+   predefine_data_value('large',  { :desc => "VCU: 4,  RAM:8G,   HD:30G,  EHD: 100G, Swap: 0G" })
+   predefine_data_value('xlarge', { :desc => "VCU: 8,  RAM:16G,  HD:30G,  EHD: 200G, Swap: 0G" })
 
    # Define Internet network
    #
@@ -230,16 +233,17 @@ class BaseDefinition
          :delete_e   => :forj_delete_server
       })
 
-   obj_needs   :CloudObject,  :flavor
-   obj_needs   :CloudObject,  :network
-   obj_needs   :CloudObject,  :security_groups
-   obj_needs   :CloudObject,  :keypairs
-   obj_needs   :CloudObject,  :image
-   obj_needs   :data,         :server_name
+   obj_needs   :CloudObject,  :compute_connection
+   obj_needs   :CloudObject,  :flavor,             { :for => [:create_e] }
+   obj_needs   :CloudObject,  :network,            { :for => [:create_e] }
+   obj_needs   :CloudObject,  :security_groups,    { :for => [:create_e] }
+   obj_needs   :CloudObject,  :keypairs,           { :for => [:create_e] }
+   obj_needs   :CloudObject,  :image,              { :for => [:create_e] }
+   obj_needs   :data,         :server_name,        { :for => [:create_e] }
 
    obj_needs_optional
-   obj_needs   :data,         :user_data
-   obj_needs   :data,         :meta_data
+   obj_needs   :data,         :user_data,          { :for => [:create_e] }
+   obj_needs   :data,         :meta_data,          { :for => [:create_e] }
 
    # internet server is a server connected to the internet network.
    define_obj(:internet_server,    :nohandler => true )

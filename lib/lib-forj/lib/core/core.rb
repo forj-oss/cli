@@ -30,6 +30,74 @@ class ForjError < RuntimeError
    end
 end
 
+# Class to handle key or keypath on needs
+class KeyPath
+
+   def initialize(sKeyPath = nil)
+
+      @keypath = []
+      self.set sKeyPath
+   end
+
+   def key=(sKeyPath)
+      self.set(sKeyPath)
+   end
+
+   def set(sKeyPath)
+
+      if sKeyPath.is_a?(Symbol)
+         @keypath = [ sKeyPath]
+      elsif sKeyPath.is_a?(Array)
+         @keypath = sKeyPath
+      elsif sKeyPath.is_a?(String)
+         if /[^\\\/]?\/[^\/]/ =~ sKeyPath or /:[^:\/]/ =~ sKeyPath
+            # keypath to interpret
+            aResult = sKeyPath.split('/')
+            aResult.each_index { | iIndex |
+               next if not aResult[iIndex].is_a?(String)
+               aResult[iIndex] = aResult[iIndex][1..-1].to_sym if aResult[iIndex][0] == ":"
+            }
+            @keypath = aResult
+         else
+            @keypath = [sKeyPath]
+         end
+      end
+   end
+
+   def aTree()
+      @keypath
+   end
+
+   def sFullPath()
+      return nil if @keypath.length == 0
+      aKeyAccess = @keypath.clone
+      aKeyAccess.each_index { |iIndex|
+         next if not aKeyAccess[iIndex].is_a?(Symbol)
+         aKeyAccess[iIndex] = ":" + aKeyAccess[iIndex].to_s
+      }
+      aKeyAccess.join('/')
+   end
+
+   def to_s
+      return nil if @keypath.length == 0
+      aKeyAccess = @keypath.clone
+      aKeyAccess.each_index { |iIndex|
+         next if not aKeyAccess[iIndex].is_a?(Symbol)
+         aKeyAccess[iIndex] = aKeyAccess[iIndex].to_s
+      }
+      aKeyAccess.join('/')
+   end
+
+   def sKey(iIndex = -1)
+      return nil if @keypath.length == 0
+      @keypath[iIndex] if self.length >= 1
+   end
+
+   def length()
+      @keypath.length
+   end
+end
+
 # This is the main class definition.
 # It drives creation of High level cloud class object, like servers
 # Initialization requires a Configuration Object (ForjConfig) and the Account to load.
@@ -232,6 +300,18 @@ class ForjObject
       @oCoreObject.Delete(oCloudObj)
    end
 
+   def Query(oCloudObj, sQuery)
+      return nil if not oCloudObj or not @oCoreObject
+
+      @oCoreObject.Query(oCloudObj, sQuery)
+   end
+
+   def Get(oCloudObj, sId)
+      return nil if not oCloudObj or not @oCoreObject or sId.nil?
+
+      @oCoreObject.Get(oCloudObj, sId)
+   end
+
    def Update(oCloudObj)
       return nil if not oCloudObj or not @oCoreObject
 
@@ -295,11 +375,59 @@ class BaseProcess
       @oDefinition
    end
 
+   def get_data(oObj, *key)
+
+      raise ForjError.new(), "No Base object loaded." if not @oDefinition
+      @oDefinition.get_data(oObj, :attrs, key)
+   end
+
+   def register(oObj)
+
+      raise ForjError.new(), "No Base object loaded." if not @oDefinition
+      @oDefinition.register(oObj)
+   end
+
    def config
       raise ForjError.new(), "No Base object loaded." if not @oDefinition
       @oDefinition.config
    end
+
+   def query_single(sCloudObj, sQuery, name)
+      oList = controler.query(sCloudObj, sQuery)
+      case oList[:list].length()
+         when 0
+            Logging.debug("No %s '%s' found" % [sCloudObj, name] )
+            nil
+         when 1
+            Logging.debug("Found %s '%s'." % [sCloudObj, name])
+            oList[:list][0]
+         else
+            Logging.debug("Found several %s. Searching for '%s'." % [sCloudObj, name])
+            # Looping to find the one corresponding
+            element = nil
+            oList[:list].each { | oElem |
+               bFound = true
+               sQuery.each { | key, value |
+                  if oElem[:attrs][key] != value
+                     bFound = false
+                     break
+                  end
+               }
+               if bFound
+                  element = oElem
+                  break
+               end
+            }
+            if element.nil?
+               Logging.debug("No %s '%s' found" % [sCloudObj, name])
+               return nil
+            end
+            Logging.debug("Found %s '%s'." % [sCloudObj, name])
+            element
+      end
+   end
 end
+
 
 class BaseController
    # Default handlers which needs to be defined by the cloud provider,
@@ -342,7 +470,7 @@ class ObjectData
    def initialize(bInternal = false)
 
       @hParams = {}
-      @hParams[:hdata] = {} if not bInternal
+      @hParams[:hdata] = {} unless bInternal
    end
 
    def [] (*key)
@@ -435,30 +563,34 @@ class BaseDefinition
       raise ForjError.new(), "%s.Create: '%s' is not a known object type." % [self.class, sCloudObj] if rhExist?(@@meta_obj, sCloudObj) != 1
 
       pProc = rhGet(@@meta_obj, sCloudObj, :lambdas, :create_e)
-      hReturn = rhGet(@@meta_obj, sCloudObj, :returns)
 
       return nil if pProc.nil?
 
       # Check required parameters
-      oObjMissing = _check_required(sCloudObj, pProc).reverse
+      oObjMissing = _check_required(sCloudObj, :create_e, pProc).reverse
 
       while oObjMissing.length >0
          sElem = oObjMissing.pop
+
          raise ForjError.new(),"Unable to create Object '%s'" % sElem if not Create(sElem)
-         oObjMissing = _check_required(sCloudObj, pProc).reverse
+         oObjMissing = _check_required(sCloudObj, :create_e, pProc).reverse
          raise ForjError.new(), "loop detection: '%s' is required but Create(%s) did not loaded it." % [sElem, sElem] if oObjMissing.include?(sElem)
       end
       @RuntimeContext[:oCurrentObj] = sCloudObj # Context: Default object used.
 
       # build Function params to pass to the event handler.
-      aParams = _get_object_params(sCloudObj, pProc)
+      aParams = _get_object_params(sCloudObj, :create_e, pProc,)
       Logging.debug("Create Object '%s' - Running '%s'" % [sCloudObj, pProc])
 
-      oBaseObject = @oForjProcess.method(pProc).call(sCloudObj, aParams)
+      # Call the process function.
+      # At some point, the process will call the controller, via the framework.
+      # This controller call via the framework has the role to
+      # create an ObjectData well formatted, with _return_map function
+      # See Definition.connect/create/update/query/get functions (lowercase)
+      oObject = @oForjProcess.method(pProc).call(sCloudObj, aParams)
 
-      @ObjectData.add oBaseObject
-      #~ rhSet(@CloudData, oBaseObject, sCloudObj)
-      oBaseObject
+      @ObjectData.add oObject
+      oObject
    end
 
    def Delete(sCloudObj)
@@ -471,17 +603,17 @@ class BaseDefinition
       return nil if pProc.nil?
 
       # Check required parameters
-      oObjMissing = _check_required(sCloudObj, pProc).reverse
+      oObjMissing = _check_required(sCloudObj, :delete_e, pProc).reverse
 
       while oObjMissing.length >0
          sElem = oObjMissing.pop
          raise ForjError.new(),"Unable to create Object '%s'" % sElem if not Create(sElem)
-         oObjMissing = _check_required(sCloudObj, pProc).reverse
+         oObjMissing = _check_required(sCloudObj, :delete_e, pProc).reverse
       end
       @RuntimeContext[:oCurrentObj] = sCloudObj # Context: Default object used.
 
       # build Function params to pass to the event handler.
-      aParams = _get_object_params(sCloudObj, pProc)
+      aParams = _get_object_params(sCloudObj, :delete_e, pProc)
 
       bState = @oForjProcess.method(pProc).call(sCloudObj, aParams)
 
@@ -501,18 +633,23 @@ class BaseDefinition
       return nil if pProc.nil?
 
       # Check required parameters
-      oObjMissing = _check_required(sCloudObj, pProc).reverse
+      oObjMissing = _check_required(sCloudObj, :query_e, pProc).reverse
 
       while oObjMissing.length >0
          sElem = oObjMissing.pop
          raise ForjError.new(),"Unable to create Object '%s'" % sElem if not Create(sElem)
-         oObjMissing = _check_required(sCloudObj, pProc).reverse
+         oObjMissing = _check_required(sCloudObj, :query_e, pProc).reverse
       end
       @RuntimeContext[:oCurrentObj] = sCloudObj # Context: Default object used.
 
       # build Function params to pass to the event handler.
-      aParams = _get_object_params(sCloudObj, pProc)
+      aParams = _get_object_params(sCloudObj, :query_e, pProc)
 
+      # Call the process function.
+      # At some point, the process will call the controller, via the framework.
+      # This controller call via the framework has the role to
+      # create an ObjectData well formatted, with _return_map function
+      # See Definition.connect/create/update/query/get functions (lowercase)
       @oForjProcess.method(pProc).call(sCloudObj, sQuery, aParams)
 
    end
@@ -528,18 +665,23 @@ class BaseDefinition
       return nil if pProc.nil?
 
       # Check required parameters
-      oObjMissing = _check_required(sCloudObj, pProc).reverse
+      oObjMissing = _check_required(sCloudObj, :get_e, pProc).reverse
 
       while oObjMissing.length >0
          sElem = oObjMissing.pop
          raise ForjError.new(),"Unable to create Object '%s'" % sElem if not Create(sElem)
-         oObjMissing = _check_required(sCloudObj, pProc).reverse
+         oObjMissing = _check_required(sCloudObj, :get_e, pProc).reverse
       end
       @RuntimeContext[:oCurrentObj] = sCloudObj # Context: Default object used.
 
       # build Function params to pass to the event handler.
-      aParams = _get_object_params(sCloudObj, pProc)
+      aParams = _get_object_params(sCloudObj, :get_e, pProc)
 
+      # Call the process function.
+      # At some point, the process will call the controller, via the framework.
+      # This controller call via the framework has the role to
+      # create an ObjectData well formatted, with _return_map function
+      # See Definition.connect/create/update/query/get functions (lowercase)
       oObjValue = @oForjProcess.method(pProc).call(sCloudObj, sUniqId, aParams)
 
       @ObjectData.add(oObjValue)
@@ -558,17 +700,17 @@ class BaseDefinition
       return nil if pProc.nil?
 
       # Check required parameters
-      oObjMissing = _check_required(sCloudObj, pProc).reverse
+      oObjMissing = _check_required(sCloudObj, :update_e, pProc).reverse
 
       while oObjMissing.length >0
          sElem = oObjMissing.pop
          raise ForjError.new(),"Unable to create Object '%s'" % sElem if not Create(sElem)
-         oObjMissing = _check_required(sCloudObj, pProc).reverse
+         oObjMissing = _check_required(sCloudObj, :update_e, pProc).reverse
       end
       @RuntimeContext[:oCurrentObj] = sCloudObj # Context: Default object used.
 
       # build Function params to pass to the event handler.
-      aParams = _get_object_params(sCloudObj, pProc)
+      aParams = _get_object_params(sCloudObj, :update_e, pProc)
 
       @oForjProcess.method(pProc).call(sCloudObj, aParams)
    end
@@ -593,9 +735,9 @@ class BaseDefinition
             Logging.debug("Warning! Object '%s' has no data/object needs. Check the process" % sObjectType)
             next
          end
-         hTopParams[:list].each { |sKeypath|
-            hParams = rhGet(hTopParams, :keys, sKeypath)
-            sKey = _2tree_array(sKeypath)[-1]
+         hTopParams[:keys].each { |sKeypath, hParams|
+            oKeyPath = KeyPath.new(sKeypath)
+            sKey = oKeyPath.sKey
             case hParams[:type]
                when :data
                   hMeta = _get_meta_data(sKey)
@@ -603,7 +745,7 @@ class BaseDefinition
 
                   if hMeta[:account].is_a?(TrueClass)
                      if not hMeta[:depends_on].is_a?(Array)
-                        Logging.warning("'%s' depends_on definition have to be an array." % sKeypath) unless hMeta[:depends_on].nil?
+                        Logging.warning("'%s' depends_on definition have to be an array." % oKeyPath.sFullPath) unless hMeta[:depends_on].nil?
                         iLevel = 0
                         bFound = true
                      else
@@ -740,7 +882,7 @@ class BaseDefinition
    # ------------------------------------------------------
    # Functions used by processes functions
    # ------------------------------------------------------
-   # Ex: object.query_map(...), object.set_data(...), object.hParams(...)
+   # Ex: object.set_data(...)
    #     config
 
 
@@ -779,13 +921,17 @@ class BaseDefinition
       hReturn = {}
       hMap = rhGet(@@meta_obj, sCloudObj, :query_mapping)
       hParams.each { |key, value|
-         raise ForjError.new(), "Forj query field '%s.%s' not defined by class '%s'" % [sCloudObj, key, self.class] if not hMap.key?(key)
-         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, key)
+         oKeyPath = KeyPath.new(key)
+         sKeyPath = oKeyPath.sFullPath
+         raise ForjError.new(), "Forj query field '%s.%s' not defined by class '%s'" % [sCloudObj, oKeyPath.sKey, self.class] if not hMap.key?(oKeyPath.sFullPath)
+         oMapPath = KeyPath.new(hMap[oKeyPath.sFullPath])
+         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, sKeyPath)
          if hValueMapping
-            raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, key, value] if rhExist?(hValueMapping, value) != 1
-            hReturn[hMap[key]] = hValueMapping[value]
+            raise ForjError.new(), "'%s.%s': No value mapping for '%s'" % [sCloudObj, oKeyPath.sKey, value] if rhExist?(hValueMapping, value) != 1
+
+            rhSet(hReturn, hValueMapping[value], oMapPath.aTree)
          else
-            hReturn[hMap[key]] = value
+            rhSet(hReturn, value, oMapPath.aTree)
          end
       }
       hReturn
@@ -800,12 +946,14 @@ class BaseDefinition
 
       raise ForjError.new(), "'%s' is not a valid Object type. " % [oObject.class] if not oObject.is_a?(Hash) and rhExist?(oObject, :object_type) != 1
       sCloudObj = oObject[:object_type]
-      raise ForjError.new(), "'%s' key is not declared as data of '%s' CloudObject. You may need to add obj_needs..." % [key, sCloudObj] if rhExist?(@@meta_obj, sCloudObj, :returns, key) != 3
+      oKeyPath = KeyPath.new(key)
+      raise ForjError.new(), "'%s' key is not declared as data of '%s' CloudObject. You may need to add obj_needs..." % [oKeyPath.sKey, sCloudObj] if rhExist?(@@meta_obj, sCloudObj, :returns, oKeyPath.sFullPath) != 3
       begin
-         hMap = rhGet(@@meta_obj, sCloudObj, :returns, key)
+         oMapPath = KeyPath.new(rhGet(@@meta_obj, sCloudObj, :returns, oKeyPath.sFullPath))
+         hMap = oMapPath.sFullPath
          value = @oProvider.get_attr(get_cObject(oObject), hMap)
 
-         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, key)
+         hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, oKeyPath.sFullPath)
 
          if hValueMapping
             hValueMapping.each { | found_key, found_value |
@@ -827,13 +975,19 @@ class BaseDefinition
    end
 
    # get an attribute/object/... from an object.
-   def get_data(sCloudObj, *key)
-      @ObjectData[sCloudObj, *key]
+   def get_data(oObj, *key)
+      if oObj.is_a?(Hash) and oObj.key?(:object_type)
+         oObjData = ObjectData.new
+         oObjData << oObj
+      else
+         oObjData = @ObjectData
+      end
+      oObjData[oObj, *key]
    end
 
-   def hParams(sCloudObj, hParams)
-      aParams = _get_object_params(sCloudObj, ":ObjectData.hParams")
-   end
+   #~ def hParams(sCloudObj, hParams)
+      #~ aParams = _get_object_params(sCloudObj, ":ObjectData.hParams")
+   #~ end
 
    def get_cObject(oObject)
       return nil if rhExist?(oObject, :object) != 1
@@ -845,7 +999,7 @@ class BaseDefinition
    # Results are formatted as usual framework Data object.
    def connect(sObjectType)
 
-      hParams = _get_object_params(sObjectType, :connect, true)
+      hParams = _get_object_params(sObjectType, :create_e, :connect, true)
       oControlerObject = @oProvider.connect(sObjectType, hParams)
       begin
          _return_map(sObjectType, oControlerObject)
@@ -857,7 +1011,7 @@ class BaseDefinition
    def create(sObjectType)
       # The process ask the controller to create the object.
       # hParams have to be fully readable by the controller.
-      hParams = _get_object_params(sObjectType, :create, true)
+      hParams = _get_object_params(sObjectType, :create_e, :create, true)
       oControlerObject = @oProvider.create(sObjectType, hParams)
       begin
          _return_map(sObjectType, oControlerObject)
@@ -868,13 +1022,13 @@ class BaseDefinition
    end
 
    def delete(sObjectType)
-      hParams = _get_object_params(sObjectType, :delete, true)
+      hParams = _get_object_params(sObjectType, :delete_e, :delete, true)
       @oProvider.delete(sObjectType, hParams)
    end
 
    def get(sObjectType, sUniqId)
 
-      hParams = _get_object_params(sObjectType, :get, true)
+      hParams = _get_object_params(sObjectType, :get_e, :get, true)
 
       oControlerObject = @oProvider.get(sObjectType, hParams)
       begin
@@ -886,7 +1040,7 @@ class BaseDefinition
 
    def query(sObjectType, sQuery)
 
-      hParams = _get_object_params(sObjectType, :query, true)
+      hParams = _get_object_params(sObjectType, :query_e, :query, true)
       sProviderQuery = query_map(sObjectType, sQuery)
 
       oControlerObject = @oProvider.query(sObjectType, sProviderQuery, hParams)
@@ -911,7 +1065,7 @@ class BaseDefinition
    def update(sObjectType)
       # Need to detect data updated and update the Controler object with the controler
 
-      hParams = _get_object_params(sObjectType, :update, true)
+      hParams = _get_object_params(sObjectType, :update_e, :update, true)
 
       oObject = hParams.get(sObjectType)
       oControlerObject = hParams[sObjectType]
@@ -919,8 +1073,9 @@ class BaseDefinition
       bUpdated = false
       oObject[attrs].each { |key, value |
          #      hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, key)
-         hMap = rhGet(@@meta_obj, sCloudObj, :returns, key)
-         old_value = @oProvider.get_attr(oControlerObject, hMap)
+         oKeyPath = KeyPath.new(key)
+         oMapPath = KeyPath.new(rhGet(@@meta_obj, sCloudObj, :returns, oKeyPath.sFullPath))
+         old_value = @oProvider.get_attr(oControlerObject, oMapPath.aTree)
          if value != old_value
             bUpdated = true
             @oProvider.set_attr(oControlerObject, hMap, value)

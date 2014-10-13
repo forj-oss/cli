@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-#require 'byebug'
+require 'byebug'
 
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
@@ -34,11 +34,18 @@ aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
 # boot/down/ssh/...
 aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 
+$LIB_FORJ_DEBUG = 10 # Very verbose
 oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 
 # For debugging security_groups
 #byebug
-oCloud.Create(:security_groups)
+
+server_name = "chl1"
+oConfig.set(:server_name, server_name)
+
+server = oCloud.Query(:server, {:name => server_name})
+
+oCloud.Create(:server) if not server
 
 #oConfig.set(:blueprint, 'redstone')
 #oConfig.set(:instance_name, instance_name)

@@ -15,10 +15,35 @@
 #    limitations under the License.
 
 module HPCompute
-   def HPCompute.create_server(oCompute, name)
+   def HPCompute.query_server(oComputeConnect, sQuery)
+     oComputeConnect.servers.all(sQuery)
    end
 
    def HPCompute.query_image(oComputeConnect, sQuery)
      oComputeConnect.images.all(sQuery)
    end
+
+   def HPCompute.query_flavor(oComputeConnect, sQuery)
+     oComputeConnect.flavors.all(sQuery)
+   end
+
+   def HPCompute.create_server(oComputeConnect,
+                               sServerName, oSecurity_groups,
+                               oImage,      oNetwork,
+                               oFlavor,     oKeypairs,
+                               oUser_data,  oMeta_data)
+
+      options = {
+                :name => sServerName,
+                :flavor_id => oFlavor.id,
+                :image_id => oImage.id,
+                :key_name => oKeypairs.name,
+                :security_groups => [oSecurity_groups.name],
+                :networks => [oNetwork.id]
+                }
+      options[:user_data] = oUser_data.name if oUser_data
+      options[:metadata] = oMeta_data.list if oMeta_data
+      oComputeConnect.servers.create(options)
+   end
+
 end

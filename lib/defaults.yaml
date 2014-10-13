@@ -22,9 +22,9 @@
   :image: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
 
   # Flavor to use for Maestro
-  :flavor: standard.medium
+  :flavor: medium
   # Default flavor to use for all Blueprint nodes.
-  :bp_flavor: standard.small
+  :bp_flavor: small
 
   # Ports to open for Maestro, added to the security group
   :security_group: forj

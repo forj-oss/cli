@@ -25,7 +25,9 @@ class BaseDefinition
    ###################################################
 
    # Meta Object declaration structure
-   # <Object>:
+   # <Object>
+   #   :query_mapping        List of keypath mapped.
+   #     <keypath> = <keypath mapped>
    #   :lambdas:
    #     :create_e:          function to call at 'Create' task
    #     :delete_e:          function to call at 'Delete' task
@@ -38,10 +40,10 @@ class BaseDefinition
    #   :returns
    #     <keypath>           key value to extract from controller object.
    #   :params:              Defines CloudData (:data) or CloudObj (:CloudObj) needs by the <Object>
-   #     :list:              Array defining a list of key path (array)
    #     :keys:              Contains keys in a tree of hash.
-   #       <keypath>:        One element (string with : and /) of :list defining the key
+   #       <keypath>:        String. One element (string with : and /) of :list defining the key
    #         :type:          :data or :CloudObj
+   #         :for:           Array of events which requires the data or CloudObj to work.
    #         :mapping:       To automatically create a provider hash data mapped (hdata).
    #         :required:      True if this parameter is required.
    #         :extract_from:  Array. Build the keypath value from another hParams value.
@@ -71,6 +73,11 @@ class BaseDefinition
    #     :depends_on:
    #                         => Identify :data type required to be set before the current one.
    #     :validate:          Regular expression to validate end user input during setup.
+   #     :value_mapping:     list of values to map as defined by the controller
+   #       :controller:      mapping for get controller value from process values
+   #         <value> : <map> value map equivalence. See data_value_mapping function
+   #       :process:         mapping for get process value from controller values
+   #         <value> : <map> value map equivalence. See data_value_mapping function
    #     :defaut:            Default value
    #     :list_values:       Defines a list of valid values for the current data.
    #       :query_type       :controller_call to execute a function defined in the controller object.
@@ -139,8 +146,8 @@ class BaseDefinition
          oCloudObj = {
             :lambdas => {:create_e => nil, :delete_e => nil, :update_e => nil, :get_e => nil, :query_e => nil},
             :params => {},
-            :query_mapping => { :id => :id, :name => :name},
-            :returns => {:id => :id, :name => :name}
+            :query_mapping => { ":id" => ":id", ":name" => ":name"},
+            :returns => {":id" => ":id", ":name" => ":name"}
          }
          msg = nil
       else
@@ -195,45 +202,18 @@ class BaseDefinition
       raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
 
       sCloudObj = @@Context[:oCurrentObj]
-      key = key.to_sym if key.class == String
+      oKeyPath = KeyPath.new(key)
+      oMapPath = KeyPath.new(map)
 
-      @@Context[:oCurrentKey] = key
+      @@Context[:oCurrentKey] = oKeyPath
 
-      rhSet(@@meta_obj, map, sCloudObj, :query_mapping, key)
+      rhSet(@@meta_obj, oMapPath.sFullPath, sCloudObj, :query_mapping, oKeyPath.sFullPath)
    end
 
    # Available functions exclusively for Controler (derived from BaseDefinition) class declaration
-   def self.data_value_mapping(value, map)
-      return nil if not [String, Symbol].include?(value.class)
-      return nil if not [NilClass, Symbol, String].include?(map.class)
 
-      aCaller = caller
-      aCaller.pop
-
-      sCloudObj = @@Context[:oCurrentObj]
-      key = @@Context[:oCurrentKey]
-
-      rhSet(@@meta_obj, map, sCloudObj, :value_mapping, key, value)
-   end
-
-   def self.def_attribute(key)
-      self.get_attr_mapping(key, key)
-   end
-
-   def self.get_attr_mapping(key, map = key)
-      return nil if not [String, Symbol].include?(key.class)
-      return nil if not [NilClass, Symbol, String, Array].include?(map.class)
-
-      aCaller = caller
-      aCaller.pop
-
-      raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
-
-      sCloudObj = @@Context[:oCurrentObj]
-      key = key.to_sym if key.class == String
-
-      rhSet(@@meta_obj, map, sCloudObj, :returns, key)
-   end
+   # Following functions are related to Object Attributes
+   # ----------------------------------------------------
 
    # Defines Object CloudData/CloudObj dependency
    def self.obj_needs(sType, sParam, hParams = {})
@@ -250,32 +230,25 @@ class BaseDefinition
       raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
 
       sCloudObj = @@Context[:oCurrentObj]
+
+      aForEvents = rhGet(@@meta_obj, sCloudObj, :lambdas).keys
+      hParams = hParams.merge({ :for => aForEvents}) if not hParams.key?(:for)
       sType = sType.to_sym if sType.class == String
 
 
       raise ForjError.new(), "%s: '%s' not declared. Missing define_obj(%s)?" % [ self.class, sCloudObj, sCloudObj], aCaller if rhExist?(@@meta_obj, sCloudObj) != 1
 
       oObjTopParam = rhGet(@@meta_obj, sCloudObj, :params)
-      if not oObjTopParam.key?(:list)
+      if not oObjTopParam.key?(:keys)
          # Initialize top structure
 
-         oObjTopParam.merge!({ :list => [], :keys => {} })
-      end
-      oKeysList = oObjTopParam[:list]
-      # Identify, key, path and key access.
-      if not sParam.is_a?(Array)
-         sKeyAccess = sParam
-         sKeyAccess = ":" + sParam.to_s if sParam.is_a?(Symbol)
-      else
-         aKeyAccess = sParam.clone
-         aKeyAccess.each_index { |iIndex|
-            next if not sParam[iIndex].is_a?(Symbol)
-            aKeyAccess[iIndex] = ":" + aKeyAccess[iIndex].to_s
-         }
-         sKeyAccess = aKeyAccess.join('/')
+         oObjTopParam.merge!({ :keys => {} })
       end
 
-      @@Context[:oCurrentKey] = sKeyAccess
+      oKeyPath = KeyPath.new(sParam)
+      sKeyAccess = oKeyPath.sFullPath
+
+      @@Context[:oCurrentKey] = oKeyPath
 
       oCloudObjParam = rhGet(oObjTopParam, :keys, sKeyAccess)
       if oCloudObjParam.nil?
@@ -300,29 +273,88 @@ class BaseDefinition
          else
             raise ForjError.new(), "%s: Object parameter type '%s' unknown." % [ self.class, sType ], aCaller
       end
-      oKeysList << sKeyAccess unless oKeysList.include?(sKeyAccess)
+   end
+
+   def self.attr_value_mapping(value, map)
+      return nil if not [String, Symbol].include?(value.class)
+      return nil if not [NilClass, Symbol, String].include?(map.class)
+
+      aCaller = caller
+      aCaller.pop
+
+      sCloudObj = @@Context[:oCurrentObj]
+      raise ForjError.new, "attr_value_mapping: mapping '%s' needs object context definition. You need to call define_obj to get the context." % value if sCloudObj.nil?
+
+      oKeypath = @@Context[:oCurrentKey]
+      raise ForjError.new, "attr_value_mapping: mapping '%s' needs object data context definition. You need to call define_obj, then obj_needs to get the context." % value if oKeypath.nil?
+
+      keypath = oKeypath.sFullPath
+      Logging.debug("%s-%s: Value mapping definition '%s' => '%s'" % [sCloudObj, oKeypath.to_s, value, map])
+      rhSet(@@meta_obj, map, sCloudObj, :value_mapping, keypath, value)
    end
 
 
+   def self.def_attribute(key)
+      self.get_attr_mapping(key)
+   end
+
+   def self.get_attr_mapping(key, map = key)
+      return nil if not [String, Symbol].include?(key.class)
+      return nil if not [NilClass, Symbol, String, Array].include?(map.class)
+
+      aCaller = caller
+      aCaller.pop
+
+      raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
+
+      sCloudObj = @@Context[:oCurrentObj]
+      oKeyPath = KeyPath.new(key)
+      oMapPath = KeyPath.new(map)
+
+      rhSet(@@meta_obj, oMapPath.sFullPath, sCloudObj, :returns, oKeyPath.sFullPath)
+      @@Context[:oCurrentKey] = oKeyPath
+   end
+
    # Defines/update CloudData parameters
-   def self.define_data(sCloudData, hMeta)
-      return nil if not sCloudData or not hMeta
-      return nil if not [String, Symbol].include?(sCloudData.class)
+   def self.define_data(sData, hMeta)
+      return nil if not sData or not hMeta
+      return nil if not [String, Symbol].include?(sData.class)
       return nil if hMeta.class != Hash
 
       aCaller = caller
       aCaller.pop
 
-      sCloudData = sCloudData.to_sym if sCloudData.class == String
-      raise ForjError.new(), "%s: Config meta '%s' unknown" % [self.class, sCloudData], aCaller if not ForjDefault.meta_exist?(sCloudData)
+      sData = sData.to_sym if sData.class == String
+      raise ForjError.new(), "%s: Config data '%s' unknown" % [self.class, sData], aCaller if not ForjDefault.meta_exist?(sData)
 
-      section = ForjDefault.get_meta_section(sCloudData)
-      if rhExist?(@@meta_data, section, sCloudData) == 2
-         rhGet(@@meta_data, section, sCloudData).merge!(hMeta)
+      @@Context[:oCurrentData] = sData
+
+      section = ForjDefault.get_meta_section(sData)
+      section = :runtime if section.nil?
+
+      if rhExist?(@@meta_data, section, sData) == 2
+         rhGet(@@meta_data, section, sData).merge!(hMeta)
       else
-         rhSet(@@meta_data, hMeta, section, sCloudData)
+         rhSet(@@meta_data, hMeta, section, sData)
       end
 
+   end
+
+   def self.data_value_mapping(value, map)
+      return nil if not [String, Symbol].include?(value.class)
+      return nil if not [NilClass, Symbol, String].include?(map.class)
+
+      aCaller = caller
+      aCaller.pop
+      sData = @@Context[:oCurrentData]
+      raise ForjError.new, "Config data context not set. at least, you need to call define_data before." if sData.nil?
+
+      section = ForjDefault.get_meta_section(sData)
+      section = :runtime if section.nil?
+
+      Logging.debug("%s/%s: Define config data value mapping: '%s' => '%s'" % [section, sData, value, map])
+      rhSet(@@meta_data, map, section, sData, :value_mapping,  :controller, value)
+      rhSet(@@meta_data, value, section, sData, :value_mapping,  :process, map)
    end
 
    def self.provides(aObjType)
@@ -343,11 +375,11 @@ class BaseDefinition
       aCaller = caller
       aCaller.pop
 
-      key = @@Context[:oCurrentKey]
+      oKeyPath = @@Context[:oCurrentKey]
 
       value = {data => {:options => hOptions} }
 
-      rhSet(@@predefine_data_value, value, key, :values)
+      rhSet(@@predefine_data_value, value, oKeyPath.sFullPath, :values)
    end
 
 

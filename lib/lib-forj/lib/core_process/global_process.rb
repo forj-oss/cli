@@ -71,15 +71,7 @@ class CloudProcess
       key_name = hParams[:keypair_name]
       oSSLError = SSLErrorMgt.new
       begin
-         keypairs = controler.query(sCloudObj, sQuery)
-         case keypairs[:list].length()
-         when 0
-            Logging.debug("No keypair '%s' found" % [ key_name ] )
-            nil
-         else
-            Logging.debug("Found keypair '%s'." % [ key_name ])
-            keypairs[:list][0]
-         end
+         query_single(sCloudObj, sQuery, key_name)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
@@ -174,32 +166,25 @@ class CloudProcess
    # CloudProcess predefines some values. Consult CloudProcess.rb for details
    def forj_get_or_create_flavor(sCloudObj, hParams)
       sFlavor_name = hParams[:flavor_name]
-      Logging.state("Searching for flavor '%s (%s)'..." % [sFlavor_name, ] )
+      Logging.state("Searching for flavor '%s'..." % [sFlavor_name] )
 
-      keypair = forj_query_flavor(sCloudObj, {:name => sFlavor_name}, hParams)
-      if not keypair
+      flavor = forj_query_flavor(sCloudObj, {:name => sFlavor_name}, hParams)
+      if not flavor
          if not hParams[:create]
             Logging.error("Unable to create %s '%s'. Creation is not supported." % [sCloudObj, sFlavor_name])
          else
-            keypair = create_flavor(sCloudObj,hParams)
+            flavor = create_flavor(sCloudObj,hParams)
          end
       end
-      keypair
+      flavor
    end
 
+   # Should return 1 or 0 flavor.
    def forj_query_flavor(sCloudObj, sQuery, hParams)
       sFlavor_name = hParams[:flavor_name]
       oSSLError = SSLErrorMgt.new
       begin
-         flavors = controler.query(sCloudObj, sQuery)
-         case flavors[:list].length()
-         when 0
-            Logging.debug("No %s '%s' found" % [sCloudObj, sFlavor_name] )
-            nil
-         else
-            Logging.debug("Found %s '%s'." % [sCloudObj, sFlavor_name])
-            flavors[:list][0]
-         end
+         query_single(sCloudObj, sQuery, sFlavor_name)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
@@ -237,4 +222,40 @@ class CloudProcess < BaseProcess
       end
     end
   end
+end
+
+class CloudProcess < BaseProcess
+   # Process Handler functions
+   def forj_get_or_create_server(sCloudObj, hParams)
+      sServer_name = hParams[:server_name]
+      Logging.state("Searching for server '%s'..." % [sServer_name] )
+
+      server = forj_query_server(sCloudObj, {:name => sServer_name}, hParams)
+      create_server(sCloudObj, hParams) if not server
+   end
+
+   def forj_query_server(sCloudObj, sQuery, hParams)
+      server_name = "Undefined"
+      server_name = sQuery[:name] if sQuery.key?(:name)
+      oSSLError = SSLErrorMgt.new
+      begin
+         query_single(sCloudObj, sQuery, server_name)
+      rescue => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+           retry
+         end
+      end
+   end
+
+   # Internal Process function
+   def create_server(sCloudObj, hParams)
+      name = hParams[:server_name]
+      begin
+         Logging.debug('creating server %s' % [name])
+         controler.create(sCloudObj)
+      rescue => e
+         Logging.fatal(1, "Unable to create server '%s'" % name, e)
+      end
+   end
+
 end
