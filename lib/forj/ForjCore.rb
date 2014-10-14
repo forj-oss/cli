@@ -28,6 +28,9 @@ class BaseDefinition
          :create_e => :clone_or_use_maestro_repo
       }
 
+   obj_needs   :data,   :maestro_url
+
+   obj_needs_optional
    obj_needs   :data,   :maestro_repo
 
    define_obj  :infra_repository,

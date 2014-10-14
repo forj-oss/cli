@@ -37,6 +37,8 @@ aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 $LIB_FORJ_DEBUG = 10 # Very verbose
 oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 
+oCloud.Create(:maestro_repository)
+
 # For debugging security_groups
 #byebug
 
@@ -51,9 +53,9 @@ oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 #oConfig.set(:instance_name, instance_name)
 #oCloud.Create(:forge)
 #~ oConfig.set(:blueprint, 'redstone')
-oConfig.set(:instance_name, "test")
+#oConfig.set(:instance_name, "test")
 
-oCloud.Create(:forge)
+#oCloud.Create(:forge)
 
 #oConfig.set(:sg_desc, "Security group for blueprint '%s'" % [oConfig.get(:blueprint)])
 #puts 'Compute:'

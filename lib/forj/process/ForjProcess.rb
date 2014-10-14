@@ -17,9 +17,12 @@
 
 # Forj Process solution
 
+require 'git'
+
 class ForjCoreProcess
 
    def build_metadata(sObjectType, hParams)
+      clone_or_use_maestro_repo(sObjectType, hParams)
       key_file = File.join($FORJ_CREDS_PATH, '.key')
 
       if not File.exists?(key_file)
@@ -90,4 +93,28 @@ class ForjCoreProcess
       config.set(:server_name, "maestro.%s" % hParams[:instance_name])
       object.Create(:server)
    end
+
+end
+
+
+class ForjCoreProcess
+  def clone_or_use_maestro_repo(sObjectType, hParams)
+
+    maestro_url = hParams[:maestro_url]
+    maestro_repo = hParams[:maestro_repo]
+    path_maestro = '~/.forj/'
+
+    begin
+      if File.directory?(maestro_repo)
+        Logging.info("Using maestro repo '%s'" % maestro_repo)
+      else
+        Logging.info("Cloning maestro repo from '%s' to '%s'" % [maestro_url, path_maestro])
+        Git.clone(maestro_url, 'maestro', :path => path_maestro)
+      end
+    rescue => e
+      Logging.error("Error while cloning the repo from %s\n%s\n%s" % [maestro_url, e.message, e.backtrace.join("\n")])
+      Logging.info("If this error persist you could clone the repo manually in ~/.forj/")
+    end
+
+  end
 end
