@@ -39,6 +39,8 @@ class BaseDefinition
       }
 
    obj_needs   :data,   :infra_repo
+   obj_needs   :data,   :maestro_repo
+   obj_needs   :data,   :branch
 
    define_obj  :userdata,
       {

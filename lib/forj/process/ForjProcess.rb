@@ -18,6 +18,7 @@
 # Forj Process solution
 
 require 'git'
+require 'fileutils'
 
 class ForjCoreProcess
 
@@ -116,5 +117,35 @@ class ForjCoreProcess
       Logging.info("If this error persist you could clone the repo manually in ~/.forj/")
     end
 
+  end
+end
+
+
+class ForjCoreProcess
+  def create_or_use_infra(sObjectType, hParams)
+    infra = hParams[:infra_repo]
+    maestro_repo = hParams[:maestro_repo]
+    branch = hParams[:branch]
+    dest_cloud_init = File.join(infra, 'cloud-init')
+    template = File.join(maestro_repo, 'templates', 'infra')
+    cloud_init = File.join(template, 'cloud-init')
+
+    if File.directory?(infra)
+      Logging.debug("Cleaning up '%s'" % [infra])
+      FileUtils.rm_r(infra)
+    end
+
+    AppInit.ensure_dir_exists(dest_cloud_init)
+
+    Logging.debug("Copying recursively '%s' to '%s'" % [cloud_init, infra])
+    FileUtils.copy_entry(cloud_init, dest_cloud_init)
+
+    template_file = 'maestro.box.' + branch + '.env'
+    build_env = File.join(template,template_file)
+    Logging.debug("Copying '%s' to '%s'" % [build_env, infra])
+    FileUtils.copy(build_env, infra)
+
+    file_ver = File.join(infra, 'forj-cli.ver')
+    File.write(file_ver, $INFRA_VERSION)
   end
 end

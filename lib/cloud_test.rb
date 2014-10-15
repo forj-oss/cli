@@ -37,7 +37,7 @@ aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 $LIB_FORJ_DEBUG = 10 # Very verbose
 oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 
-oCloud.Create(:maestro_repository)
+oCloud.Create(:infra_repository)
 
 # For debugging security_groups
 #byebug
