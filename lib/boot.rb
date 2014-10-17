@@ -78,8 +78,8 @@ module Boot
 
       # Step Maestro Clone
       if not oConfig.get(:maestro_repo)
-         Logging.info('cloning maestro repo from \'%s\'...' % maestro_url)
-         Repositories.clone_repo(maestro_url)
+         Logging.state('cloning maestro repo from \'%s\'' % maestro_url)
+         Repositories.clone_repo(maestro_url, oConfig)
          maestro_repo=File.expand_path('~/.forj/maestro')
       else
          maestro_repo=File.expand_path(oConfig.get(:maestro_repo))

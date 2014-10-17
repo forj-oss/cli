@@ -33,7 +33,7 @@ include YamlParse
 INFRA_VERSION = "37"
 
 module Repositories
-  def clone_repo(maestro_url)
+  def clone_repo(maestro_url, oConfig)
       current_dir = Dir.pwd
 
       home = File.expand_path('~')
@@ -44,7 +44,9 @@ module Repositories
           if File.directory?(path + 'maestro')
             FileUtils.rm_r path + 'maestro'
           end
-          Git.clone(maestro_url, 'maestro', :path => path)
+          git = Git.clone(maestro_url, 'maestro', :path => path)
+          git.checkout(oConfig[:branch]) if oConfig[:branch] != 'master'
+          Logging.info("Maestro repo cloned on branch '%s'" % oConfig[:branch])
         end
       rescue => e
         Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
@@ -75,19 +77,19 @@ module Repositories
       build_env = File.join(template,template_file)
       Logging.debug("Copying '%s' to '%s'" % [build_env, infra])
       FileUtils.copy(build_env, infra)
-      
+
       file_ver = File.join(infra, 'forj-cli.ver')
       File.write(file_ver, $INFRA_VERSION)
    end
-  
+
    def infra_rebuild_required?(oConfig, infra_dir)
       # This function check if the current infra is compatible with current gem version.
-      
+
       # prior 0.0.37 - Use a template file of build env file.
       # 0.0.37 - Using a generic version of build env file, fully managed by forj cli.
       return false if not File.exists?(infra_dir)
-      
-      if infra_dir != File.join($FORJ_DATA_PATH, 'infra') 
+
+      if infra_dir != File.join($FORJ_DATA_PATH, 'infra')
          # Do not take care. We do not manage it, ourself.
          return false
       end
@@ -105,10 +107,10 @@ module Repositories
          end
       else # Prior version 37
          old_infra_data_update(oConfig, 36, infra_dir)
-      end   
+      end
       true
    end
-   
+
    def old_infra_data_update(oConfig, version, infra_dir)
       Logging.info("Migrating your local infra repo to the latest version.")
    # Supporting old version.
@@ -124,7 +126,7 @@ module Repositories
             # SET_DNS_ZONE="{SET_DNS_ZONE!}" => Setting for DNS. meta = dns_zone
             # ==> :forj_accounts, sAccountName, :dns, :service
 
-            # SET_DOMAIN="{SET_DOMAIN!}" => Setting for Maestro (required) and DNS if enabled. 
+            # SET_DOMAIN="{SET_DOMAIN!}" => Setting for Maestro (required) and DNS if enabled.
             # ==> :forj_accounts, sAccountName, :dns, :domain_name
             sAccountName = oConfig.get(:account_name)
 

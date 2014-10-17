@@ -21,6 +21,17 @@ require 'spec_helper'
 require 'ansi'
 require 'fog'
 
+$APP_PATH = File.dirname(__FILE__)
+$LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
+$FORJ_DATA_PATH= File.expand_path('~/.forj')
+
+$LOAD_PATH << './lib'
+
+require 'forj-config.rb' # Load class ForjConfig
+require 'log.rb' # Load default loggers
+include Logging
+$FORJ_LOGGER=ForjLog.new('forj-rspec.log', Logger::FATAL)
+
 require_relative '../lib/repositories.rb'
 include Repositories
 
@@ -31,8 +42,8 @@ describe 'repositories' do
   it 'should clone the repo' do
     @test_class = TestClass.new
     @test_class.extend(Repositories)
-
-    repo = @test_class.clone_repo('https://github.com/forj-oss/cli')
+    oConfig = ForjConfig.new
+    repo = @test_class.clone_repo('https://github.com/forj-oss/cli', oConfig)
     expect(repo).to be
   end
 end
