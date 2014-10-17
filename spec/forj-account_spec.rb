@@ -15,6 +15,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+require 'rubygems'
+require 'bundler/setup'
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 

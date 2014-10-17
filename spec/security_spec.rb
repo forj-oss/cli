@@ -17,6 +17,7 @@
 
 
 require 'rubygems'
+require 'bundler/setup'
 require 'spec_helper'
 
 require 'ansi'

@@ -19,7 +19,7 @@ source 'https://rubygems.org'
 group(:development, :test) do
   gem 'rake'
   gem 'debugger'
-  gem 'rspec', "~> 2.10.0", :require => false
+  gem 'rspec', "~> 3.1.0", :require => false
 end
 
 gem 'mime-types','1.25.1'

@@ -16,6 +16,7 @@
 #    limitations under the License.
 
 require 'rubygems'
+require 'bundler/setup'
 require 'spec_helper'
 
 require 'fog'

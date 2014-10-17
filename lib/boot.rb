@@ -54,20 +54,29 @@ module Boot
 
       infra_dir = File.expand_path(oConfig.get(:infra_repo))
 
-
-      # Check about infra repo compatibility with forj cli
-      bBuildInfra = Repositories.infra_rebuild_required?(oConfig, infra_dir)
-
       # Ask information if needed.
       if not Dir.exist?(File.expand_path(infra_dir))
-         sAsk = 'Your \'%s\' infra directory doesn\'t exist. Do you want to create a new one from Maestro(repo github)/templates/infra (yes/no)?' % [infra_dir]
+         Logging.warning(<<-END
+Your infra workspace directory is missing.
+
+Forj uses an infra workspace directory to store any kind of data that are private to you.
+We provides ways to send those data securily to your new Forge instance, as metadata.
+In production case, we suggest you to keep it safe in your SCM preferred database.
+
+If you already have an existing infra workspace, use 'forj set infra_repo=<PathToYourRepo>' to set it and restart.
+
+Otherwise, we will build a new one with some predefined data, you can review and update later.
+         END
+         )
+         sAsk = "Do you want to create a new one from Maestro (yes/no)?" % [infra_dir]
          bBuildInfra=agree(sAsk)
+         if not bBuildInfra
+            puts 'Process aborted on your demand.'
+            exit 0
+         end
       else
-         Logging.info('Re-using your infra... in \'%s\'' % [infra_dir]) if not bBuildInfra
-      end
-      if not Dir.exist?(File.expand_path(infra_dir)) and not bBuildInfra
-         Logging.info('Exiting.')
-         return
+         # Check about infra repo compatibility with forj cli
+         bBuildInfra = Repositories.infra_rebuild_required?(oConfig, infra_dir)
       end
 
       # Get FORJ DNS setting
@@ -78,21 +87,40 @@ module Boot
 
       # Step Maestro Clone
       if not oConfig.get(:maestro_repo)
-         Logging.state('cloning maestro repo from \'%s\'' % maestro_url)
+         Logging.state("cloning maestro repo from '%s' - branch '%s'" % [maestro_url, branch])
          Repositories.clone_repo(maestro_url, oConfig)
          maestro_repo=File.expand_path('~/.forj/maestro')
       else
          maestro_repo=File.expand_path(oConfig.get(:maestro_repo))
-         if not File.exists?('%s/templates/infra/maestro.box.%s.env' % [maestro_repo, branch])
-            Logging.fatal(1, "'%s' is not a recognized Maestro repository. forj cli searched for templates/infra/maestro.box.%s.env" % [maestro_repo, branch])
+         if not File.exists?('%s/templates/infra/maestro.box.master.env' % [maestro_repo])
+            msg = <<-END
+'#{maestro_repo}' is not a recognized Maestro repository or is too old. forj cli searched for templates/infra/maestro.box.master.env
+
+Suggestion:
+1. Clone #{maestro_url} to a different location.
+   $ mkdir -p ~/src/forj-oss
+   $ cd ~/src/forj-oss
+   $ git clone #{maestro_url}
+2. Use this master branch of maestro repository with forj
+   $ forj set maestro_repo=~/src/forj-oss/maestro
+
+then retry your boot.
+END
+            Logging.fatal(1, msg)
          end
-         Logging.info('Using your maestro cloned repo \'%s\'...' % maestro_repo)
+         Logging.info("Using your maestro cloned repo '%s'" % maestro_repo)
       end
 
+      bBuildInfra = Repositories.infra_rebuild(oConfig, infra_dir) unless bBuildInfra
+
       if bBuildInfra
-         Logging.info('Building your infra... in \'%s\'' % [infra_dir])
+         Logging.info("Building your infra... in '%s'" % [infra_dir])
          Repositories.create_infra(maestro_repo, branch)
+      else
+         Logging.info("Re-using your infra... in '%s'" % [infra_dir]) if not bBuildInfra
       end
+
+      Repositories.ensure_build_env_file(maestro_repo, branch)
 
       # Connect to services
       oFC=ForjConnection.new(oConfig)

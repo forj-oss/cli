@@ -16,6 +16,7 @@
 #    limitations under the License.
 
 require 'rubygems'
+require 'bundler/setup'
 require 'require_relative'
 require 'thor'
 require 'ansi'
@@ -93,7 +94,7 @@ forj command line details:
   end
 
    desc 'version', 'get GEM version of forj.'
-  
+
    def version()
       if Gem.loaded_specs['forj']
          puts Gem.loaded_specs['forj'].version.to_s
@@ -111,7 +112,7 @@ This task boot a new forge with the following options
 
     Ex: forj boot redstone maestro_test -a dev
 
-When `forj boot` starts, some variables are loaded. If you want to check/updated them, use `forj get [-a account]` 
+When `forj boot` starts, some variables are loaded. If you want to check/updated them, use `forj get [-a account]`
 
   LONGDESC
 
@@ -166,7 +167,7 @@ Maestro/infra bootstrap debugging:"
       oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
       oForjAccount = ForjAccount.new(oConfig)
       oForjAccount.ac_load()
-      
+
       oConfig.set(:infra_repo,     options[:infra])
       oConfig.set(:keypair_name,   options[:key_name])
       oConfig.set(:keypair_path,   options[:key_path])
@@ -252,7 +253,7 @@ Warning! This action don't removed any network/security groups cloud object.
       oConfig = ForjConfig.new(options[:config])
       oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
       oForjAccount = ForjAccount.new(oConfig)
-      oForjAccount.ac_load() 
+      oForjAccount.ac_load()
 
       Down.down(oForjAccount, name)
    end
@@ -297,7 +298,7 @@ Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. D
          Forj::Settings::config_show_all(oConfig)
 
       elsif p.length == 0 and options[:account_name]
-         Forj::Settings::account_show_all(oConfig, options[:account_name]) 
+         Forj::Settings::account_show_all(oConfig, options[:account_name])
 
       elsif p.length != 0 and options[:account_name]
          Forj::Settings::account_set(oConfig, options[:account_name], p)
@@ -337,13 +338,13 @@ Ex: To get the keypair_name defined from the account, or from your ~/.forj/confi
       oConfig = ForjConfig.new()
       if    not options[:account_name] and not key
          Forj::Settings::config_get_all(oConfig)
-         
+
       elsif     options[:account_name] and     key
          Forj::Settings::account_get(oConfig, options[:account_name], key)
-         
+
       elsif not options[:account_name] and     key
          Forj::Settings::config_get(oConfig, key)
-         
+
       else
          Forj::Settings::account_get_all(oConfig, options[:account_name])
       end
