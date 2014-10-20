@@ -56,7 +56,7 @@ module Repositories
       Dir.chdir(current_dir)
   end
 
-   def ensure_build_env_file(maestro_repo, branch)
+   def ensure_build_env_file(maestro_url, maestro_repo, branch)
       infra = File.join($FORJ_DATA_PATH, 'infra')
       template = File.join(maestro_repo, 'templates', 'infra')
 
@@ -70,10 +70,10 @@ module Repositories
          raise <<-END
 Your Maestro repository branch is too old.
 Suggestion:
-1. Clone %s to a different location.
+1. Clone #{maestro_url} to a different location.
    $ mkdir -p ~/src/forj-oss
    $ cd ~/src/forj-oss
-   $ git clone %s
+   $ git clone #{maestro_url}
 2. Use this master branch of maestro repository with forj
    $ forj set maestro_repo=~/src/forj-oss/maestro
 

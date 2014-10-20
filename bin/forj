@@ -125,7 +125,7 @@ Following options superseed your Account, config file or forj defaults."
   method_option :key_name,         :aliases => '-k',   :desc => "config: keypair_name  : Keypair name to use."
   method_option :key_path,         :aliases => '-p',   :desc => "config: keypair_path  : Private or Public key file to use."
   method_option :security_group,   :aliases => '-s',   :desc => "config: security_group: Security group name to use and configure."
-  method_option :image,            :aliases => '-i',   :desc => "config: image         : Image name to use to build Maestro and blueprint nodes."
+  method_option :image_name,       :aliases => '-i',   :desc => "config: image_name    : Image name to use to build Maestro and blueprint nodes."
   method_option :maestro_flavor,   :aliases => '-f',   :desc => "config: flavor        : Maestro flavor to use."
   method_option :bp_flavor,        :aliases => '-b',   :desc => "config: bp_flavor     : Blueprint nodes default flavor to use.
 
@@ -172,7 +172,7 @@ Maestro/infra bootstrap debugging:"
       oConfig.set(:keypair_name,   options[:key_name])
       oConfig.set(:keypair_path,   options[:key_path])
       oConfig.set(:security_group, options[:security_group])
-      oConfig.set(:image,          options[:image])
+      oConfig.set(:image_name,     options[:image])
       oConfig.set(:flavor,         options[:maestro_flavor])
       oConfig.set(:bp_flavor,      options[:bp_flavor])
       oConfig.set(:maestro_repo ,  options[:maestro_repo])

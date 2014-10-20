@@ -120,7 +120,7 @@ END
          Logging.info("Re-using your infra... in '%s'" % [infra_dir]) if not bBuildInfra
       end
 
-      Repositories.ensure_build_env_file(maestro_repo, branch)
+      Repositories.ensure_build_env_file(maestro_url, maestro_repo, branch)
 
       # Connect to services
       oFC=ForjConnection.new(oConfig)
@@ -163,8 +163,8 @@ END
       oBuildEnv.set('FORJ_SECURITY_GROUP',  oConfig.get('security_group'))
       oBuildEnv.set('FORJ_KEYPAIR',         oConfig.get('keypair_name'))
       oBuildEnv.set('FORJ_HPC_NOVA_KEYPUB', oConfig.get('keypair_path') + '.pub')
-      oBuildEnv.set('FORJ_BASE_IMG',        oConfig.get('image'))
-      oBuildEnv.set('FORJ_FLAVOR',          oConfig.get('flavor'))
+      oBuildEnv.set('FORJ_BASE_IMG',        oConfig.get('image_name'))
+      oBuildEnv.set('FORJ_FLAVOR',          oConfig.get('flavor_name'))
       oBuildEnv.set('FORJ_BP_FLAVOR',       oConfig.get('bp_flavor'))
       oBuildEnv.set('FORJ_TENANT_NAME',     oConfig.get(:tenant_name))
       oBuildEnv.set('FORJ_HPC_COMPUTE',     rhGet(oConfig.oConfig.ExtraGet(:hpc_accounts,  oFC.sAccountName, :regions), :compute))
