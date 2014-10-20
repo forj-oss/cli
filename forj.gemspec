@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '0.0.47'
+  s.version     = '0.0.48'
   s.date        = '2014-10-20'
   s.summary     = 'forj command line'
   s.description = 'forj cli - See https://www.forj.io for documentation/information'
@@ -36,7 +36,7 @@ Gem::Specification.new do |s|
                      lib/yaml_parse.rb
                      lib/defaults.yaml
                      lib/down.rb lib/boot.rb
-		     lib/appinit.rb
+                     lib/appinit.rb
                      lib/forj-settings.rb
                      lib/setup.rb
                      lib/repositories.rb

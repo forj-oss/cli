@@ -32,6 +32,8 @@ module Setup
          # TODO: Provide a way to update partially some account data.
          oForjAccount.setup() # any kind of setup, ask from users.
 
+         oForjAccount.set(:flavor_name, 'standard.medium') if oForjAccount.exist?(:flavor_name) != oForjAccount.sAccountName
+         oForjAccount.set(:bp_flavor, 'standard.small') if oForjAccount.exist?(:bp_flavor) != oForjAccount.sAccountName
          oForjAccount.ac_save()
 
       rescue RuntimeError => e
