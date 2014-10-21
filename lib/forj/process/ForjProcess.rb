@@ -23,7 +23,6 @@ require 'fileutils'
 class ForjCoreProcess
 
    def build_metadata(sObjectType, hParams)
-      clone_or_use_maestro_repo(sObjectType, hParams)
       key_file = File.join($FORJ_CREDS_PATH, '.key')
 
       if not File.exists?(key_file)
@@ -66,33 +65,126 @@ class ForjCoreProcess
          hpcloud_priv = pipe.read
       }
 
+      config.set(:server_name, "maestro.%s" % hParams[:instance_name])
+
       hMeta = {
-         'cdksite' => hParams[:instance_name],
+         'cdksite' => config.get(:server_name),
          'cdkdomain' => hParams[:domain_name],
          'eroip' => '127.0.0.1',
-         'erosite' => hParams[:instance_name],
+         'erosite' => config.get(:server_name),
          'erodomain' => hParams[:domain_name],
          'gitbranch' => hParams[:branch],
-         'security_groups' => config.get('security_group'),
-         'dns_zone' => hParams[:dns, :service],
-         'dns_tenantid' => hParams[:dns, :tenant_id],
+         'security_groups' => hParams[:security_group],
          'tenant_name' => hParams[:tenant_name],
          'network_name' => hParams[:network_name],
-         'bootstrap' => "git/infra/bootstrap/maestro",
-         'hpcloud_os_region' => config.get([:compute]),
+         'hpcloud_os_region' => hParams[:compute],
          'PUPPET_DEBUG' => 'True',
-         'image_name' => config.get('image'),
-         'key_name' => config.get('keypair_name'),
+         'image_name' => hParams[:image_name],
+         'key_name' => hParams[:keypair_name],
          'hpcloud_priv' => Base64.strict_encode64(hpcloud_priv).gsub('=', '') # Remove pad
       }
+
+      if hParams[:dns, :service]
+         hMeta['dns_zone'] = hParams[:dns, :service]
+         hMeta['dns_tenantid'] = hParams[:dns, :tenant_id]
+      end
+      # If requested by user, ask Maestro to instantiate a blueprint.
+      hMeta['blueprint'] = hParams[:blueprint] if hParams[:blueprint]
+
+      # Add init additionnal git clone steps.
+      hMeta['repos'] = hParams[:repos] if hParams[:repos]
+      # Add init bootstrap additionnal steps
+      hMeta['bootstrap'] = hParams[:bootstrap] if hParams[:bootstrap]
+
       config.set(:meta_data, hMeta)
 
-      format_object(sObjectType, hMeta)
+      Logging.info("Metadata set:\n%s" % hMeta)
+
+      register(hMeta, sObjectType)
    end
 
    def build_forge(sObjectType, hParams)
-      config.set(:server_name, "maestro.%s" % hParams[:instance_name])
-      object.Create(:server)
+
+      oServer = object.Create(:server)
+
+      # Define the log lines to get and test.
+      config.set(:log_lines, 5)
+
+      Logging.info("Maestro server '%s' id is '%s'." % [oServer[:name], oServer[:id]])
+      # Waiting for server to come online before assigning a public IP.
+
+      sStatus = :checking
+      maestro_create_status(sStatus)
+      if oServer[:attrs][:status] == :active
+         oAddresses = object.Query(:public_ip, :server_id => oServer[:id])
+         if oAddresses.length == 0
+            sStatus = :assign_ip
+         else
+            oAddress = oAddresses[0]
+            sMsg = <<-END
+Your server is up and running and is publically accessible through IP '#{oAddress[:public_ip]}'.
+
+You can connect to '#{oServer[:name]}' with:
+ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:keypairs, :private_key_file)}
+            END
+            Logging.info(sMsg)
+
+            oLog = object.Get(:server_log, 5)[:attrs][:output]
+            if /cloud-init boot finished/ =~ oLog
+               sStatus = :active
+            end
+         end
+      else
+         sleep 5
+         sStatus = :starting
+      end
+
+      while sStatus != :active
+         maestro_create_status(sStatus)
+         oServer = object.Get(:server, oServer[:attrs][:id])
+         if sStatus == :starting
+            if oServer[:attrs][:status] == :active
+               sStatus = :assign_ip
+            end
+         elsif sStatus == :assign_ip
+            # Assigning Public IP.
+            oAddress = object.Create(:public_ip)
+            sMsg = <<-END
+Public IP for server '#{oServer[:name]}' is assigned'
+Now, as soon as the server respond to the ssh port, you will be able to get a tail of the build with:
+while [ 1 = 1 ]
+do
+  ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:keypairs, :private_key_file)} tail -f /var/log/cloud-init.log
+  sleep 5
+done
+            END
+            Logging.info(sMsg)
+            sStatus = :cloud_init
+         elsif sStatus == :cloud_init
+            oLog = object.Get(:server_log, 5)[:attrs][:output]
+            if /cloud-init boot finished/ =~ oLog
+               sStatus = :active
+            end
+         end
+         sleep(5) if sStatus != :active
+      end
+      Logging.info("Server '%s' is now ACTIVE. Bootstrap done." % oServer[:name])
+      oServer
+   end
+
+   def maestro_create_status(sStatus)
+      case sStatus
+         when :checking
+            Logging.state("Checking server status")
+         when :starting
+            Logging.state("STARTING")
+         when :assign_ip
+            Logging.state("ACTIVE - Assigning Public IP")
+         when :cloud_init
+            Logging.state("ACTIVE - Currently running cloud-init. Be patient.")
+         when :active
+            Logging.info("Server is active")
+      end
    end
 
 end

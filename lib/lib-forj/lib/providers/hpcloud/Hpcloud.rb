@@ -76,12 +76,6 @@ class Hpcloud < BaseDefinition
    obj_needs   :data, :addr_map,   :mapping => :remote_ip_prefix
    obj_needs   :data, :sg_id,      :mapping => :security_group_id
 
-   query_mapping :dir,        :direction
-   query_mapping :proto,      :protocol
-   query_mapping :port_min,   :port_range_min
-   query_mapping :port_max,   :port_range_max
-   query_mapping :addr_map,   :remote_ip_prefix
-   query_mapping :sg_id,      :security_group_id
    get_attr_mapping :dir,      :direction
    get_attr_mapping :proto,    :protocol
    get_attr_mapping :port_min, :port_range_min
@@ -97,6 +91,23 @@ class Hpcloud < BaseDefinition
    # The FORJ gateway_network_id is extracted from Fog::HP::Network::Router[:external_gateway_info][:network_id]
    get_attr_mapping :gateway_network_id, [:external_gateway_info, 'network_id']
 
+   # ************************************ SERVER Object
+   define_obj  :server
+   get_attr_mapping :status, :state
+   attr_value_mapping :create, "BUILD"
+   attr_value_mapping :boot,   :boot
+   attr_value_mapping :active, "ACTIVE"
+
+   # ************************************ SERVER log Object
+   define_obj  :server_log
+
+   # Excon::Response object type
+   get_attr_mapping :output,  "output"
+
+   # ************************************* Public IP Object
+   define_obj  :public_ip
+   get_attr_mapping :server_id, :instance_id
+   get_attr_mapping :public_ip, :ip
 
    # defines setup Cloud data
    define_data(:account_id, {
@@ -179,6 +190,10 @@ class HpcloudController < BaseController
 
    def create(sObjectType, hParams)
       case sObjectType
+         when :public_ip
+            required?(hParams, :compute_connection)
+            required?(hParams, :server)
+            HPCompute.server_assign_address(hParams[:compute_connection], hParams[:server])
          when :server
             required?(hParams, :compute_connection)
             required?(hParams, :image)
@@ -214,7 +229,8 @@ class HpcloudController < BaseController
          when :keypairs
             required?(hParams, :compute_connection)
             required?(hParams, :keypair_name)
-            HPKeyPairs.create_keypair(hParams[:compute_connection], hParams[:keypair_name])
+            required?(hParams, :public_key_file)
+            HPKeyPairs.create_keypair(hParams[:compute_connection], hParams[:keypair_name], hParams[:public_key_file])
          when :router
             required?(hParams, :network_connection)
             if hParams.key?(:external_gateway_id)
@@ -237,6 +253,10 @@ class HpcloudController < BaseController
    # Used by network process.
    def query(sObjectType, sQuery, hParams)
       case sObjectType
+         when :public_ip
+            required?(hParams, :compute_connection)
+            required?(hParams, :server)
+            HPCompute.query_server_assigned_addresses(hParams[:compute_connection], hParams[:server], sQuery)
          when :server
             required?(hParams, :compute_connection)
             HPCompute.query_server(hParams[:compute_connection], sQuery)
@@ -286,10 +306,19 @@ class HpcloudController < BaseController
 
    def get(sObjectType, sUniqId, hParams)
       case sObjectType
+        when :server_log
+            required?(hParams, :server)
+
+            hParams[:server].console_output(sUniqId)
+        when :server
+            required?(hParams, :compute_connection)
+            HPCompute.get_server(hParams[:compute_connection], sUniqId)
         when :image
-            HPCompute.get_image(oComputeConnect, name)
+            required?(hParams, :compute_connection)
+            HPCompute.get_image(hParams[:compute_connection], sUniqId)
          when :network
-            HPNetwork.get_network(oNetworkConnect, sUniqId, name)
+            required?(hParams, :network_connection)
+            HPNetwork.get_network(hParams[:network_connection], sUniqId)
          else
             forjError "'%s' is not a valid object for 'get'" % sObjectType
       end
@@ -308,16 +337,23 @@ class HpcloudController < BaseController
 
    def get_attr(oControlerObject, key)
       begin
-         attributes = oControlerObject.instance_variable_get(:@attributes)
-         rhGet(attributes, key)
+         if oControlerObject.is_a?(Excon::Response)
+            rhGet(oControlerObject.data, :body, key)
+         else
+            attributes = oControlerObject.attributes
+            raise "attribute '%s' is unknown in '%s'. Valid one are : '%s'" % [key[0], oControlerObject.class, oControlerObject.class.attributes ] unless oControlerObject.class.attributes.include?(key[0])
+            rhGet(attributes, key)
+         end
       rescue => e
-         forjError "Unable to map '%s' on '%s'" % [key, sObjectType]
+         forjError "Unable to map '%s'. %s" % [key, e.message]
       end
    end
 
    def set_attr(oControlerObject, key, value)
       begin
-         attributes = oControlerObject.instance_variable_get(:@attributes)
+         raise "No set feature for '%s'" % oControlerObject.class if oControlerObject.is_a?(Excon::Response)
+         attributes = oControlerObject.attributes
+         raise "attribute '%s' is unknown in '%s'. Valid one are : '%s'" % [key[0], oControlerObject.class, oControlerObject.class.attributes ] unless oControlerObject.class.attributes.include?(key[0])
          rhSet(attributes, value, key)
       rescue => e
          forjError "Unable to map '%s' on '%s'" % [key, sObjectType]

@@ -60,10 +60,31 @@ end
 class CloudProcess
    def forj_get_or_create_keypair(sCloudObj, hParams)
       sKeypair_name = hParams[:keypair_name]
-      Logging.state("Searching for keypair '%s'..." % [sKeypair_name] )
+      # setup has configured and copied the appropriate key to forj keypairs.
 
-      keypair = forj_query_keypair(sCloudObj, {:name => sKeypair_name}, hParams)
-      keypair = create_keypair(sCloudObj,hParams) if not keypair
+      hKeys = keypair_detect(sKeypair_name, config[:keypair_path])
+      if hKeys[:private_key_exist? ]
+         hParams[:private_key_file] = File.join(hKeys[:keypair_path], hKeys[:private_key_name])
+         Logging.info("Openssh private key file '%s' exists." % hParams[:private_key_file])
+      end
+      if hKeys[:public_key_exist? ]
+         hParams[:public_key_file] = File.join(hKeys[:keypair_path], hKeys[:public_key_name])
+      else
+         Logging.fatal("Public key file is not found. Please run 'forj setup %s'" % config[:account_name])
+      end
+
+
+      Logging.state("Searching for keypair '%s'" % [sKeypair_name] )
+
+      keypairs = forj_query_keypair(sCloudObj, {:name => sKeypair_name}, hParams)
+      if keypairs.length > 0
+         keypair = keypairs[0]
+      else
+         keypair = create_keypair(sCloudObj,hParams)
+      end
+      # Adding information about key files.
+      keypair[:private_key_file] = hParams[:private_key_file]
+      keypair[:public_key_file] = hParams[:public_key_file]
       keypair
    end
 
@@ -126,57 +147,24 @@ class CloudProcess
       }
    end
 
-   def hpc_import_key(oForjAccount)
-
-      keys = keypair_detect(oForjAccount.get('keypair_name'), oForjAccount.get('keypair_path'))
-      account = oForjAccount.getAccountData(:account, :name)
-
-      Logging.fatal(1, "'keypair_path' undefined. check your config.yaml file.") if not keys[:keypair_path]
-      Logging.fatal(1, "'keypair_name' undefined. check your config.yaml file.") if not keys[:keypair_name]
-      Logging.fatal(1, "keypair '%s' are missing. Please call 'forj setup %s' to create the missing key pair required." % [keys[:keypair_name], account]) if not keys[:public_key_exist? ]
-
-      public_key_path = File.join(keys[:keypair_path], keys[:public_key_name])
-      private_key_path = File.join(keys[:keypair_path], keys[:private_key_name])
-
-      if not File.exists?(File.join($HPC_KEYPAIRS, keys[:keypair_name] + '.pub'))
-         Logging.info("Importing your forj public key '%s' to hpcloud." % keys[:public_key_name])
-         command = 'hpcloud keypairs:import %s %s -a %s' % [keys[:keypair_name], public_key_path , account]
-         Logging.debug("Executing command '%s'" % command)
-         Kernel.system(command)
-      else
-         Logging.info("Using '%s' as public key." % public_key_path)
-      end
-
-      if not File.exists?(File.join($HPC_KEYPAIRS, keys[:keypair_name] + '.pem'))
-         if keys[:private_key_exist? ]
-            Logging.info("Importing your forj private key '%s' to hpcloud." % private_key_path)
-            command = 'hpcloud keypairs:private:add %s %s' % [keys[:keypair_name], private_key_path]
-            Logging.debug("Executing command '%s'" % command)
-            Kernel.system(command)
-         else
-            Logging.warning('Unable to find the private key. This will be required to access with ssh to Maestro and any blueprint boxes.')
-         end
-      else
-         Logging.info("Using '%s' as private key." % private_key_path)
-      end
-   end
-
    # Depending on clouds/rights, we can create flavor or not.
    # Usually, flavor records already exists, and the controller may map them
    # CloudProcess predefines some values. Consult CloudProcess.rb for details
    def forj_get_or_create_flavor(sCloudObj, hParams)
       sFlavor_name = hParams[:flavor_name]
-      Logging.state("Searching for flavor '%s'..." % [sFlavor_name] )
+      Logging.state("Searching for flavor '%s'" % [sFlavor_name] )
 
-      flavor = forj_query_flavor(sCloudObj, {:name => sFlavor_name}, hParams)
-      if not flavor
+      flavors = forj_query_flavor(sCloudObj, {:name => sFlavor_name}, hParams)
+      if flavors.length == 0
          if not hParams[:create]
             Logging.error("Unable to create %s '%s'. Creation is not supported." % [sCloudObj, sFlavor_name])
+            ForjLib::Data.new.set(nil, sCloudObj)
          else
-            flavor = create_flavor(sCloudObj,hParams)
+            create_flavor(sCloudObj,hParams)
          end
+      else
+         flavors[0]
       end
-      flavor
    end
 
    # Should return 1 or 0 flavor.
@@ -198,7 +186,7 @@ end
 class CloudProcess < BaseProcess
   def forj_get_or_create_image(sCloudObj, hParams)
     sImage_name = hParams[:image_name]
-    Logging.state("Searching for image '%s'..." % [sImage_name] )
+    Logging.state("Searching for image '%s'" % [sImage_name] )
 
     forj_query_image(sCloudObj, {:name => sImage_name}, hParams)
   end
@@ -208,13 +196,13 @@ class CloudProcess < BaseProcess
     oSSLError = SSLErrorMgt.new
     begin
       images = controler.query(sCloudObj, sQuery)
-      case images[:list].length()
+      case images.length()
         when 0
-          Logging.debug("No image '%s' found" % [ image_name ] )
+          Logging.info("No image '%s' found" % [ image_name ] )
           nil
         else
-          Logging.debug("Found image '%s'." % [ image_name ])
-          images[:list][0]
+          Logging.info("Found image '%s'." % [ image_name ])
+          images[0]
       end
     rescue => e
       if not oSSLError.ErrorDetected(e.message,e.backtrace)
@@ -228,10 +216,14 @@ class CloudProcess < BaseProcess
    # Process Handler functions
    def forj_get_or_create_server(sCloudObj, hParams)
       sServer_name = hParams[:server_name]
-      Logging.state("Searching for server '%s'..." % [sServer_name] )
-
-      server = forj_query_server(sCloudObj, {:name => sServer_name}, hParams)
-      create_server(sCloudObj, hParams) if not server
+      Logging.state("Searching for server '%s'" % [sServer_name] )
+      servers = forj_query_server(sCloudObj, {:name => sServer_name}, hParams)
+      if servers.length > 0
+         # Get server details
+         forj_get_server(sCloudObj, servers[0][:attrs][:id], hParams)
+      else
+         create_server(sCloudObj, hParams)
+      end
    end
 
    def forj_query_server(sCloudObj, sQuery, hParams)
@@ -239,7 +231,23 @@ class CloudProcess < BaseProcess
       server_name = sQuery[:name] if sQuery.key?(:name)
       oSSLError = SSLErrorMgt.new
       begin
-         query_single(sCloudObj, sQuery, server_name)
+         query_single(sCloudObj, sQuery, server_name) { | iCount, oList, sInfo |
+            if iCount == 0
+
+            else
+            end
+         }
+      rescue => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+           retry
+         end
+      end
+   end
+
+   def forj_get_server(sCloudObj, sId, hParams)
+      oSSLError = SSLErrorMgt.new
+      begin
+         controler.get(sCloudObj, sId)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
            retry
@@ -251,11 +259,83 @@ class CloudProcess < BaseProcess
    def create_server(sCloudObj, hParams)
       name = hParams[:server_name]
       begin
-         Logging.debug('creating server %s' % [name])
-         controler.create(sCloudObj)
+         Logging.state('creating server %s' % [name])
+         server = controler.create(sCloudObj)
+         Logging.info("%s '%s' created." % [sCloudObj, name])
       rescue => e
          Logging.fatal(1, "Unable to create server '%s'" % name, e)
       end
+      server
    end
 
+   def forj_get_server_log(sCloudObj, sId, hParams)
+      oSSLError = SSLErrorMgt.new
+      begin
+         controler.get(sCloudObj, sId)
+      rescue => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+           retry
+         end
+      end
+   end
+end
+
+class CloudProcess < BaseProcess
+   # Process Handler functions
+   def forj_get_or_assign_public_address(sCloudObj, hParams)
+      # Function which to assign a public IP address to a server.
+      sServer_name = hParams[:server, :name]
+
+      Logging.state("Searching public IP for server '%s'" % [sServer_name] )
+      addresses = controler.query(sCloudObj, {:server_id => hParams[:server, :id]})
+      if addresses.length == 0
+         assign_address(sCloudObj, hParams)
+      else
+         addresses[0]
+      end
+   end
+
+   def forj_query_public_address(sCloudObj, sQuery, hParams)
+      server_name = hParams[:server, :name]
+      oSSLError = SSLErrorMgt.new
+      begin
+         sInfo = {
+         :notfound   => "No %s for '%s' found",
+         :checkmatch => "Found 1 %s. checking exact match for server '%s'.",
+         :nomatch    => "No %s for '%s' match",
+         :found      => "Found %s '%s' for #{server_name}.",
+         :more       => "Found several %s. Searching for '%s'.",
+         :items      => :public_ip
+         }
+         query_single(sCloudObj, sQuery, server_name, sInfo)
+      rescue => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+           retry
+         end
+      end
+   end
+
+   def forj_get_public_address(sCloudObj, sId, hParams)
+      oSSLError = SSLErrorMgt.new
+      begin
+         controler.get(sCloudObj, sId)
+      rescue => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+           retry
+         end
+      end
+   end
+
+   # Internal Process function
+   def assign_address(sCloudObj, hParams)
+      name = hParams[:server, :name]
+      begin
+         Logging.state('Getting public IP for server %s' % [name])
+         ip_address = controler.create(sCloudObj)
+         Logging.info("Public IP '%s' for server '%s' assigned." % [ip_address[:public_ip], name])
+      rescue => e
+         Logging.fatal(1, "Unable to assign a public IP to server '%s'" % name, e)
+      end
+      ip_address
+   end
 end

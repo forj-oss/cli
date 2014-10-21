@@ -61,7 +61,7 @@ module HPKeyPairs
       oComputeConnect.key_pairs.get(sId)
    end
 
-   def HPKeyPairs.create_sg(oComputeConnect, params)
-      oComputeConnect.key_pairs.create( params )
+   def HPKeyPairs.create_keypair(oComputeConnect, name, pubkey)
+      oComputeConnect.key_pairs.create( :name => name, :public_key => pubkey)
    end
 end

@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-#require 'byebug'
+require 'byebug'
 
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
@@ -19,7 +19,7 @@ $FORJ_LOGGER=ForjLog.new()
 
 require 'lib-forj.rb'
 
-Logging.set_level(Logger::DEBUG)
+Logging.set_level(Logger::INFO)
 
 # Load global Config
 oConfig = ForjConfig.new()
@@ -34,10 +34,10 @@ aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
 # boot/down/ssh/...
 aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 
-$LIB_FORJ_DEBUG = 10 # Very verbose
+$LIB_FORJ_DEBUG = 1 # Very verbose
 oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 
-oCloud.Create(:infra_repository)
+#oCloud.Create(:infra_repository)
 
 # For debugging security_groups
 #byebug
@@ -53,9 +53,9 @@ oCloud.Create(:infra_repository)
 #oConfig.set(:instance_name, instance_name)
 #oCloud.Create(:forge)
 #~ oConfig.set(:blueprint, 'redstone')
-#oConfig.set(:instance_name, "test")
+oConfig.set(:instance_name, "test")
 
-#oCloud.Create(:forge)
+oCloud.Create(:forge)
 
 #oConfig.set(:sg_desc, "Security group for blueprint '%s'" % [oConfig.get(:blueprint)])
 #puts 'Compute:'
@@ -102,4 +102,3 @@ oCloud.Create(:infra_repository)
 #~ mock_test.ComputeConnect()
 
 # Load HPCloud Data
-

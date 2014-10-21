@@ -23,6 +23,9 @@ require File.join($CORE_PROCESS_PATH, "network_process.rb")
 # Define framework object on BaseDefinition
 class BaseDefinition
 
+   # All objects used by this process are built from a Controller
+   process_default :use_controller => true
+
    # predefined list of objects.
    # Links between objects is not predefined. To do it, use needs declaration in your provider class.
 
@@ -69,7 +72,9 @@ class BaseDefinition
    get_attr_mapping :id, nil    # Do not return any predefined ID
    get_attr_mapping :name, nil  # Do not return any predefined NAME
 
+   # ************************************ Network Object
    # Identify the network
+
    define_obj(:network,
               :create_e    => :forj_get_or_create_network,
               :query_e     => :forj_query_network,
@@ -84,6 +89,7 @@ class BaseDefinition
 
    def_query_attribute :external # true if network is external or not.
 
+   # ************************************ SubNetwork Object
    # Identify subnetwork as part of network.
    define_obj(:subnetwork,    :nohandler => true)
 
@@ -92,6 +98,7 @@ class BaseDefinition
 
    def_query_attribute :network_id
 
+   # ************************************ Port Object
    # Identify port attached to network
    define_obj   :port,    :nohandler => true
 
@@ -100,6 +107,7 @@ class BaseDefinition
    def_query_attribute :network_id
    def_query_attribute :device_owner
 
+   # ************************************ Router Object
    # Identify the router of a network.
    define_obj(:router,
       {
@@ -128,6 +136,7 @@ class BaseDefinition
    obj_needs   :CloudObject,  :router
 
 
+   # ************************************ Security groups Object
    # Identify security_groups
    define_obj(:security_groups,
       {
@@ -141,6 +150,7 @@ class BaseDefinition
    obj_needs_optional
    obj_needs   :data,         :sg_desc,            { :for => [:create_e] }
 
+   # ************************************ Security group rules Object
    # Identify Rules attached to the security group
    define_obj(:rule,
       {
@@ -162,6 +172,7 @@ class BaseDefinition
    obj_needs   :data,         :port_max,           { :for => [:create_e] }
    obj_needs   :data,         :addr_map,           { :for => [:create_e] }
 
+   # ************************************ keypair Object
    # Identify keypair
    define_obj(:keypairs,
       {
@@ -172,8 +183,10 @@ class BaseDefinition
 
    obj_needs   :CloudObject,  :compute_connection
    obj_needs   :data,         :keypair_name,       { :for => [:create_e] }
-   obj_needs   :data,         :keypair_path,       { :for => [:create_e] }
+   obj_needs_optional
+   obj_needs   :data,         :public_key_file,    { :for => [:create_e] }
 
+   # ************************************ Image Object
    # Identify image
    define_obj(:image,
       {
@@ -187,6 +200,7 @@ class BaseDefinition
    obj_needs   :CloudObject,  :compute_connection
    obj_needs   :data,         :image_name,         { :for => [:create_e] }
 
+   # ************************************ Flavor Object
    # Identify flavor
    define_obj(:flavor,
       {
@@ -198,7 +212,6 @@ class BaseDefinition
       })
 
    obj_needs   :CloudObject,  :compute_connection
-
    obj_needs   :data,         :flavor_name,        { :for => [:create_e] }
    # Cloud provider will need to map to one of those predefined flavors.
    # limitation values may match exactly or at least ensure those limitation
@@ -213,6 +226,7 @@ class BaseDefinition
    predefine_data_value('large',  { :desc => "VCU: 4,  RAM:8G,   HD:30G,  EHD: 100G, Swap: 0G" })
    predefine_data_value('xlarge', { :desc => "VCU: 8,  RAM:16G,  HD:30G,  EHD: 200G, Swap: 0G" })
 
+   # ************************************ Internet network Object
    # Define Internet network
    #
    # This object contains the logic to ensure the router's network has a gateway to the external network (internet)
@@ -223,6 +237,7 @@ class BaseDefinition
 
    obj_needs   :CloudObject,  :external_network # External network to connect if needed.
 
+   # ************************************ SERVER Object
    # Identify the server to use/build on the network/...
    define_obj(:server,
       {
@@ -245,10 +260,51 @@ class BaseDefinition
    obj_needs   :data,         :user_data,          { :for => [:create_e] }
    obj_needs   :data,         :meta_data,          { :for => [:create_e] }
 
+   def_attribute  :status
+   predefine_data_value :create,  { :desc => "Server is creating." }
+   predefine_data_value :boot,    { :desc => "Server is booting." }
+   predefine_data_value :active,  { :desc => "Server is started." }
+   def_attribute  :private_ip_address
+   def_attribute  :public_ip_address
+
+   # ************************************ SERVER Addresses Object
+   # Object representing the list of IP addresses attached to a server.
+   define_obj(:public_ip,
+      :create_e   => :forj_get_or_assign_public_address,
+      :query_e    => :forj_query_public_address,
+      :get_e      => :forj_get_address,
+      :update_e   => :forj_update_address,
+      :delete_e   => :forj_delete_address
+   )
+
+   obj_needs   :CloudObject,  :compute_connection
+   obj_needs   :CloudObject,  :server
+
+   def_attribute :server_id
+   def_attribute :public_ip
+   get_attr_mapping :name, nil # No name to extract
+
+   # ************************************ SERVER Console Object
+   # Object representing the console log attached to a server
+
+   define_obj(:server_log,
+      {
+         :get_e      => :forj_get_server_log
+      })
+
+   obj_needs   :CloudObject,  :server
+   obj_needs   :data,         :log_lines
+   get_attr_mapping  :name,   nil
+   get_attr_mapping  :id,     nil
+   def_attribute  :output
+
+   # ************************************ Internet SERVER Object
    # internet server is a server connected to the internet network.
    define_obj(:internet_server,    :nohandler => true )
 
    obj_needs   :CloudObject,  :internet_network
    obj_needs   :CloudObject,  :server
+   obj_needs   :CloudObject,  :public_ip
+
 
 end

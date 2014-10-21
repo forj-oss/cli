@@ -373,8 +373,7 @@ class ForjAccount
       tenants.each { |elem| tenant_name = elem['name'] if elem['id'] == tenant_id }
       if tenant_name
          Logging.debug("Tenant ID '%s': '%s' found." % [tenant_id, tenant_name])
-         hCompute = { :tenant_name => tenant_name }
-         rhSet(@hAccountData, hCompute, :maestro)
+         rhSet(@hAccountData, tenant_name, :maestro, :tenant_name)
       else
          Logging.error("Unable to find the tenant Name for '%s' ID." % tenant_id)
       end

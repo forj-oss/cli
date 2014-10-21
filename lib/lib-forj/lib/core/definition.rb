@@ -121,6 +121,23 @@ class BaseDefinition
       @@Context[:needs_optional] = false
    end
 
+   def self.process_default(hOptions)
+      aSupportedOptions = [:use_controller]
+      unless hOptions.nil?
+         hOptions.each_key { | key |
+            case key
+               when :use_controller
+                  value = rhGet(hOptions, :use_controller)
+                  next unless value.is_a?(TrueClass) or value.is_a?(FalseClass)
+                  rhSet(@@Context, hOptions[key], :options, key)
+               else
+                  raise ForjError.new, "Unknown default process options '%s'. Supported are '%s'" % [key, aSupportedOptions.join(',')]
+            end
+         }
+      end
+      
+   end
+
    # Defines Object and connect to functions events
    def self.define_obj(sCloudObj, hParam = nil)
       return nil if not sCloudObj
@@ -133,6 +150,8 @@ class BaseDefinition
       @@Context[:oCurrentObj] = sCloudObj
       @@Context[:needs_optional] = false
       @@Context[:needs_setup] = false
+      bController = rhGet(@@Context, :options, :use_controller)
+      bController = true if bController.nil?
 
       if not [Hash].include?(hParam.class)
          if rhExist?(@@meta_obj, sCloudObj) != 1
@@ -144,8 +163,9 @@ class BaseDefinition
       oCloudObj = rhGet(@@meta_obj, sCloudObj)
       if not oCloudObj
          oCloudObj = {
-            :lambdas => {:create_e => nil, :delete_e => nil, :update_e => nil, :get_e => nil, :query_e => nil},
+            :lambdas => {:create_e => nil, :delete_e => nil, :update_e => nil, :get_e => nil, :query_e => nil, :get_attr_e => nil},
             :params => {},
+            :options => {:controller => bController },
             :query_mapping => { ":id" => ":id", ":name" => ":name"},
             :returns => {":id" => ":id", ":name" => ":name"}
          }
@@ -165,7 +185,7 @@ class BaseDefinition
       else
          msg = "%-28s meta object declared." %  [sObjectName] if not msg
       end
-      Logging.debug(msg) if msg != ""
+      ForjLib.debug(2, msg) if msg != ""
 
       # Setting procs
       rhGet(oCloudObj, :lambdas).each_key { |key|
@@ -262,9 +282,9 @@ class BaseDefinition
       case sType
          when :data
             if ForjDefault.meta_exist?(sParam)
-               Logging.debug("%-28s: %s predefined config '%s'." % [sObjectName, sMsgAction, sParam])
+               ForjLib.debug(2, "%-28s: %s predefined config '%s'." % [sObjectName, sMsgAction, sParam])
             else
-               Logging.debug("%-28s: %s runtime    config '%s'." % [sObjectName, sMsgAction, sParam])
+               ForjLib.debug(2, "%-28s: %s runtime    config '%s'." % [sObjectName, sMsgAction, sParam])
             end
             oCloudObjParam.merge!( hParams.merge({:type => sType}) ) # Merge from predefined params, but ensure type is never updated.
          when :CloudObject
@@ -289,16 +309,20 @@ class BaseDefinition
       raise ForjError.new, "attr_value_mapping: mapping '%s' needs object data context definition. You need to call define_obj, then obj_needs to get the context." % value if oKeypath.nil?
 
       keypath = oKeypath.sFullPath
-      Logging.debug("%s-%s: Value mapping definition '%s' => '%s'" % [sCloudObj, oKeypath.to_s, value, map])
+      ForjLib.debug(2, "%s-%s: Value mapping definition '%s' => '%s'" % [sCloudObj, oKeypath.to_s, value, map])
       rhSet(@@meta_obj, map, sCloudObj, :value_mapping, keypath, value)
    end
 
 
-   def self.def_attribute(key)
-      self.get_attr_mapping(key)
+   def self.def_attribute(key, options = nil)
+      self.get_attr_mapping(key, options)
+      self.def_query_attribute(key) unless options and options.key?(:not_queriable) and  options[:not_queriable]== true
    end
 
-   def self.get_attr_mapping(key, map = key)
+   # Function used by the controler to define mapping.
+   # By default, any attributes are queriable as well. No need to call
+   # query_mapping
+   def self.get_attr_mapping(key, map = key, options = nil)
       return nil if not [String, Symbol].include?(key.class)
       return nil if not [NilClass, Symbol, String, Array].include?(map.class)
 
@@ -313,6 +337,8 @@ class BaseDefinition
 
       rhSet(@@meta_obj, oMapPath.sFullPath, sCloudObj, :returns, oKeyPath.sFullPath)
       @@Context[:oCurrentKey] = oKeyPath
+
+      self.query_mapping(key, map) unless options and options.key?(:not_queriable) and  options[:not_queriable]== true
    end
 
    # Defines/update CloudData parameters
@@ -352,7 +378,7 @@ class BaseDefinition
       section = ForjDefault.get_meta_section(sData)
       section = :runtime if section.nil?
 
-      Logging.debug("%s/%s: Define config data value mapping: '%s' => '%s'" % [section, sData, value, map])
+      ForjLib.debug(2, "%s/%s: Define config data value mapping: '%s' => '%s'" % [section, sData, value, map])
       rhSet(@@meta_data, map, section, sData, :value_mapping,  :controller, value)
       rhSet(@@meta_data, value, section, sData, :value_mapping,  :process, map)
    end

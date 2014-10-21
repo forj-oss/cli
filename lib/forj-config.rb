@@ -64,18 +64,18 @@ def rhSet(yVal, value, *p)
    p=p.flatten
    if p.length() == 1
       if not yVal.nil?
-         if value
+         if not value.nil?
             yVal[p[0]] = value
          else
             yVal.delete(p[0])
          end
          return yVal
       end
-      if value
-         ret = { p[0] => value }
-      else
-         ret = {}
-      end
+      #~ if value
+      ret = { p[0] => value }
+      #~ else
+         #~ ret = {}
+      #~ end
       return ret
    end
    if not yVal.nil?

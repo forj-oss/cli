@@ -34,12 +34,12 @@ class BaseDefinition
             :iv => Base64::strict_encode64(OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv)
          }
 
-         Logging.debug("Writing '%s' key file" % key_file)
+         ForjLib.debug(2, "Writing '%s' key file" % key_file)
          File.open(key_file, 'w') do |out|
             out.write(Base64::encode64(entr.to_yaml))
          end
       else
-         Logging.debug("Loading '%s' key file" % key_file)
+         ForjLib.debug(2, "Loading '%s' key file" % key_file)
          encoded_key = IO.read(key_file)
          entr = YAML.load(Base64::decode64(encoded_key))
       end
@@ -135,36 +135,39 @@ class BaseDefinition
    end
 
    def _return_map(sCloudObj, oControlerObject)
-      oCoreObject = format_object(sCloudObj, oControlerObject)
+      return nil if oControlerObject.nil?
 
-      return nil if oCoreObject.nil?
+      attr_value = {}
+
+      pProc = rhGet(@@meta_obj, sCloudObj, :lambdas, :get_attr_e)
+      bController = rhGet(@@meta_obj, sCloudObj, :options, :controller)
+      return nil if not pProc and not bController
 
       hMap = rhGet(@@meta_obj, sCloudObj, :returns)
       hMap.each { |key, map|
          oKeyPath = KeyPath.new(key)
          oMapPath = KeyPath.new(map)
          next if not map
-         controller_attr_value = @oProvider.get_attr(oControlerObject, oMapPath.aTree)
-         if controller_attr_value.nil?
-            raise ForjError.new(), "Attribute '%s' mapped to '%s' is unknown in Controller object '%s'." % [oKeyPath.to_s, oMapPath.to_s, oControlerObject]
+         if pProc
+            controller_attr_value = @oForjProcess.method(pProc).call(sCloudObj, oControlerObject)
+         else
+            controller_attr_value = @oProvider.get_attr(oControlerObject, oMapPath.aTree) if bController
          end
 
          hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, oKeyPath.sFullPath)
-         if hValueMapping
-            attr_value = nil
+         if hValueMapping and not controller_attr_value.nil?
             hValueMapping.each { | map_key, map_value |
                if controller_attr_value == map_value
-                  attr_value = map_key
+                  rhSet(attr_value, map_key ,oKeyPath.aTree)
                   break
                end
             }
-            raise ForjError.new(), "'%s.%s': No controller value mapping for '%s'" % [sCloudObj, oKeyPath.sKey, controller_attr_value] if attr_value.nil?
+            raise ForjError.new(), "'%s.%s': No controller value mapping for '%s'." % [sCloudObj, oKeyPath.sKey, controller_attr_value] if attr_value.nil?
          else
-            attr_value = controller_attr_value
+            rhSet(attr_value, controller_attr_value ,oKeyPath.aTree)
          end
-         rhSet(oCoreObject, attr_value, :attrs, oKeyPath.aTree)
       }
-      oCoreObject
+      attr_value
    end
 
    def _build_data(sCloudObj, oParam, oKeyPath, hParams, bController = false)

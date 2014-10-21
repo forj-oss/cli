@@ -22,7 +22,9 @@
 # See lib/core/definition.rb for function details usage.
 class BaseDefinition
 
+   process_default :use_controller => false
 
+   # ******************* Maestro Repository object
    define_obj  :maestro_repository,
       {
          :create_e => :clone_or_use_maestro_repo
@@ -33,6 +35,7 @@ class BaseDefinition
    obj_needs_optional
    obj_needs   :data,   :maestro_repo
 
+   # ******************* Infra Repository object
    define_obj  :infra_repository,
       {
          :create_e => :create_or_use_infra
@@ -42,6 +45,7 @@ class BaseDefinition
    obj_needs   :data,   :maestro_repo
    obj_needs   :data,   :branch
 
+   # ******************* userdata object
    define_obj  :userdata,
       {
          :create_e => :build_userdata
@@ -50,6 +54,7 @@ class BaseDefinition
    obj_needs   :CloudObject,  :maestro_repository
    obj_needs   :CloudObject,  :infra_repository
 
+   # ******************* metadata object
    define_obj  :metadata,
       {
          :create_e => :build_metadata
@@ -63,7 +68,23 @@ class BaseDefinition
    obj_needs   :data,   :bp_flavor
    obj_needs   :data,   :compute
    obj_needs   :data,   :branch
+   obj_needs   :data,   :domain_name
+   obj_needs   :data,   :tenant_name
 
+   obj_needs_optional
+
+   # If requested by user, ask Maestro to manage the DNS.
+   obj_needs   :data,   :dns_service
+   obj_needs   :data,   :dns_tenant_id
+
+   # If requested by user, ask Maestro to instantiate a blueprint.
+   obj_needs   :data,   :blueprint
+   # Add init bootstrap additional steps
+   obj_needs   :data,   :bootstrap
+   # Add init additional git clone steps.
+   obj_needs   :data,   :repos
+
+   # ******************* forge object
    define_obj  :forge,
       {
          :create_e => :build_forge,
@@ -81,4 +102,3 @@ end
 $FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
 
 require File.join($FORJCORE_PATH, "process", "ForjProcess.rb")
-
