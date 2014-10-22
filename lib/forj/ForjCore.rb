@@ -41,9 +41,9 @@ class BaseDefinition
          :create_e => :create_or_use_infra
       }
 
-   obj_needs   :data,   :infra_repo
-   obj_needs   :data,   :maestro_repo
-   obj_needs   :data,   :branch
+   obj_needs   :CloudObject,  :maestro_repository
+   obj_needs   :data,         :infra_repo
+   obj_needs   :data,         :branch
 
    # ******************* userdata object
    define_obj  :userdata,

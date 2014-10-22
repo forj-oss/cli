@@ -19,6 +19,10 @@
 
 require 'git'
 require 'fileutils'
+require 'find'
+require 'digest'
+
+$INFRA_VERSION = "0.0.37"
 
 class ForjCoreProcess
 
@@ -191,53 +195,204 @@ end
 
 
 class ForjCoreProcess
-  def clone_or_use_maestro_repo(sObjectType, hParams)
+   def clone_or_use_maestro_repo(sObjectType, hParams)
 
-    maestro_url = hParams[:maestro_url]
-    maestro_repo = hParams[:maestro_repo]
-    path_maestro = '~/.forj/'
+      maestro_url = hParams[:maestro_url]
+      maestro_repo = File.expand_path(hParams[:maestro_repo]) unless hParams[:maestro_repo].nil?
+      path_maestro = File.expand_path('~/.forj/')
+      hResult = {}
 
-    begin
-      if File.directory?(maestro_repo)
-        Logging.info("Using maestro repo '%s'" % maestro_repo)
-      else
-        Logging.info("Cloning maestro repo from '%s' to '%s'" % [maestro_url, path_maestro])
-        Git.clone(maestro_url, 'maestro', :path => path_maestro)
+      begin
+         if maestro_repo and File.directory?(maestro_repo)
+            Logging.info("Using maestro repo '%s'" % maestro_repo)
+            hResult[:maestro_repo] = maestro_repo
+         else
+            hResult[:maestro_repo] = File.join(path_maestro, 'maestro')
+            Logging.state("Cloning maestro repo from '%s' to '%s'" % [maestro_url, File.join(path_maestro, 'maestro')])
+            if File.directory?(path_maestro)
+               if File.directory?(File.join(path_maestro, 'maestro'))
+                  FileUtils.rm_r File.join(path_maestro, 'maestro')
+               end
+            end
+            git = Git.clone(maestro_url, 'maestro', :path => path_maestro)
+            git.checkout(config[:branch]) if config[:branch] != 'master'
+            Logging.info("Maestro repo '%s' cloned on branch '%s'" % [File.join(path_maestro, 'maestro'), config[:branch]])
+         end
+      rescue => e
+         Logging.error("Error while cloning the repo from %s\n%s\n%s" % [maestro_url, e.message, e.backtrace.join("\n")])
+         Logging.info("If this error persist you could clone the repo manually in ~/.forj/")
       end
-    rescue => e
-      Logging.error("Error while cloning the repo from %s\n%s\n%s" % [maestro_url, e.message, e.backtrace.join("\n")])
-      Logging.info("If this error persist you could clone the repo manually in ~/.forj/")
-    end
-
-  end
+      oMaestro = register(hResult, sObjectType)
+      oMaestro[:maestro_repo] = hResult[:maestro_repo]
+      oMaestro
+   end
 end
 
 
 class ForjCoreProcess
-  def create_or_use_infra(sObjectType, hParams)
-    infra = hParams[:infra_repo]
-    maestro_repo = hParams[:maestro_repo]
-    branch = hParams[:branch]
-    dest_cloud_init = File.join(infra, 'cloud-init')
-    template = File.join(maestro_repo, 'templates', 'infra')
-    cloud_init = File.join(template, 'cloud-init')
+   def create_or_use_infra(sObjectType, hParams)
+      infra = File.expand_path(hParams[:infra_repo])
+      maestro_repo = hParams[:maestro_repository, :maestro_repo]
+      branch = hParams[:branch]
+      dest_cloud_init = File.join(infra, 'cloud-init')
+      template = File.join(maestro_repo, 'templates', 'infra')
+      cloud_init = File.join(template, 'cloud-init')
 
-    if File.directory?(infra)
-      Logging.debug("Cleaning up '%s'" % [infra])
-      FileUtils.rm_r(infra)
-    end
+      hInfra = { :infra_repo => dest_cloud_init}
 
-    AppInit.ensure_dir_exists(dest_cloud_init)
+      AppInit.ensure_dir_exists(dest_cloud_init)
 
-    Logging.debug("Copying recursively '%s' to '%s'" % [cloud_init, infra])
-    FileUtils.copy_entry(cloud_init, dest_cloud_init)
+      bReBuildInfra = infra_is_original?(infra, maestro_repo)
 
-    template_file = 'maestro.box.' + branch + '.env'
-    build_env = File.join(template,template_file)
-    Logging.debug("Copying '%s' to '%s'" % [build_env, infra])
-    FileUtils.copy(build_env, infra)
+      if bReBuildInfra
+         Logging.state("Building your infra workspace in '%s'" % [infra])
 
-    file_ver = File.join(infra, 'forj-cli.ver')
-    File.write(file_ver, $INFRA_VERSION)
-  end
+         Logging.debug("Copying recursively '%s' to '%s'" % [cloud_init, infra])
+         FileUtils.copy_entry(cloud_init, dest_cloud_init)
+
+         file_ver = File.join(infra, 'forj-cli.ver')
+         File.write(file_ver, $INFRA_VERSION)
+         Logging.info("The infra workspace '%s' has been built from maestro predefined files." % [infra])
+      else
+         Logging.info("Re-using your infra... in '%s'" % [infra])
+      end
+
+
+      oInfra = register(hInfra, sObjectType)
+      oInfra[:infra_repo] = hInfra[:infra_repo]
+      oInfra
+   end
+
+   # Function which compare directories from maestro templates to infra.
+   def infra_is_original?(infra_dir, maestro_dir)
+      dest_cloud_init = File.join(infra_dir, 'cloud-init')
+      template = File.join(maestro_dir, 'templates', 'infra')
+      sMD5List = File.join(infra_dir, '.maestro_original.yaml')
+      bResult = true
+      hResult = {}
+      if File.exists?(sMD5List)
+         begin
+            hResult = YAML.load_file(sMD5List)
+         rescue => e
+            Logging.error("Unable to load valid Original files list '%s'. Your infra workspace won't be migrated, until fixed." % sMD5List)
+            bResult = false
+         end
+         if not hResult
+            hResult = {}
+            bResult = false
+         end
+      end
+      # We are taking care on bootstrap files only.
+      Find.find(File.join(template, 'cloud-init')) { | path |
+         if not File.directory?(path)
+            sMaestroRelPath = path.clone
+            sMaestroRelPath[File.join(template, 'cloud-init/')] = ""
+            sInfra_path = File.join(dest_cloud_init, sMaestroRelPath)
+            if File.exists?(sInfra_path)
+               md5_file = Digest::MD5.file(sInfra_path).hexdigest
+               if hResult.key?(sMaestroRelPath) and hResult[sMaestroRelPath] != md5_file
+                  bResult = false
+                  Logging.info("'%s' infra file has changed from original template in maestro." % sInfra_path)
+               else
+                  Logging.debug("'%s' infra file has not been updated." % sInfra_path)
+               end
+            end
+            md5_file = Digest::MD5.file(path).hexdigest
+            hResult[sMaestroRelPath] = md5_file
+         end
+      }
+      begin
+         File.open(sMD5List, 'w') do |out|
+            YAML.dump(hResult, out)
+         end
+      rescue => e
+         Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
+      end
+      if bResult
+         Logging.debug("No original files found has been updated. Infra workspace can be updated/created if needed.")
+      else
+         Logging.warning("At least, one file has been updated. Infra workspace won't be updated by forj cli.")
+      end
+      bResult
+   end
+
+   def infra_rebuild(infra_dir)
+      return false if not File.exists?(infra_dir)
+
+      file_ver = File.join(infra_dir, 'forj-cli.ver')
+      forj_infra_version = nil
+      forj_infra_version = File.read(file_ver) if File.exist?(file_ver)
+
+      if forj_infra_version.nil? or forj_infra_version == ""
+         # Prior version 37
+         return(old_infra_data_update(oConfig, '0.0.36', infra_dir))
+      elsif Gem::Version.new(forj_infra_version) < Gem::Version.new($INFRA_VERSION)
+         return(old_infra_data_update(oConfig, forj_infra_version, infra_dir))
+      end
+   end
+
+   def old_infra_data_update(oConfig, version, infra_dir)
+      Logging.info("Migrating your local infra repo (%s) to the latest version." % version)
+      bRebuild = false # Be default migration is successful. No need to rebuild it.
+      case version
+         when '0.0.36'
+            # Moving from 0.0.36 or less to 0.0.37 or higher.
+            # SET_COMPUTE="{SET_COMPUTE!}" => Setting for Compute. ignored. Coming from HPC
+            # SET_TENANT_NAME="{SET_TENANT_NAME!}" => Setting for Compute. ignored. Need to query HPC from current Tenant ID
+
+            # SET_DNS_TENANTID="{SET_DNS_TENANTID!}" => Setting for DNS. meta = dns_tenantid
+            #  ==> :forj_accounts, sAccountName, :dns, :tenant_id
+
+            # SET_DNS_ZONE="{SET_DNS_ZONE!}" => Setting for DNS. meta = dns_zone
+            # ==> :forj_accounts, sAccountName, :dns, :service
+
+            # SET_DOMAIN="{SET_DOMAIN!}" => Setting for Maestro (required) and DNS if enabled.
+            # ==> :forj_accounts, sAccountName, :dns, :domain_name
+            sAccountName = oConfig.get(:account_name)
+
+            yDns = {}
+            yDns = oConfig.oConfig.ExtraGet(:forj_accounts, sAccountName, :dns) if oConfig.oConfig.ExtraExist?(:forj_accounts, sAccountName, :dns)
+            Dir.foreach(infra_dir) do | file |
+               next if not /^maestro\.box\..*\.env$/ =~ file
+               build_env = File.join(infra_dir, file)
+               Logging.debug("Reading data from '%s'" % build_env)
+               tags = {'SET_DNS_TENANTID' => :tenant_id,
+                       'SET_DNS_ZONE' => :service,
+                       'SET_DOMAIN' => :domain_name
+                      }
+               begin
+                  bUpdate = nil
+
+                  File.open(build_env) do |f|
+                     f.each_line do |line|
+                        mObj = line.match(/^(SET_[A-Z_]+)=["'](.*)["'].*$/)
+                        if mObj
+                           Logging.debug("Reviewing detected '%s' tag" % [mObj[1]])
+                           tag = (tags[mObj[1]]? tags[mObj[1]] : nil)
+                           if tag and mObj[2]
+                              if bUpdate == nil and rhGet(yDns, tag) and rhGet(yDns, tag) != mObj[2]
+                                 Logging.message("Your account setup is different than build env.")
+                                 Logging.message("We suggest you to update your account setup with data from your build env.")
+                                 bUpdate = agree("Do you want to update your setup with those build environment data?")
+                              end
+                              if bUpdate != nil and bUpdate
+                                 Logging.debug("Saved: '%s' = '%s'" % [mObj[1],mObj[2]])
+                                 rhSet(yDns, mObj[2], tag)
+                              end
+                           end
+                        end
+                     end
+                  end
+               rescue => e
+                  Logging.fatal(1, "Failed to open the build environment file '%s'" % build_env, e)
+               end
+            end
+            file_ver = File.join(infra_dir, 'forj-cli.ver')
+            File.write(file_ver, $INFRA_VERSION)
+            oConfig.oConfig.ExtraSet(:forj_accounts, sAccountName, :dns, yDns)
+            oConfig.oConfig.ExtraSave(File.join($FORJ_ACCOUNTS_PATH, sAccountName), :forj_accounts, sAccountName)
+            return bRebuild
+      end
+   end
+
 end
