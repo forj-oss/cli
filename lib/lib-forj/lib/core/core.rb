@@ -172,6 +172,24 @@ module ForjLib
          end
       end
 
+      def each_index(sData = :list)
+         to_remove = []
+         return nil if @oType != :list or not [:object, :list].include?(sData)
+
+         @data[:list].each_index { |iIndex|
+            sAction = yield (iIndex)
+            case sAction
+               when :remove
+                  to_remove << @data[:list][iIndex]
+            end
+         }
+         if to_remove.length > 0
+            to_remove.each { | elem |
+               @data[:list].delete(elem)
+            }
+         end
+      end
+
       def registered?()
          @bRegister
       end
@@ -795,9 +813,9 @@ class ObjectData
       oObj.unregister
    end
 
-   #~ def << (hHash)
-      #~ @hParams.merge!(hHash)
-   #~ end
+   def << (hHash)
+      @hParams.merge!(hHash)
+   end
 
    def exist?(*key)
       raise ForjError.new, "ObjectData: key is not list of values (string/symbol or array)" if not [Array, String, Symbol].include?(key.class)
@@ -1038,7 +1056,17 @@ class BaseDefinition
       # Loop in dependencies to get list of data object to setup
       raise ForjError,new(), "Setup: '%s' not a valid object type." if rhExist?(@@meta_obj, sObjectType) != 1
 
-      aSetup = [[]]
+      hAskStep = ForjDefault.get(:ask_step, :setup)
+      aSetup = []
+      hAskStep.each{ | value |
+         aSetup << {
+            :desc => value[:desc],
+            :pre_step_handler => value[:pre_step_function],
+            :order => [[]],
+            :post_step_handler => value[:post_step_function]
+         }
+
+      }
       oInspectedObjects = []
       oInspectObj = [sObjectType]
 
@@ -1047,10 +1075,15 @@ class BaseDefinition
       ForjLib.debug(2, "Setup is identifying account data to ask for '%s'" % sObjectType)
       while oInspectObj.length() >0
          # Identify data to ask
+         # A data to ask is a data needs from an object type
+         # which is declared in section of defaults.yaml
+         # and is declared :account to true (in defaults.yaml or in process declaration - define_data)
+
          sObjectType = oInspectObj.pop
+         sAsk_step = 0
          ForjLib.debug(1, "Checking '%s'" % sObjectType)
          hTopParams = rhGet(@@meta_obj,sObjectType, :params)
-         if hTopParams[:list].nil?
+         if hTopParams[:keys].nil?
             ForjLib.debug(1, "Warning! Object '%s' has no data/object needs. Check the process" % sObjectType)
             next
          end
@@ -1061,6 +1094,9 @@ class BaseDefinition
                when :data
                   hMeta = _get_meta_data(sKey)
                   next if hMeta.nil?
+                  sAsk_step = hMeta[:ask_step] if rhExist?(hMeta, :ask_step) == 1 and hMeta[:ask_step].is_a?(Fixnum)
+                  ForjLib.debug(3, "#{sKey} is part of setup step #{sAsk_step}")
+                  aOrder = aSetup[sAsk_step][:order]
 
                   if hMeta[:account].is_a?(TrueClass)
                      if not hMeta[:depends_on].is_a?(Array)
@@ -1072,27 +1108,29 @@ class BaseDefinition
                         bFound = false
                         iLevel = 0
                         hMeta[:depends_on].each { |depend_key|
-                           aSetup.each_index { |iCurLevel|
-                              if aSetup[iCurLevel].include?(depend_key)
+                           aOrder.each_index { |iCurLevel|
+                              if aOrder[iCurLevel].include?(depend_key)
                                  bFound = true
                                  iLevel = [iLevel, iCurLevel + 1].max
                               end
                            }
-                              aSetup[iLevel] = [] if aSetup[iLevel].nil?
+                              aOrder[iLevel] = [] if aOrder[iLevel].nil?
                         }
                      end
                      if bFound
-                        if not aSetup[iLevel].include?(sKey)
+                        if not aOrder[iLevel].include?(sKey)
                            if hMeta[:ask_sort].is_a?(Fixnum)
-                              if aSetup[iLevel][hMeta[:ask_sort]].nil?
-                                 aSetup[iLevel][hMeta[:ask_sort]] = sKey
+                              iOrder = hMeta[:ask_sort]
+                              if aOrder[iLevel][iOrder].nil?
+                                 aOrder[iLevel][iOrder] = sKey
                               else
-                                 aSetup[iLevel].insert(hMeta[:ask_sort], sKey)
+                                 aOrder[iLevel].insert(iOrder, sKey)
                               end
+                              ForjLib.debug(3, "S%s/L%s/O%s: '%s' added in setup list. " % [sAsk_step, iLevel, iOrder, sKey])
                            else
-                              aSetup[iLevel] << sKey
+                              aOrder[iLevel] << sKey
+                              ForjLib.debug(3, "S%s/L%s/Last: '%s' added in setup list." % [sAsk_step, iLevel, sKey])
                            end
-                           ForjLib.debug(3, "'%s' added in setup list. level %s." % [sKey, iLevel])
                         end
                      else
                         oInspectedObjects << sKey
@@ -1104,71 +1142,159 @@ class BaseDefinition
          }
          oInspectedObjects << sObjectType
       end
+      ForjLib.debug(2, "Setup check if needs to add unrelated data in the process")
+      hAskStep.each_index{ | iStep |
+         value = hAskStep[iStep]
+         if rhExist?(value, :add) == 1
+            sKeysToAdd = rhGet(value, :add)
+            sKeysToAdd.each { | sKeyToAdd |
+               bFound = false
+               aSetup[iStep][:order].each_index { | iOrder |
+                  sKeysToAsk = aSetup[iStep][:order][iOrder]
+                  unless sKeysToAsk.index(sKeyToAdd).nil?
+                     bFound = true
+                     break
+                  end
+               }
+               next if bFound
+               iLevel = 0
+               iOrder = aSetup[iStep][:order].length
+               iAtStep = iStep
+               hMeta = _get_meta_data(sKeyToAdd)
+               if rhExist?(hMeta, :after) == 1
+                  sAfterKeys = hMeta[:after]
+                  sAfterKeys = [ sAfterKeys ] if not sAfterKeys.is_a?(Array)
+                  sAfterKeys.each{ |sAfterKey |
+                     bFound = false
+                     aSetup.each_index { |iStepToCheck|
+                        aSetup[iStepToCheck][:order].each_index { | iLevelToCheck |
+                           sKeysToAsk = aSetup[iStepToCheck][:order][iLevelToCheck]
+                           iOrderToCheck = sKeysToAsk.index(sAfterKey)
+                           unless iOrderToCheck.nil?
+                              iAtStep = iStepToCheck if iStepToCheck > iAtStep
+                              iLevel = iLevelToCheck if iLevelToCheck > iLevel
+                              iOrder = iOrderToCheck + 1 if iOrderToCheck + 1 > iOrder
+                              bFound = true
+                              break
+                           end
+                        }
+                     }
+                  }
+               end
+               aSetup[iAtStep][:order][iLevel].insert(iOrder, sKeyToAdd)
+               ForjLib.debug(3, "S%s/L%s/O%s: '%s' added in setup list at  position." % [iAtStep, iLevel, iOrder, sKeyToAdd])
+            }
+         end
+      }
+
       ForjLib.debug(2, "Setup will ask for :\n %s" % aSetup.to_yaml)
 
       # Ask for user input
-      aSetup.each_index { | iIndex |
-         ForjLib.debug(2, "Ask step %s:" % iIndex)
-         aSetup[iIndex].each { | sKey |
-            hParam = _get_meta_data(sKey)
-            hParam = {} if hParam.nil?
-            sDesc = "'%s' value" % sKey
-            sDesc = hParam[:desc] unless hParam[:desc].nil?
-            sDefault = @oForjConfig.get(sKey, hParam[:default_value])
-            rValidate = nil
+      aSetup.each_index { | iStep |
+         ForjLib.debug(2, "Ask step %s:" % iStep)
+         puts aSetup[iStep][:desc] unless aSetup[iStep][:desc].nil?
+         aOrder = aSetup[iStep][:order]
+         aOrder.each_index { | iIndex |
+         ForjLib.debug(2, "Ask order %s:" % iIndex)
+            aOrder[iIndex].each { | sKey |
+               hParam = _get_meta_data(sKey)
+               hParam = {} if hParam.nil?
 
-            rValidate = hParam[:validate] unless hParam[:validate].nil?
-            bRequired = (hParam[:required] == true)
-            if not hParam[:list_values].nil?
-               hValues = hParam[:list_values]
-               sObjectToLoad = hValues[:object]
-               oObject = get_object(sObjectToLoad)
-               oObject = Create(sObjectToLoad) if oObject.nil?
-               return nil if oObject.nil?
-               oParams = ObjectData.new
-               oParams.add(oObject)
-               oParams<< hValues[:query_params]
-               bListStrict = (hValues[:validate] == :list_strict)
+               if hParam[:pre_step_function]
+                  pProc = hParam[:pre_step_function]
+                  @oForjProcess.method(pProc).call()
+               end
 
-               case hValues[:query_type]
-                  when :controller_call
-                     raise ForjError.new(), "values_type => :provider_function requires missing :query_call declaration (Controller function)" if hValues[:query_call].nil?
-                     pProc = hValues[:query_call]
-                     begin
-                        aList = @oProvider.method(pProc).call(sObjectToLoad, oParams)
-                     rescue => e
-                        raise ForjError.new(), "Error during call of '%s':\n%s" % [pProc, e.message]
-                     end
-                  when :process_call
-                     raise ForjError.new(), "values_type => :process_function requires missing :query_call declaration (Provider function)" if hValues[:query_call].nil?
-                     pProc = hValues[:query_call]
+
+               sDesc = "'%s' value" % sKey
+               puts "#{sKey}: %s" % [hParam[:explanation]] unless rhGet(hParam, :explanation).nil?
+               sDesc = hParam[:desc] unless hParam[:desc].nil?
+               sDefault = @oForjConfig.get(sKey, hParam[:default_value])
+               rValidate = nil
+
+               rValidate = hParam[:validate] unless hParam[:validate].nil?
+               bRequired = (hParam[:required] == true)
+               bOk = false
+               while not bOk
+                  bOk = true
+                  if not hParam[:list_values].nil?
+                     hValues = hParam[:list_values]
                      sObjectToLoad = hValues[:object]
-                     begin
-                        aList = @oForjProcess.method(pProc).call(sObjectToLoad, oParams)
-                     rescue => e
-                        raise ForjError.new(), "Error during call of '%s':\n%s" % [pProc, e.message]
+
+                     bListStrict = (hValues[:validate] == :list_strict)
+
+                     case hValues[:query_type]
+                        when :controller_call
+                           oObject = @ObjectData[sObjectToLoad, :ObjectData]
+                           oObject = Create(sObjectToLoad) if oObject.nil?
+                           return nil if oObject.nil?
+                           oParams = ObjectData.new
+                           oParams.add(oObject)
+                           oParams << hValues[:query_params]
+                           raise ForjError.new(), "#{sKey}: query_type => :controller_call requires missing :query_call declaration (Controller function)" if hValues[:query_call].nil?
+                           pProc = hValues[:query_call]
+                           begin
+                              aList = @oProvider.method(pProc).call(sObjectToLoad, oParams)
+                           rescue => e
+                              raise ForjError.new(), "Error during call of '%s':\n%s" % [pProc, e.message]
+                           end
+                        when :query_call
+                           sQuery = {}
+                           sQuery = hValues[:query_params] unless hValues[:query_params].nil?
+                           oObjectList = Query(sObjectToLoad, sQuery)
+                           aList = []
+                           oObjectList.each { | oElem |
+                              aList << oElem[hValues[:value]]
+                           }
+                           aList.sort!
+                        when :process_call
+                           raise ForjError.new(), "#{sKey}: query_type => :process_call requires missing :query_call declaration (Provider function)" if hValues[:query_call].nil?
+                           pProc = hValues[:query_call]
+                           sObjectToLoad = hValues[:object]
+                           oParams = ObjectData.new
+                           oParams.add(oObject)
+                           oParams << hValues[:query_params]
+                           begin
+                              aList = @oForjProcess.method(pProc).call(sObjectToLoad, oParams)
+                           rescue => e
+                              raise ForjError.new(), "Error during call of '%s':\n%s" % [pProc, e.message]
+                           end
+                        else
+                           raise ForjError.new, "'%s' invalid. %s/list_values/values_type supports %s. " % [hValues[:values_type], sKey, [:provider_function]]
+                     end
+                     Logging.fatal(1, "%s requires a value from the '%s' query which is empty." % [sKey, sObjectToLoad])if aList.nil? and bListStrict
+                     aList = [] if aList.nil?
+                     if not bListStrict
+                        aList << "other"
+                     end
+                     say("Enter %s" % ((sDefault.nil?)? sDesc : sDesc + " |%s|" % sDefault))
+                     value = choose { | q |
+                        q.choices(*aList)
+                        q.default = sDefault if sDefault
+                     }
+                     if not bListStrict and value == "other"
+                        value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
                      end
                   else
-                     raise ForjError.new, "'%s' invalid. %s/list_values/values_type supports %s. " % [hValues[:values_type], sKey, [:provider_function]]
-               end
-               Logging.fatal(1, "%s requires a value from the '%s' query which is empty." % [sKey, sObjectToLoad])if aList.nil? and bListStrict
-               aList = [] if aList.nil?
-               if not bListStrict
-                  aList << "other"
-               end
-               say("Enter %s" % ((sDefault.nil?)? sDesc : sDesc + " |%s|" % sDefault))
-               value = choose { | q |
-                  q.choices(*aList)
-                  q.default = sDefault if sDefault
-               }
-               if not bListStrict and value == "other"
-                  value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
-               end
-            else
-               value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
-            end
+                     pValidateProc = hParam[:validate_function]
 
-            @oForjConfig.set(sKey, value)
+                     unless pValidateProc.nil?
+                        value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                        while not @oForjProcess.method(pValidateProc).call(value)
+                           value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                        end
+                     else
+                        value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                     end
+                  end
+
+                  @oForjConfig.set(sKey, value)
+                  if hParam[:post_step_function]
+                     pProc = hParam[:post_step_function]
+                     bOk = @oForjProcess.method(pProc).call()
+                  end
+               end
+            }
          }
       }
    end
@@ -1519,7 +1645,7 @@ class BaseDefinition
    def get_object(sCloudObj)
       #~ return nil if rhExist?(@CloudData, sCloudObj) != 1
       return nil if not @ObjectData.exist?(sCloudObj)
-      @ObjectData[sCloudObj]
+      @ObjectData[sCloudObj, :ObjectData]
       #~ rhGet(@CloudData, sCloudObj)
    end
 

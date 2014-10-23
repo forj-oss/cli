@@ -28,7 +28,10 @@ module HPCompute
    end
 
    def HPCompute.query_image(oComputeConnect, sQuery)
-     oComputeConnect.images.all(sQuery)
+      # HP Fog query is exact matching. No way to filter with a Regexp
+      # Testing it and filtering it.
+      # TODO: Be able to support Regexp in queries then extract all and filter.
+      oComputeConnect.images.all(sQuery)
    end
 
    def HPCompute.query_flavor(oComputeConnect, sQuery)

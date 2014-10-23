@@ -31,7 +31,7 @@
   :ports: [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
 
   # Private key file path. Those files (private/public key) will be added to ~/.forj/keypairs/ as respectively 'keypair_name' and 'keypair_name'.pub
-  :keypair_path: ~/.ssh/forj-id_rsa
+  :keypair_files: ~/.ssh/forj-id_rsa
   :keypair_name: forj
 
   # Network: If network doesn't exist, forj cli will try to create it, and attach it a router.
@@ -63,6 +63,12 @@
 # It defines the account file structure. section/key=value
 # All data can be predefined by default value (config.yaml/defaults.yaml) except
 # those identified by :account_exclusive: true
+:setup:
+   :ask_step:
+      -  :desc:    "Provider configuration:"
+      -  :desc:    "Maestro and blueprint configuration:"
+         :add:
+            - :keypair_files
 :sections:
   # This section define updatable data available from config.yaml. But will never be added in an account file.
   # Used by forj set/get functions
@@ -96,37 +102,56 @@
 
   # Defines ssh keys credentials
   :credentials:
+    :keypair_files:
+      :explanation:        |-
+         A keypair is a combination of SSH public and private key files. Usually, generated in your '$HOME/.ssh/' directory.
+         The private key is used to identify yourself to access your box via ssh.
+         The public key is used to configure your server to authorize you to access the box with your private key.
+         This keypair files will be copied to '$HOME/.forj/keypairs/ under <keypair_name> files for 'forj' needs.
+
+         If the keypair does exists locally, it will be created for you.
+      :desc:               "Base keypair file name"
+      :default_value:      "~/.ssh/id_rsa-forj"
+      :validate_function:  :forj_check_keypairs_files
+      :account:            true
+      :ask_step:           1
+      :after:              :keypair_name
+      :post_step_function: :forj_setup_keypairs_files
     :keypair_path:
-      :desc:              "public key file to send to the cloud under keypair name, and private key to keep on your local forj environment to access your boxes."
+      :desc:               "Forj internal copy of private and public key pair files "
     :keypair_name:
-      :desc:              "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
+      :desc:               "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
+      :validate:           !ruby/regexp /^\w?\w*$/
+      :default_value:      "forj"
+      :account:            true
+      :ask_step:           1
     :auth_uri:
-      :desc:              "Generic service auth url"
-      :account_exclusive: true
-      :account:           true
-      :required:          true
-      :ask_sort:          0
+      :desc:               "Generic service auth url"
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :ask_sort:           0
     :account_id:
-      :desc:              "Generic Cloud Account name."
-      :account_exclusive: true
-      :account:           true
-      :required:          true
+      :desc:               "Generic Cloud Account name."
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
     :account_key:
-      :desc:              "Generic cloud account key"
-      :account_exclusive: true
-      :account:           true
-      :required:          true
+      :desc:               "Generic cloud account key"
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
     :tenant:
-      :desc:             "Generic Tenant identification"
-      :account_exclusive: true
-      :account:           true
-      :required:          true
+      :desc:               "Generic Tenant identification"
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
     :os_user:
-      :desc:              "User name required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
-      :account_exclusive: true
-      :account:           true
-      :required:          true
-      :validate: !ruby/regexp /\w+/
+      :desc:               "User name required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :validate:           !ruby/regexp /\w+/
     :os_enckey:
       :desc:              "Encrypted password required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
       :account_exclusive: true
@@ -148,12 +173,20 @@
 
   :maestro:
     :tenant_name:
-      :desc:       "Tenant name required by fog/openstack on gardener"
+      :desc:            "Tenant name required by fog/openstack on gardener"
     :network_name:
-      :desc:       "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
-      :default:    network
+      :desc:            "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
+      :default:         network
+      :account:         true
+      :validate:        !ruby/regexp /^\w?\w*$/
+      :default_value:   "forj"
+      :ask_step:        1
     :security_group:
-      :desc:        "Security group name to configure and attach to each forge boxes."
+      :desc:            "Security group name to configure and attach to each forge boxes."
+      :account:         true
+      :validate:        !ruby/regexp /^\w?\w*$/
+      :default_value:   "forj"
+      :ask_step:        1
     :maestro_repo:
       :desc:       "To use a different Maestro repository already cloned."
     :infra_repo:
@@ -164,11 +197,33 @@
       :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
     :bp_flavor:
       :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
+      :account:    true
+      :list_values:
+         :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all.
+         :object:       :flavor
+         :value:        :name
+         :validate:     :list_strict
+      :ask_step:        1
     :flavor_name:
       :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
       :default:    :flavor
+      :account:    true
+      :list_values:
+         :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all.
+         :object:       :flavor
+         :value:        :name
+         :validate:     :list_strict
+      :ask_step:        1
     :image_name:
-      :desc:       "Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
+      :desc:       "Ubuntu image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
+      :account:    true
+      :ask_step:        1
+      :list_values:
+         :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all. No filter currently working.
+         :object:       :image
+         :value:        :name
+         :validate:     :list_strict
+      :ask_step:        1
     :ports:
       :desc:       "List of security group rules (1 port or range of ports) to open to the external network."
     :branch:

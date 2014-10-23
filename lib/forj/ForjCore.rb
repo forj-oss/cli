@@ -95,6 +95,7 @@ class BaseDefinition
    obj_needs   :data,         :instance_name
 
    obj_needs_optional
+   obj_needs   :CloudObject,  :server
    obj_needs   :data,         :blueprint
 
 end

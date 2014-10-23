@@ -62,7 +62,7 @@ class CloudProcess
       sKeypair_name = hParams[:keypair_name]
       # setup has configured and copied the appropriate key to forj keypairs.
 
-      hKeys = keypair_detect(sKeypair_name, config[:keypair_path])
+      hKeys = keypair_detect(sKeypair_name, File.expand_path(hParams[:keypair_path]))
       if hKeys[:private_key_exist? ]
          hParams[:private_key_file] = File.join(hKeys[:keypair_path], hKeys[:private_key_name])
          Logging.info("Openssh private key file '%s' exists." % hParams[:private_key_file])
@@ -184,18 +184,17 @@ end
 
 
 class CloudProcess < BaseProcess
-  def forj_get_or_create_image(sCloudObj, hParams)
-    sImage_name = hParams[:image_name]
-    Logging.state("Searching for image '%s'" % [sImage_name] )
+   def forj_get_or_create_image(sCloudObj, hParams)
+      sImage_name = hParams[:image_name]
+      Logging.state("Searching for image '%s'" % [sImage_name] )
 
-    forj_query_image(sCloudObj, {:name => sImage_name}, hParams)
-  end
+      search_the_image(sCloudObj, {:name => sImage_name}, hParams)
+      # No creation possible.
+   end
 
-  def forj_query_image(sCloudObj, sQuery, hParams)
-    image_name = hParams[:image_name]
-    oSSLError = SSLErrorMgt.new
-    begin
-      images = controler.query(sCloudObj, sQuery)
+   def search_the_image(sCloudObj, sQuery, hParams)
+      image_name = hParams[:image_name]
+      images = forj_query_image(sCloudObj, sQuery, hParams)
       case images.length()
         when 0
           Logging.info("No image '%s' found" % [ image_name ] )
@@ -204,12 +203,18 @@ class CloudProcess < BaseProcess
           Logging.info("Found image '%s'." % [ image_name ])
           images[0]
       end
-    rescue => e
-      if not oSSLError.ErrorDetected(e.message,e.backtrace)
-        retry
+   end
+
+   def forj_query_image(sCloudObj, sQuery, hParams)
+      oSSLError = SSLErrorMgt.new
+      begin
+         controler.query(sCloudObj, sQuery)
+      rescue => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+           retry
+         end
       end
-    end
-  end
+   end
 end
 
 class CloudProcess < BaseProcess

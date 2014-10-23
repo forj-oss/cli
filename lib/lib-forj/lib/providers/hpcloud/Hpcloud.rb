@@ -109,55 +109,52 @@ class Hpcloud < BaseDefinition
    get_attr_mapping :server_id, :instance_id
    get_attr_mapping :public_ip, :ip
 
-   # defines setup Cloud data
+   # defines setup Cloud data (:account => true for setup)
    define_data(:account_id, {
+      :account => true,
       :desc => 'HPCloud Access Key (From horizon, user drop down, manage keys)',
       :validate => /^[A-Z0-9]*$/
    })
    define_data(:account_key, {
+      :account => true,
       :desc => 'HPCloud secret Key (From horizon, user drop down, manage keys)',
       :encrypted => false,
       :validate => /^.+/
    })
    define_data(:auth_uri, {
+      :account => true,
       :desc => 'HPCloud Authentication service URL (default is HP Public cloud)',
       :validate => /^http(s)?:\/\/.*$/,
-      :default => "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/"
+      :default_value => "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/"
    })
    define_data(:tenant, {
+      :account => true,
       :desc => 'HPCloud Tenant ID (from horizon, identity, projecs, Project ID)',
       :validate => /^[0-9]+$/
    })
 
    define_data(:compute, {
+      :account => true,
       :desc => 'HPCloud Compute service zone (Ex: region-a.geo-1)',
       :depends_on => [:account_id, :account_key, :auth_uri,:tenant ],
       :list_values => {
          :query_type  => :controller_call,
          :object       => :services,
          :query_call   => :get_services,
-         :query_params => { :list_services => :Compute },
+         :query_params => { :list_services => :compute },
          :validate     => :list_strict
       }
    })
 
    define_data(:network, {
+      :account => true,
       :desc => 'HPCloud Network service zone (Ex: region-a.geo-1)',
       :depends_on => [:account_id, :account_key, :auth_uri,:tenant ],
       :list_values => {
          :query_type  => :controller_call,
          :object       => :services ,
          :query_call   => :get_services,
-         :query_params => { :list_services => :Networking },
-         :validate     => :list_strict
-      }
-   })
-
-   define_data(:flavor_name, {
-      :desc => 'HPCloud flavor name',
-      :list_values => {
-         :query_type   => :process_call, # Will execute a query on flavor, query_params is empty for all.
-         :object       => :flavor,
+         :query_params => { :list_services => :network },
          :validate     => :list_strict
       }
    })
@@ -374,7 +371,14 @@ class HpcloudController < BaseController
    def get_services(sObjectType, oParams)
       case sObjectType
          when :services
-            result = oParams[:services, :service_catalog, oParams[:list_services]].keys
+            # oParams[sObjectType] will provide the controller object.
+            # This one can be interpreted only by controller code,
+            # except if controller declares how to map with this object.
+            # Processes can deal only process mapped data.
+            # Currently there is no services process function. No need to map.
+            hServices = oParams[:services]
+            result = rhGet(hServices, :service_catalog, oParams[:list_services]).keys
+            result.delete("name")
             result.each_index { | iIndex |
                result[iIndex] = result[iIndex].to_s if result[iIndex].is_a?(Symbol)
             }

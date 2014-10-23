@@ -183,8 +183,7 @@ class BaseDefinition
 
    obj_needs   :CloudObject,  :compute_connection
    obj_needs   :data,         :keypair_name,       { :for => [:create_e] }
-   obj_needs_optional
-   obj_needs   :data,         :public_key_file,    { :for => [:create_e] }
+   obj_needs   :data,         :keypair_path,       { :for => [:create_e] }
 
    # ************************************ Image Object
    # Identify image

@@ -396,3 +396,106 @@ class ForjCoreProcess
    end
 
 end
+
+class ForjCoreProcess
+   # Functions for setup
+
+   # Check files existence
+   def forj_check_keypairs_files(keypath)
+      key_name = config.get(:keypair_name)
+
+      keys_entered = keypair_detect(key_name, keypath)
+      if not keys_entered[:private_key_exist? ] and not keys_entered[:public_key_exist? ]
+         if agree("The key you entered was not found. Do you want to create this one?")
+            base_dir = keys_entered[:keypair_path]
+            if not File.directory?(base_dir)
+               if agree("'%s' doesn't exist. Do you want to create it?" % base_dir)
+                  AppInit.ensure_dir_exists(base_dir)
+               else
+                  return false
+               end
+            end
+         else
+            return false
+         end
+      end
+      true
+   end
+
+   # keypair_files post setup
+   def forj_setup_keypairs_files
+      # Getting Account keypair information
+      key_name = config.get(:keypair_name)
+      key_path = File.expand_path(config.get(:keypair_files))
+
+      keys_imported = nil
+      keys_imported = keypair_detect(key_name, config.oConfig.LocalGet(key_name, :imported_keys)) if config.oConfig.LocalExist?(key_name, :imported_keys)
+      keys = keypair_detect(key_name, key_path)
+
+      if keys_imported and keys_imported[:key_basename] != keys[:key_basename] and $FORJ_KEYPAIRS_PATH != keys[:keypair_path]
+         Logging.warning("The private key '%s' was assigned to a different private key file '%s'.\nTo not overwrite it, we recommend you to choose a different keypair name." % [key_name, keys_imported[:key_basename] ])
+         new_key_name = key_name
+         sMsg = "Please, provide a different keypair name:"
+         while key_name == new_key_name
+            new_key_name = ask (sMsg) do | q |
+               q.validate = /.+/
+            end
+            new_key_name = new_key_name.to_s
+            sMsg = "Incorrect. You have to choose a keypair name different than '#{key_name}'. If you want to interrupt, press Ctrl-C and retry later.\nSo, please, provide a different keypair name:" if key_name == new_key_name
+         end
+         key_name = new_key_name
+         config.set(:key_name, key_name)
+         keys = keypair_detect(key_name, key_path)
+      end
+
+
+
+      Logging.info("Configuring forj keypair '%s' with '%s'" % [ keys[:keypair_name], File.join(keys[:keypair_path], keys[:key_basename]) ] )
+
+      private_key_file = File.join(keys[:keypair_path], keys[:private_key_name])
+      public_key_file = File.join(keys[:keypair_path], keys[:public_key_name])
+
+
+      # Creation sequences
+      if not keys[:private_key_exist? ]
+         # Need to create a key. ask if we need so.
+         Logging.message("The private key file attached to keypair named '%s' is not found. Running ssh-keygen to create it." % keys[:keypair_name])
+         if not File.exists?(private_key_file)
+            AppInit.ensure_dir_exists(File.dirname(private_key_file))
+            command = 'ssh-keygen -t rsa -f %s' % private_key_file
+            Logging.debug("Executing '%s'" % command)
+            system(command)
+         end
+         if not File.exists?(private_key_file)
+            Logging.fatal(1, "'%s' not found. Unable to add your keypair to hpcloud. Create it yourself and provide it with -p option. Then retry." % [private_key_file])
+         else
+            Logging.fatal(1, "ssh-keygen did not created your key pairs. Aborting. Please review errors in ~/.forj/forj.log")
+         end
+      end
+
+      if not keys[:public_key_exist? ]
+         Logging.message("Your public key '%s' was not found. Getting it from the private one. It may require your passphrase." % [public_key_file])
+         command = 'ssh-keygen -y -f %s > %s' % [private_key_file,public_key_file ]
+         Logging.debug("Executing '%s'" % command)
+         system(command)
+      end
+
+      forj_private_key_file = File.join($FORJ_KEYPAIRS_PATH, key_name )
+      forj_public_key_file = File.join($FORJ_KEYPAIRS_PATH, key_name + ".pub")
+
+      # Saving sequences
+      if keys[:keypair_path] != $FORJ_KEYPAIRS_PATH
+         if not File.exists?(forj_private_key_file)
+            Logging.info("Importing key pair to FORJ keypairs list.")
+            FileUtils.copy(private_key_file, forj_private_key_file)
+            FileUtils.copy(public_key_file, forj_public_key_file)
+            # Attaching this keypair to the account
+            rhSet(@hAccountData, key_name, :credentials, 'keypair_name')
+            rhSet(@hAccountData, forj_private_key_file, :credentials, 'keypair_path')
+            config.oConfig.LocalSet(key_name.to_s, private_key_file, :imported_keys)
+         end
+      end
+      # Saving internal copy of private key file for forj use.
+      config.set(:keypair_path, forj_private_key_file )
+   end
+end
