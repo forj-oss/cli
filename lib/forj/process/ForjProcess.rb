@@ -448,10 +448,6 @@ class ForjCoreProcess
          keys = keypair_detect(key_name, key_path)
       end
 
-
-
-      Logging.info("Configuring forj keypair '%s' with '%s'" % [ keys[:keypair_name], File.join(keys[:keypair_path], keys[:key_basename]) ] )
-
       private_key_file = File.join(keys[:keypair_path], keys[:private_key_name])
       public_key_file = File.join(keys[:keypair_path], keys[:public_key_name])
 
@@ -497,5 +493,6 @@ class ForjCoreProcess
       end
       # Saving internal copy of private key file for forj use.
       config.set(:keypair_path, forj_private_key_file )
+      Logging.info("Configured forj keypair '%s' with '%s'" % [ keys[:keypair_name], File.join(keys[:keypair_path], keys[:key_basename]) ] )
    end
 end

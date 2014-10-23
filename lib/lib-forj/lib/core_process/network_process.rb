@@ -110,7 +110,9 @@ class CloudProcess < BaseProcess
    def find_network(sCloudObj, hParams)
       begin
          # retrieve the Provider collection object.
-         query_single(sCloudObj, {:name => hParams[:network_name]}, hParams[:network_name])
+         sQuery = {:name => hParams[:network_name]}
+         oList = controler.query(sCloudObj, sQuery)
+         query_single(sCloudObj, sQuery, hParams[:network_name])
       rescue => e
          Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
@@ -495,7 +497,8 @@ class CloudProcess
             :items      => [:dir, :rule_proto, :port_min, :port_max, :addr_map],
             :items_form => '%s %s:%s - %s to %s'
          }
-         query_single(sCloudObj, sQuery, sRule, sInfo)
+         oList = controler.query(sCloudObj, sQuery)
+         query_single(sCloudObj, oList, sQuery, sRule, sInfo)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry

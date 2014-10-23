@@ -92,7 +92,8 @@ class CloudProcess
       key_name = hParams[:keypair_name]
       oSSLError = SSLErrorMgt.new
       begin
-         query_single(sCloudObj, sQuery, key_name)
+         oList = controler.query(sCloudObj, sQuery)
+         query_single(sCloudObj, oList, sQuery, key_name)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
@@ -168,17 +169,24 @@ class CloudProcess
    end
 
    # Should return 1 or 0 flavor.
+   def query_flavor(sCloudObj, sQuery, hParams)
+      sFlavor_name = hParams[:flavor_name]
+      forj_query_flavor(sCloudObj, sQuery, hParams)
+      query_single(sCloudObj, oList, sQuery, sFlavor_name)
+   end
+
+   # Should return 1 or 0 flavor.
    def forj_query_flavor(sCloudObj, sQuery, hParams)
       sFlavor_name = hParams[:flavor_name]
       oSSLError = SSLErrorMgt.new
       begin
-         query_single(sCloudObj, sQuery, sFlavor_name)
+         oList = controler.query(sCloudObj, sQuery)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
             retry
          end
       end
-
+      oList
    end
 end
 
@@ -236,12 +244,8 @@ class CloudProcess < BaseProcess
       server_name = sQuery[:name] if sQuery.key?(:name)
       oSSLError = SSLErrorMgt.new
       begin
-         query_single(sCloudObj, sQuery, server_name) { | iCount, oList, sInfo |
-            if iCount == 0
-
-            else
-            end
-         }
+         oList = controler.query(sCloudObj, sQuery)
+         query_single(sCloudObj, oList, sQuery, server_name)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
            retry
@@ -312,7 +316,8 @@ class CloudProcess < BaseProcess
          :more       => "Found several %s. Searching for '%s'.",
          :items      => :public_ip
          }
-         query_single(sCloudObj, sQuery, server_name, sInfo)
+         oList = controler.query(sCloudObj, sQuery)
+         query_single(sCloudObj, oList, sQuery, server_name, sInfo)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace)
            retry

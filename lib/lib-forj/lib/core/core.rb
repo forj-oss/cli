@@ -610,7 +610,7 @@ class BaseProcess
       @oDefinition.config
    end
 
-   def query_single(sCloudObj, sQuery, name, sInfoMsg = {})
+   def query_single(sCloudObj, oList, sQuery, name, sInfoMsg = {})
       oList = controler.query(sCloudObj, sQuery)
       sInfo = {
          :notfound   => "No %s '%s' found",
