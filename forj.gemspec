@@ -46,6 +46,9 @@ Gem::Specification.new do |s|
                      lib/helpers.rb
                      lib/forj-config.rb
                      lib/forj-account.rb
+                     lib/build_tmpl/build-env.py
+                     lib/build_tmpl/bootstrap_build.sh
+                     lib/build_tmpl/write-mime-multipart.py
                      spec/boot_spec.rb
                      spec/connection_spec.rb
                      spec/down_spec.rb

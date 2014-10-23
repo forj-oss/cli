@@ -62,11 +62,12 @@ end
 
 oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 
+oConfig.set(:instance_name, "test")
 #oCloud.Create(:metadata)
-
+#oCloud.Create(:infra_repository)
+oCloud.Create(:userdata)
 
 #oCloud.Setup(:server, 'hpcloud')
-oCloud.Setup(:forge, 'hpcloud')
+#oCloud.Setup(:forge, 'hpcloud')
 
-#oConfig.set(:instance_name, "test")
 #oCloud.Create(:forge)

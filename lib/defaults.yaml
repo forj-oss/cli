@@ -43,6 +43,8 @@
   :box_name: maestro
 
   :provider_name: hpcloud
+
+  :maestro_bootstrap_dir:  build/maestro/bootstrap
 :description:
   # Description of build.sh environment variable defined by forj cli for build.sh. (~/.forj/infra/build/<Account>.build.env)
   :FORJ_HPC:             "HPCloud cli Account used to build your Maestro box"
@@ -225,6 +227,10 @@
          :validate:     :list_strict
       :ask_step:        1
     :ports:
-      :desc:       "List of security group rules (1 port or range of ports) to open to the external network."
+      :desc:            "List of security group rules (1 port or range of ports) to open to the external network."
     :branch:
-      :desc:       "Branch to use to build your forge"
+      :desc:            "Branch to use to build your forge"
+    :bootstrap_dirs:
+      :desc:            "Additional bootstrap directories (separated by space) to add in the bootstrap loop."
+    :bootstrap_extra_dir:
+      :desc:            "Additional bootstrap directory to add in the bootstrap loop, before :bootstrap_dirs and after maestro default bootstrap directory."

@@ -29,6 +29,7 @@ module AppInit
       $FORJ_DATA_PATH = File.expand_path(File.join('~', '.forj'))
       $FORJ_ACCOUNTS_PATH = File.join($FORJ_DATA_PATH, 'accounts')
       $FORJ_KEYPAIRS_PATH = File.join($FORJ_DATA_PATH, 'keypairs')
+      $FORJ_BUILD_PATH = File.join($FORJ_DATA_PATH, '.build')
       $FORJ_CREDS_PATH = File.expand_path(File.join('~', '.cache', 'forj'))
 
       # TODO: To move to an hpcloud object.
@@ -37,6 +38,7 @@ module AppInit
 
       AppInit.ensure_dir_exists($FORJ_DATA_PATH)
       AppInit.ensure_dir_exists($FORJ_ACCOUNTS_PATH)
+      AppInit.ensure_dir_exists($FORJ_BUILD_PATH)
       AppInit.ensure_dir_exists($FORJ_KEYPAIRS_PATH)
       FileUtils.chmod(0700, $FORJ_KEYPAIRS_PATH)
       AppInit.ensure_dir_exists($FORJ_CREDS_PATH)

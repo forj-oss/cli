@@ -45,15 +45,6 @@ class BaseDefinition
    obj_needs   :data,         :infra_repo
    obj_needs   :data,         :branch
 
-   # ******************* userdata object
-   define_obj  :userdata,
-      {
-         :create_e => :build_userdata
-      }
-
-   obj_needs   :CloudObject,  :maestro_repository
-   obj_needs   :CloudObject,  :infra_repository
-
    # ******************* metadata object
    define_obj  :metadata,
       {
@@ -83,6 +74,16 @@ class BaseDefinition
    obj_needs   :data,   :bootstrap
    # Add init additional git clone steps.
    obj_needs   :data,   :repos
+
+   # ******************* userdata object
+   define_obj  :userdata,
+      {
+         :create_e => :build_userdata
+      }
+
+   obj_needs   :CloudObject,  :maestro_repository
+   obj_needs   :CloudObject,  :metadata
+   obj_needs   :CloudObject,  :infra_repository
 
    # ******************* forge object
    define_obj  :forge,

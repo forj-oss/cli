@@ -21,6 +21,7 @@ require 'git'
 require 'fileutils'
 require 'find'
 require 'digest'
+require 'json'
 
 $INFRA_VERSION = "0.0.37"
 
@@ -69,7 +70,7 @@ class ForjCoreProcess
          hpcloud_priv = pipe.read
       }
 
-      config.set(:server_name, "maestro.%s" % hParams[:instance_name])
+      config.set(:server_name, "maestro.%s" % hParams[:instance_name]) # Used by :server object
 
       hMeta = {
          'cdksite' => config.get(:server_name),
@@ -100,11 +101,14 @@ class ForjCoreProcess
       # Add init bootstrap additionnal steps
       hMeta['bootstrap'] = hParams[:bootstrap] if hParams[:bootstrap]
 
-      config.set(:meta_data, hMeta)
+      config.set(:meta_data, hMeta) # Used by :server object
 
       Logging.info("Metadata set:\n%s" % hMeta)
 
-      register(hMeta, sObjectType)
+      oMetaData = register(hMeta, sObjectType)
+      oMetaData[:meta_data] = hMeta
+
+      oMetaData
    end
 
    def build_forge(sObjectType, hParams)
@@ -495,4 +499,52 @@ class ForjCoreProcess
       config.set(:keypair_path, forj_private_key_file )
       Logging.info("Configured forj keypair '%s' with '%s'" % [ keys[:keypair_name], File.join(keys[:keypair_path], keys[:key_basename]) ] )
    end
+end
+
+
+class ForjCoreProcess
+   def build_userdata(sObjectType, hParams)
+      # get the paths for maestro and infra repositories
+      maestro_path = hParams[:maestro_repository].values
+      infra_path = hParams[:infra_repository].values
+
+      # concatenate the paths for boothook and cloud_config files
+      #~ build_dir = File.expand_path(File.join($FORJ_DATA_PATH, '.build'))
+      #~ boothook = File.join(maestro_path, 'build', 'bin', 'build-tools')
+      #~ cloud_config = File.join(maestro_path, 'build', 'maestro')
+
+      # TODO: Be able to support multiple call of forj cli...
+      mime = File.join($FORJ_BUILD_PATH, 'userdata.mime')
+
+      meta_data = JSON.generate(hParams[:metadata, :meta_data])
+
+      build_tmpl_dir = File.expand_path(File.join($LIB_PATH, 'build_tmpl'))
+
+      Logging.state("Preparing user_data - file '%s'" % mime)
+      # generate boot_*.sh
+      mime_cmd = "#{build_tmpl_dir}/write-mime-multipart.py"
+      bootstrap = "#{build_tmpl_dir}/bootstrap_build.sh"
+
+      cmd = "%s '%s' '%s' '%s' '%s' '%s' '%s'" % [
+         bootstrap, # script
+         $FORJ_DATA_PATH, # $1 = Forj data base dir
+         hParams[:maestro_repository, :maestro_repo], # $2 = Maestro repository dir
+         config[:bootstrap_dirs], # $3 = Bootstrap directories
+         config[:bootstrap_extra_dir], # $4 = Bootstrap extra directory
+         meta_data,  # $5 = meta_data (string)
+         mime_cmd # $6: mime script file to execute.
+      ]
+      raise ForjError.new, "#{bootstrap} script file is not found." if not File.exists?(bootstrap)
+      Logging.debug("Running '%s'" % cmd)
+      Kernel.system(cmd)
+
+      raise ForjError.new(), "mime file '%s' not found." % mime if not File.exists?(mime)
+
+      config[:user_data] = mime
+
+      oUserData = register(hParams, sObjectType)
+      oUserData[:mime] = mime
+      Logging.info("user_data prepared. File: '%s'" % mime)
+      oUserData
+  end
 end
