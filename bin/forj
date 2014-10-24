@@ -39,11 +39,9 @@ require 'forj-config.rb' # Load class ForjConfig and Meta data class variables. 
 require 'forj-account.rb' # Load class ForjAccount
 require 'connection.rb' # Load class ForjConnection
 
-require 'boot.rb'
 require 'down.rb'
 require 'ssh.rb'
 
-include Boot
 include Down
 include Ssh
 require 'forj-settings.rb' # Settings features
@@ -60,6 +58,7 @@ class ForjThor < Thor
   class_option :debug,   :aliases => '-d', :desc => 'Set debug mode'
   class_option :verbose, :aliases => '-v', :desc => 'Set verbose mode'
   class_option :config,  :aliases => '-c', :desc => 'Path to a different forj config file. By default, use ~/.forj/config.yaml'
+  class_option :libforj_debug,             :desc => "Set lib-forj debug level verbosity. 1 to 5. Default is one."
 
 
   desc "help [action]", "Describe available FORJ actions or one specific action"
@@ -145,6 +144,11 @@ Maestro/infra bootstrap debugging:"
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
 
+      unless options[:libforj_debug].nil?
+         $LIB_FORJ_DEBUG = options[:libforj_debug].to_i
+         Logging.set_level(Logger::DEBUG)
+      end
+
       oConfig = ForjConfig.new(options[:config])
 
 
@@ -193,8 +197,28 @@ Maestro/infra bootstrap debugging:"
             Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
          end
       end
+      aProcesses = []
 
-      Boot.boot(blueprint, name, options[:build], options[:boothook], options[:box_name], oForjAccount)
+      # Defines how to manage Maestro and forges
+      # create a maestro box. Identify a forge instance, delete it,...
+      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
+
+      # Defines how cli will control FORJ features
+      # boot/down/ssh/...
+      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
+
+      oCloud = ForjCloud.new(oForjAccount, oConfig[:account_name], aProcesses)
+
+      oConfig[:instance_name] = name
+
+      if blueprint == 'maestro'
+         Logging.info("Starting boot process of '%s'. No blueprint requested." % oConfig[:instance_name])
+      else
+         oConfig[:blueprint] = blueprint
+         Logging.info("Starting boot process of '%s' with blueprint '%s'." % [oConfig[:instance_name], oConfig[:blueprint]])
+      end
+      oCloud.Create(:forge)
+      #Boot.boot(blueprint, name, options[:build], options[:boothook], options[:box_name], oForjAccount)
   end
 
 ################################# Show defaults
@@ -370,8 +394,6 @@ ex: forj ssh myforge review
 ################################# SETUP
 
   desc 'setup [AccountName [Provider]] [options]', "Setup FORJ cloud account credentials and information."
-
-  method_option :libforj_debug, :desc => "Set lib-forj debug level verbosity. 1 to 5. Default is one."
 
   long_desc <<-LONGDESC
 This setup will configure a FORJ account used to connect to your cloud system.

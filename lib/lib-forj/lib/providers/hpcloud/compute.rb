@@ -52,7 +52,7 @@ module HPCompute
                 :security_groups => [oSecurity_groups.name],
                 :networks => [oNetwork.id]
                 }
-      options[:user_data] = oUser_data if oUser_data
+      options[:user_data_encoded] = Base64.strict_encode64(oUser_data) if oUser_data
       options[:metadata] = oMeta_data if oMeta_data
       server = oComputeConnect.servers.create(options)
       HPCompute.get_server(oComputeConnect, server.id ) if server

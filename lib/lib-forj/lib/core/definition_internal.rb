@@ -230,7 +230,11 @@ class BaseDefinition
                if hParams[:required] and @ObjectData.type?(sKey) != :DataObject
                   raise ForjError.new(), "Object '%s/%s' is not defined. '%s' requirement failed." % [ self.class, sKey, fname]
                end
-               oParams.add(@ObjectData[sKey, :ObjectData])
+               if @ObjectData.exist?(sKey)
+                  oParams.add(@ObjectData[sKey, :ObjectData])
+               else
+                  ForjLib::debug(2, "The optional '%s' was not loaded" % sKey)
+               end
             else
                raise ForjError.new(), "Undefined ObjectData '%s'." % [ hParams[:type]]
          end

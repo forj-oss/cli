@@ -35,7 +35,7 @@ Gem::Specification.new do |s|
                      lib/security.rb
                      lib/yaml_parse.rb
                      lib/defaults.yaml
-                     lib/down.rb lib/boot.rb
+                     lib/down.rb
                      lib/appinit.rb
                      lib/forj-settings.rb
                      lib/repositories.rb
@@ -98,5 +98,6 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'highline', '~> 1.6.21'
   s.add_runtime_dependency 'ansi', '>= 1.4.3'
   s.add_runtime_dependency 'encryptor', '1.3.0'
+  s.add_runtime_dependency 'json', '1.7.5'
 
 end

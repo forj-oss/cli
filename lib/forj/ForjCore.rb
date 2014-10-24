@@ -101,7 +101,7 @@ class BaseDefinition
 #         :delete_e => :drop_forge
       }
    obj_needs   :CloudObject,  :metadata
-   #~ obj_needs   :CloudObject,  :userdata
+   obj_needs   :CloudObject,  :userdata
    obj_needs   :data,         :instance_name
 
    obj_needs_optional

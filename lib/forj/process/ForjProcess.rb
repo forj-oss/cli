@@ -47,7 +47,7 @@ class ForjCoreProcess
          encoded_key = IO.read(key_file)
          entr = YAML.load(Base64::decode64(encoded_key))
       end
-      os_enckey = hParams(:os_enckey)
+      os_enckey = hParams[:os_enckey]
 
       begin
          os_key = Encryptor.decrypt(
@@ -62,10 +62,10 @@ class ForjCoreProcess
 
       hpcloud_priv = nil
       IO.popen('gzip -c' , 'r+') {|pipe|
-         pipe.puts('HPCLOUD_OS_USER=%s' % [hParams(:os_user)] )
+         pipe.puts('HPCLOUD_OS_USER=%s' % [hParams[:os_user]] )
          pipe.puts('HPCLOUD_OS_KEY=%s' % [os_key] )
-         pipe.puts('DNS_KEY=%s' % [hParams(:account_id)] )
-         pipe.puts('DNS_SECRET=%s' % [hParams(:account_key)])
+         pipe.puts('DNS_KEY=%s' % [hParams[:account_id]] )
+         pipe.puts('DNS_SECRET=%s' % [hParams[:account_key]])
          pipe.close_write
          hpcloud_priv = pipe.read
       }
@@ -580,16 +580,15 @@ class ForjCoreProcess
 
       raise ForjError.new(), "mime file '%s' not found." % mime if not File.exists?(mime)
 
-      config[:user_data] = mime
+      user_data = File.read(mime)
+
+      config[:user_data] = user_data
 
       oUserData = register(hParams, sObjectType)
+      oUserData[:user_data] = user_data
+      oUserData[:user_data_encoded] = Base64.strict_encode64(user_data)
       oUserData[:mime] = mime
       Logging.info("user_data prepared. File: '%s'" % mime)
       oUserData
   end
 end
-
-
-
-
- 

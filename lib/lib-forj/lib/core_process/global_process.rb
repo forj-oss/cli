@@ -57,6 +57,9 @@ class CloudProcess < BaseProcess
    end
 end
 
+# ---------------------------------------------------------------------------
+# Keypair management
+# ---------------------------------------------------------------------------
 class CloudProcess
    def forj_get_or_create_keypair(sCloudObj, hParams)
       sKeypair_name = hParams[:keypair_name]
@@ -148,6 +151,12 @@ class CloudProcess
       }
    end
 
+end
+
+# ---------------------------------------------------------------------------
+# flavor management
+# ---------------------------------------------------------------------------
+class CloudProcess
    # Depending on clouds/rights, we can create flavor or not.
    # Usually, flavor records already exists, and the controller may map them
    # CloudProcess predefines some values. Consult CloudProcess.rb for details
@@ -155,7 +164,7 @@ class CloudProcess
       sFlavor_name = hParams[:flavor_name]
       Logging.state("Searching for flavor '%s'" % [sFlavor_name] )
 
-      flavors = forj_query_flavor(sCloudObj, {:name => sFlavor_name}, hParams)
+      flavors = query_flavor(sCloudObj, {:name => sFlavor_name}, hParams)
       if flavors.length == 0
          if not hParams[:create]
             Logging.error("Unable to create %s '%s'. Creation is not supported." % [sCloudObj, sFlavor_name])
@@ -171,7 +180,7 @@ class CloudProcess
    # Should return 1 or 0 flavor.
    def query_flavor(sCloudObj, sQuery, hParams)
       sFlavor_name = hParams[:flavor_name]
-      forj_query_flavor(sCloudObj, sQuery, hParams)
+      oList = forj_query_flavor(sCloudObj, sQuery, hParams)
       query_single(sCloudObj, oList, sQuery, sFlavor_name)
    end
 
@@ -190,7 +199,9 @@ class CloudProcess
    end
 end
 
-
+# ---------------------------------------------------------------------------
+# Image management
+# ---------------------------------------------------------------------------
 class CloudProcess < BaseProcess
    def forj_get_or_create_image(sCloudObj, hParams)
       sImage_name = hParams[:image_name]
@@ -225,6 +236,9 @@ class CloudProcess < BaseProcess
    end
 end
 
+# ---------------------------------------------------------------------------
+# Server management
+# ---------------------------------------------------------------------------
 class CloudProcess < BaseProcess
    # Process Handler functions
    def forj_get_or_create_server(sCloudObj, hParams)
@@ -268,6 +282,8 @@ class CloudProcess < BaseProcess
    def create_server(sCloudObj, hParams)
       name = hParams[:server_name]
       begin
+         Logging.info("boot: meta-data provided.") if hParams[:meta_data]
+         Logging.info("boot: user-data provided.") if hParams[:user_data]
          Logging.state('creating server %s' % [name])
          server = controler.create(sCloudObj)
          Logging.info("%s '%s' created." % [sCloudObj, name])
@@ -288,7 +304,9 @@ class CloudProcess < BaseProcess
       end
    end
 end
-
+# ---------------------------------------------------------------------------
+# Addresses management
+# ---------------------------------------------------------------------------
 class CloudProcess < BaseProcess
    # Process Handler functions
    def forj_get_or_assign_public_address(sCloudObj, hParams)

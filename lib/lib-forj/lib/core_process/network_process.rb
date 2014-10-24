@@ -112,7 +112,7 @@ class CloudProcess < BaseProcess
          # retrieve the Provider collection object.
          sQuery = {:name => hParams[:network_name]}
          oList = controler.query(sCloudObj, sQuery)
-         query_single(sCloudObj, sQuery, hParams[:network_name])
+         query_single(sCloudObj, oList, sQuery, hParams[:network_name])
       rescue => e
          Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
       end

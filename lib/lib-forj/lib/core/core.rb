@@ -536,12 +536,13 @@ end
 class ForjCloud < ForjObject
    def initialize(oConfig, sAccount = nil, aProcesses = [])
 
-      oForjAccount = ForjAccount.new(oConfig)
-      unless sAccount.nil?
-         oForjAccount.ac_load(sAccount, false)
-         #~ sControllerMod = oForjAccount.getAccountData(:account, :provider)
-      #~ else
-         #~ sControllerMod = oConfig.get(:provider_name)
+      unless oConfig.is_a?(ForjAccount)
+         oForjAccount = ForjAccount.new(oConfig)
+         unless sAccount.nil?
+            oForjAccount.ac_load(sAccount, false)
+         end
+      else
+         oForjAccount = oConfig
       end
       aProcessList = [:CloudProcess]
 
@@ -782,7 +783,7 @@ class ObjectData
 
    def add(oDataObject)
       # Requires to be a valid framework object.
-      raise ForjError.new, "Invalid Framework object type" unless oDataObject.is_a?(ForjLib::Data)
+      raise ForjError.new, "Invalid Framework object type '%s'." % oDataObject.class unless oDataObject.is_a?(ForjLib::Data)
 
       sObjectType = oDataObject.object_type?
 
