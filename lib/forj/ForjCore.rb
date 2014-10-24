@@ -20,6 +20,11 @@
 
 # Define framework object on BaseDefinition
 # See lib/core/definition.rb for function details usage.
+
+$FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
+
+require File.join($FORJCORE_PATH, "process", "ForjProcess.rb")
+
 class BaseDefinition
 
    process_default :use_controller => false
@@ -61,12 +66,16 @@ class BaseDefinition
    obj_needs   :data,   :branch
    obj_needs   :data,   :domain_name
    obj_needs   :data,   :tenant_name
-
+   # sent in base64
+   obj_needs   :data,   :os_user
+   obj_needs   :data,   :os_enckey
+   obj_needs   :data,   :account_id
+   obj_needs   :data,   :account_key
    obj_needs_optional
 
    # If requested by user, ask Maestro to manage the DNS.
-   obj_needs   :data,   :dns_service
-   obj_needs   :data,   :dns_tenant_id
+   obj_needs   :data,   :service
+   obj_needs   :data,   :tenant_id
 
    # If requested by user, ask Maestro to instantiate a blueprint.
    obj_needs   :data,   :blueprint
@@ -88,8 +97,8 @@ class BaseDefinition
    # ******************* forge object
    define_obj  :forge,
       {
-         :create_e => :build_forge,
-         :delete_e => :drop_forge
+         :create_e => :build_forge
+#         :delete_e => :drop_forge
       }
    obj_needs   :CloudObject,  :metadata
    #~ obj_needs   :CloudObject,  :userdata
@@ -100,7 +109,3 @@ class BaseDefinition
    obj_needs   :data,         :blueprint
 
 end
-
-$FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
-
-require File.join($FORJCORE_PATH, "process", "ForjProcess.rb")

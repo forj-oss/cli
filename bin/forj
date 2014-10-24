@@ -25,6 +25,7 @@ $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 
 $LOAD_PATH << $LIB_PATH
+$LOAD_PATH << File.join($LIB_PATH, 'lib-forj', 'lib')
 
 require 'appinit.rb' # Load generic Application level function
 
@@ -40,18 +41,18 @@ require 'connection.rb' # Load class ForjConnection
 
 require 'boot.rb'
 require 'down.rb'
-require 'setup.rb'
 require 'ssh.rb'
 
 include Boot
 include Down
-include Setup
 include Ssh
 require 'forj-settings.rb' # Settings features
 
 #require 'debugger' # Use to debug with Ruby < 2.0
 #require 'byebug'   # Use to debug with Ruby >= 2.0
+require 'lib-forj.rb'
 
+$LIB_FORJ_DEBUG = 1 # less verbose
 
 
 class ForjThor < Thor
@@ -367,12 +368,11 @@ ex: forj ssh myforge review
   end
 
 ################################# SETUP
-  method_option :keypair_name,         :aliases => '-k',   :desc => "config keypair_name : Keypair name attached as default to your FORJ account."
-  method_option :keypair_path,         :aliases => '-p',   :desc => "config keypair_path : SSH key file (private or public) to attach as default to your FORJ account.
-                                       It will attach any detected private/public key thanks to the file name
-                                       (without extension/.pem = private, .pub = public)"
 
   desc 'setup [AccountName [Provider]] [options]', "Setup FORJ cloud account credentials and information."
+
+  method_option :libforj_debug, :desc => "Set lib-forj debug level verbosity. 1 to 5. Default is one."
+
   long_desc <<-LONGDESC
 This setup will configure a FORJ account used to connect to your cloud system.
 \x5It will ask for your cloud provider credentials and services.
@@ -389,14 +389,33 @@ Several data will be requested like:
 \x5- domain name to add to each boxes hostname
   LONGDESC
   def setup(sAccountName = 'hpcloud', sProvider = "hpcloud")
-    Logging.set_level(Logger::INFO)  if options[:verbose]
-    Logging.set_level(Logger::DEBUG) if options[:debug]
-    oConfig=ForjConfig.new(options[:config])
-    oConfig.set(:provider, sProvider)
-    oConfig.set(:account_name, sAccountName)
-    oConfig.set(:keypair_path, options[:keypair_path]) if options[:keypair_path]
-    oConfig.set(:keypair_name, options[:keypair_name]) if options[:keypair_name]
-    Setup.setup(oConfig)
+      Logging.set_level(Logger::INFO)  if options[:verbose]
+      Logging.set_level(Logger::DEBUG) if options[:debug]
+
+      unless options[:libforj_debug].nil?
+         $LIB_FORJ_DEBUG = options[:libforj_debug].to_i
+         Logging.set_level(Logger::DEBUG)
+      end
+
+      oConfig=ForjConfig.new(options[:config])
+      oConfig.set(:provider_name, sProvider)
+      oConfig.set(:account_name, sAccountName)
+
+      aProcesses = []
+
+      # Defines how to manage Maestro and forges
+      # create a maestro box. Identify a forge instance, delete it,...
+      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
+
+      # Defines how cli will control FORJ features
+      # boot/down/ssh/...
+      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
+
+      oCloud = ForjCloud.new(oConfig, sAccountName, aProcesses)
+
+      oCloud.Setup(:forge, sAccountName)
+      oCloud.config.ac_save()
+
   end
 
 end

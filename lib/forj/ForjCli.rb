@@ -20,6 +20,12 @@
 
 # Define framework object on BaseDefinition
 # See lib/core/definition.rb for function details usage.
+
+class ForjCliProcess
+   def connect_to(sObjectType, hParams)
+   end
+end
+
 class BaseDefinition
 
    define_obj  :box_ssh,
@@ -29,7 +35,4 @@ class BaseDefinition
    obj_needs   :CloudObject,  :forge
    obj_needs   :data,         :box_name
 
-end
-
-class ForjCliProcess
 end

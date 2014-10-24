@@ -47,7 +47,7 @@ class ForjCoreProcess
          encoded_key = IO.read(key_file)
          entr = YAML.load(Base64::decode64(encoded_key))
       end
-      os_enckey = config.get(:os_enckey)
+      os_enckey = hParams(:os_enckey)
 
       begin
          os_key = Encryptor.decrypt(
@@ -62,10 +62,10 @@ class ForjCoreProcess
 
       hpcloud_priv = nil
       IO.popen('gzip -c' , 'r+') {|pipe|
-         pipe.puts('HPCLOUD_OS_USER=%s' % [config.get(:os_user)] )
+         pipe.puts('HPCLOUD_OS_USER=%s' % [hParams(:os_user)] )
          pipe.puts('HPCLOUD_OS_KEY=%s' % [os_key] )
-         pipe.puts('DNS_KEY=%s' % [config.get(:account_id)] )
-         pipe.puts('DNS_SECRET=%s' % [config.get(:account_key)])
+         pipe.puts('DNS_KEY=%s' % [hParams(:account_id)] )
+         pipe.puts('DNS_SECRET=%s' % [hParams(:account_key)])
          pipe.close_write
          hpcloud_priv = pipe.read
       }
@@ -499,6 +499,46 @@ class ForjCoreProcess
       config.set(:keypair_path, forj_private_key_file )
       Logging.info("Configured forj keypair '%s' with '%s'" % [ keys[:keypair_name], File.join(keys[:keypair_path], keys[:key_basename]) ] )
    end
+
+   def forj_DNS_settings()
+      sAsk = "Optionally, you can ask Maestro to use/manage a domain name on your cloud. It requires your DNS cloud service to be enabled.\nDo you want to configure it?"
+      config.set(:dns_settings, agree(sAsk))
+      true
+   end
+
+   def forj_DNS_settings?(sKey)
+      # Return true to ask the question. false otherwise
+      if not config.get(:dns_settings)
+         config.set(sKey, nil)
+         return false # Do not ask
+      end
+      true
+   end
+
+   def setup_tenant_name()
+      # TODO: To re-introduce with a Controller call instead.
+      oSSLError=SSLErrorMgt.new # Retry object
+      Logging.debug("Getting tenants from hpcloud cli libraries")
+      begin
+         tenants = Connection.instance.tenants(@sAccountName)
+      rescue => e
+         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+            retry
+         end
+         Logging.fatal(1, 'Network: Unable to connect.')
+      end
+      tenant_id = rhGet(@oConfig.ExtraGet(:hpc_accounts, @sAccountName, :credentials), :tenant_id)
+      tenant_name = nil
+      tenants.each { |elem| tenant_name = elem['name'] if elem['id'] == tenant_id }
+      if tenant_name
+         Logging.debug("Tenant ID '%s': '%s' found." % [tenant_id, tenant_name])
+         rhSet(@hAccountData, tenant_name, :maestro, :tenant_name)
+      else
+         Logging.error("Unable to find the tenant Name for '%s' ID." % tenant_id)
+      end
+      @oConfig.set('tenants', tenants)
+   end
+
 end
 
 
@@ -548,3 +588,8 @@ class ForjCoreProcess
       oUserData
   end
 end
+
+
+
+
+ 

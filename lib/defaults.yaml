@@ -68,9 +68,11 @@
 :setup:
    :ask_step:
       -  :desc:    "Provider configuration:"
+      -  :desc:    "Maestro Cloud compute configuration:"
       -  :desc:    "Maestro and blueprint configuration:"
          :add:
             - :keypair_files
+      -  :desc:    "DNS Configuration for Maestro:"
 :sections:
   # This section define updatable data available from config.yaml. But will never be added in an account file.
   # Used by forj set/get functions
@@ -97,10 +99,12 @@
       :desc:              "Generic service identification for compute"
       :account_exclusive: true
       :account:           true
+      :ask_step:           0
     :network:
       :desc:              "Generic service identification for network"
       :account_exclusive: true
       :account:           true
+      :ask_step:           0
 
   # Defines ssh keys credentials
   :credentials:
@@ -116,7 +120,7 @@
       :default_value:      "~/.ssh/id_rsa-forj"
       :validate_function:  :forj_check_keypairs_files
       :account:            true
-      :ask_step:           1
+      :ask_step:           2
       :after:              :keypair_name
       :post_step_function: :forj_setup_keypairs_files
     :keypair_path:
@@ -126,7 +130,7 @@
       :validate:           !ruby/regexp /^\w?\w*$/
       :default_value:      "forj"
       :account:            true
-      :ask_step:           1
+      :ask_step:           2
     :auth_uri:
       :desc:               "Generic service auth url"
       :account_exclusive:  true
@@ -144,34 +148,53 @@
       :account:            true
       :required:           true
     :tenant:
-      :desc:               "Generic Tenant identification"
+      :explanation:        |-
+
+         Maestro is currently configured to access your cloud Compute service with fog openstack.
+         Fog openstack is compatible with hpcloud services
+
+         It requires the openstack project name to use, user and password.
+
+      :desc:               "Openstack Tenant name"
       :account_exclusive:  true
       :account:            true
       :required:           true
+      :ask_step:           1
     :os_user:
-      :desc:               "User name required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
+      :desc:               "Openstack compute cloud User name"
       :account_exclusive:  true
       :account:            true
       :required:           true
       :validate:           !ruby/regexp /\w+/
+      :ask_step:           1
     :os_enckey:
-      :desc:              "Encrypted password required by Maestro to access the cloud compute via openstack. Will be obsoleted soon."
-      :account_exclusive: true
-      :encrypted:         true
-      :account:           true
-      :required:          true
+      :desc:               "Openstack compute cloud password"
+      :account_exclusive:  true
+      :encrypted:          true
+      :account:            true
+      :required:           true
+      :ask_step:           1
 
   # Defines DNS services for maestro
   :dns:
-    :service:
-      :desc:       "DNS service region name Maestro will use."
-      :account_exclusive: true
-    :tenant_id:
-      :desc:       "DNS Tenant ID Maestro will use"
-      :account_exclusive: true
-    :domain_name:
-      :desc:       "Domain name added to each hosts."
-      :account_exclusive: true
+      :domain_name:
+         :desc:               "Domain name added to each hosts."
+         :account_exclusive:  true
+         :account:            true
+         :post_step_function: :forj_DNS_settings
+         :ask_step:           3
+      :service:
+         :desc:               "DNS service region name Maestro will use."
+         :account_exclusive:  true
+         :account:            true
+         :pre_step_function:  :forj_DNS_settings?
+         :ask_step:           3
+      :tenant_id:
+         :desc:               "DNS Tenant ID Maestro will use"
+         :account_exclusive:  true
+         :account:            true
+         :pre_step_function:  :forj_DNS_settings?
+         :ask_step:           3
 
   :maestro:
     :tenant_name:
@@ -182,13 +205,13 @@
       :account:         true
       :validate:        !ruby/regexp /^\w?\w*$/
       :default_value:   "forj"
-      :ask_step:        1
+      :ask_step:        2
     :security_group:
       :desc:            "Security group name to configure and attach to each forge boxes."
       :account:         true
       :validate:        !ruby/regexp /^\w?\w*$/
       :default_value:   "forj"
-      :ask_step:        1
+      :ask_step:        2
     :maestro_repo:
       :desc:       "To use a different Maestro repository already cloned."
     :infra_repo:
@@ -205,7 +228,7 @@
          :object:       :flavor
          :value:        :name
          :validate:     :list_strict
-      :ask_step:        1
+      :ask_step:        2
     :flavor_name:
       :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
       :default:    :flavor
@@ -215,17 +238,17 @@
          :object:       :flavor
          :value:        :name
          :validate:     :list_strict
-      :ask_step:        1
+      :ask_step:        2
     :image_name:
       :desc:       "Ubuntu image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
       :account:    true
-      :ask_step:        1
+      :ask_step:        2
       :list_values:
          :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all. No filter currently working.
          :object:       :image
          :value:        :name
          :validate:     :list_strict
-      :ask_step:        1
+      :ask_step:        2
     :ports:
       :desc:            "List of security group rules (1 port or range of ports) to open to the external network."
     :branch:

@@ -106,12 +106,17 @@ class BaseDefinition
 
    @@Context = {
       :oCurrentObj      => nil, # Defines the Current Object to manipulate
-      :needs_optional   => nil  # set optional to true for any next needs declaration
+      :needs_optional   => nil, # set optional to true for any next needs declaration
+      :ClassProcess     => nil  # Current Process Class declaration
    }
 
    # Available functions for:
    # - BaseDefinition class declaration
    # - Controler (derived from BaseDefinition) class declaration
+
+   def self.current_process (cProcessClass)
+      @@Context[:ClassProcess] = cProcessClass
+   end
 
    def self.obj_needs_optional
       @@Context[:needs_optional] = true
@@ -135,7 +140,7 @@ class BaseDefinition
             end
          }
       end
-      
+
    end
 
    # Defines Object and connect to functions events
@@ -191,8 +196,8 @@ class BaseDefinition
       rhGet(oCloudObj, :lambdas).each_key { |key|
          next if not hParam.key?(key)
 
-         if self.methods.include?(hParam[key])
-            raise ForjError.new(), "'%s' parameter requires a valid instance method." % [key], aCaller
+         if not @@Context[:ClassProcess].instance_methods.include?(hParam[key])
+            raise ForjError.new(), "'%s' parameter requires a valid instance method '%s' in the process '%s'." % [key, hParam[key], @@Context[:ClassProcess]], aCaller
          end
          if hParam[key] == :default
             # By default, we use the event name as default function to call.

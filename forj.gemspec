@@ -19,8 +19,8 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '0.0.48'
-  s.date        = '2014-10-20'
+  s.version     = '0.1.0'
+  s.date        = '2014-10-24'
   s.summary     = 'forj command line'
   s.description = 'forj cli - See https://www.forj.io for documentation/information'
 
@@ -38,7 +38,6 @@ Gem::Specification.new do |s|
                      lib/down.rb lib/boot.rb
                      lib/appinit.rb
                      lib/forj-settings.rb
-                     lib/setup.rb
                      lib/repositories.rb
                      lib/ssh.rb
                      lib/ssh.sh
@@ -46,9 +45,25 @@ Gem::Specification.new do |s|
                      lib/helpers.rb
                      lib/forj-config.rb
                      lib/forj-account.rb
-                     lib/build_tmpl/build-env.py
                      lib/build_tmpl/bootstrap_build.sh
-                     lib/build_tmpl/write-mime-multipart.py
+                     lib/build_tmpl/write-mime-multipart.py                     
+                     lib/forj/ForjCore.rb
+                     lib/forj/ForjCli.rb
+                     lib/forj/process/ForjProcess.rb
+                     lib/lib-forj/lib/providers/templates/compute.rb
+                     lib/lib-forj/lib/providers/templates/network.rb
+                     lib/lib-forj/lib/providers/templates/core.rb
+                     lib/lib-forj/lib/providers/hpcloud/security_groups.rb
+                     lib/lib-forj/lib/providers/hpcloud/Hpcloud.rb
+                     lib/lib-forj/lib/providers/hpcloud/compute.rb
+                     lib/lib-forj/lib/providers/hpcloud/network.rb
+                     lib/lib-forj/lib/core_process/global_process.rb
+                     lib/lib-forj/lib/core_process/CloudProcess.rb
+                     lib/lib-forj/lib/core_process/network_process.rb
+                     lib/lib-forj/lib/core/definition.rb
+                     lib/lib-forj/lib/core/core.rb
+                     lib/lib-forj/lib/core/definition_internal.rb
+                     lib/lib-forj/lib/lib-forj.rb
                      spec/boot_spec.rb
                      spec/connection_spec.rb
                      spec/down_spec.rb

@@ -19,6 +19,7 @@ source 'https://rubygems.org'
 group(:development, :test) do
   gem 'rake'
   gem 'debugger'
+  gem 'byebug'
   gem 'rspec', "~> 3.1.0", :require => false
 end
 

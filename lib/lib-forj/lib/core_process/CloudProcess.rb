@@ -112,10 +112,10 @@ class BaseDefinition
    define_obj(:router,
       {
          :create_e   => :forj_get_or_create_router,
-         :query_e    => :forj_query_router,
-         :get_e      => :forj_get_router,
-         :update_e   => :forj_update_router,
-         :delete_e   => :forj_delete_router
+#         :query_e    => :forj_query_router,
+#         :get_e      => :forj_get_router,
+         :update_e   => :forj_update_router
+#         :delete_e   => :forj_delete_router
       })
    obj_needs   :CloudObject,  :network_connection
    obj_needs   :CloudObject,  :network,            { :for => [:create_e] }
@@ -155,8 +155,8 @@ class BaseDefinition
    define_obj(:rule,
       {
          :create_e   => :forj_get_or_create_rule,
-         :query_e    => :forj_query_rule,
-         :delete_e   => :forj_delete_rule
+         :query_e    => :forj_query_rule
+#         :delete_e   => :forj_delete_rule
       })
 
    get_attr_mapping :name, nil  # Do not return any predefined name attribute
@@ -177,8 +177,8 @@ class BaseDefinition
    define_obj(:keypairs,
       {
          :create_e   => :forj_get_or_create_keypair,
-         :query_e    => :forj_query_keypair,
-         :delete_e   => :forj_delete_keypair
+         :query_e    => :forj_query_keypair
+#         :delete_e   => :forj_delete_keypair
       })
 
    obj_needs   :CloudObject,  :compute_connection
@@ -190,10 +190,10 @@ class BaseDefinition
    define_obj(:image,
       {
          :create_e   => :forj_get_or_create_image,
-         :query_e    => :forj_query_image,
-         :get_e      => :forj_get_image,
-         :update_e   => :forj_update_image,
-         :delete_e   => :forj_delete_image
+         :query_e    => :forj_query_image
+#         :get_e      => :forj_get_image
+#         :update_e   => :forj_update_image
+#         :delete_e   => :forj_delete_image
       })
 
    obj_needs   :CloudObject,  :compute_connection
@@ -204,10 +204,10 @@ class BaseDefinition
    define_obj(:flavor,
       {
          :create_e   => :forj_get_or_create_flavor,
-         :query_e    => :forj_query_flavor,
-         :get_e      => :forj_get_flavor,
-         :update_e   => :forj_update_flavor,
-         :delete_e   => :forj_delete_flavor
+         :query_e    => :forj_query_flavor
+#         :get_e      => :forj_get_flavor,
+#         :update_e   => :forj_update_flavor,
+#         :delete_e   => :forj_delete_flavor
       })
 
    obj_needs   :CloudObject,  :compute_connection
@@ -242,9 +242,9 @@ class BaseDefinition
       {
          :create_e   => :forj_get_or_create_server,
          :query_e    => :forj_query_server,
-         :get_e      => :forj_get_server,
-         :update_e   => :forj_update_server,
-         :delete_e   => :forj_delete_server
+         :get_e      => :forj_get_server
+#         :update_e   => :forj_update_server,
+#         :delete_e   => :forj_delete_server
       })
 
    obj_needs   :CloudObject,  :compute_connection
@@ -270,10 +270,10 @@ class BaseDefinition
    # Object representing the list of IP addresses attached to a server.
    define_obj(:public_ip,
       :create_e   => :forj_get_or_assign_public_address,
-      :query_e    => :forj_query_public_address,
-      :get_e      => :forj_get_address,
-      :update_e   => :forj_update_address,
-      :delete_e   => :forj_delete_address
+      :query_e    => :forj_query_public_address
+#      :get_e      => :forj_get_address
+#      :update_e   => :forj_update_address
+#      :delete_e   => :forj_delete_address
    )
 
    obj_needs   :CloudObject,  :compute_connection

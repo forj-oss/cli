@@ -141,7 +141,7 @@ class Hpcloud < BaseDefinition
          :query_type  => :controller_call,
          :object       => :services,
          :query_call   => :get_services,
-         :query_params => { :list_services => :compute },
+         :query_params => { :list_services => [:Compute, :compute] },
          :validate     => :list_strict
       }
    })
@@ -154,7 +154,7 @@ class Hpcloud < BaseDefinition
          :query_type  => :controller_call,
          :object       => :services ,
          :query_call   => :get_services,
-         :query_params => { :list_services => :network },
+         :query_params => { :list_services => [:Networking, :network] },
          :validate     => :list_strict
       }
    })
@@ -377,7 +377,23 @@ class HpcloudController < BaseController
             # Processes can deal only process mapped data.
             # Currently there is no services process function. No need to map.
             hServices = oParams[:services]
-            result = rhGet(hServices, :service_catalog, oParams[:list_services]).keys
+            if not oParams[:list_services].is_a?(Array)
+               hServiceToFind = [oParams[:list_services]]
+            else
+               hServiceToFind = oParams[:list_services]
+            end
+            # Search for service. Ex: Can be :Networking or network. I currently do not know why...
+            hSearchServices= rhGet(hServices, :service_catalog)
+            sService = nil
+            hServiceToFind.each { | sServiceElem |
+               if hSearchServices.key?(sServiceElem)
+                  sService = sServiceElem
+                  break
+               end
+            }
+
+            forjError "Unable to find services %s" % hServiceToFind if sService.nil?
+            result = rhGet(hServices, :service_catalog, sService).keys
             result.delete("name")
             result.each_index { | iIndex |
                result[iIndex] = result[iIndex].to_s if result[iIndex].is_a?(Symbol)

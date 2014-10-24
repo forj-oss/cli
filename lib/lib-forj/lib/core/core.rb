@@ -397,6 +397,7 @@ class ForjObject
             ForjLib.debug(1, "Declaring Process '%s'" % sProcessClass)
             cBaseProcess = Object.const_set(sProcessClass, cNewClass)
             cProcessClass = sProcessClass
+            BaseDefinition.current_process(cBaseProcess)
             load sFile
          else
             Logging.warning("Process file definition '%s' is missing. " % sFile)
@@ -1098,6 +1099,10 @@ class BaseDefinition
                   ForjLib.debug(3, "#{sKey} is part of setup step #{sAsk_step}")
                   aOrder = aSetup[sAsk_step][:order]
 
+                  if oInspectedObjects.include?(sKey)
+                     ForjLib.debug(2, "#{sKey} is already asked. Ignored.")
+                     next
+                  end
                   if hMeta[:account].is_a?(TrueClass)
                      if not hMeta[:depends_on].is_a?(Array)
                         Logging.warning("'%s' depends_on definition have to be an array." % oKeyPath.sFullPath) unless hMeta[:depends_on].nil?
@@ -1132,9 +1137,10 @@ class BaseDefinition
                               ForjLib.debug(3, "S%s/L%s/Last: '%s' added in setup list." % [sAsk_step, iLevel, sKey])
                            end
                         end
-                     else
-                        oInspectedObjects << sKey
                      end
+                     oInspectedObjects << sKey
+                  else
+                     ForjLib.debug(2, "#{sKey} used by #{sObjectType} won't be asked during setup. :account = true not set.")
                   end
                when :CloudObject
                   oInspectObj << sKey if not oInspectObj.include?(sKey) and not oInspectedObjects.include?(sKey)
@@ -1189,10 +1195,12 @@ class BaseDefinition
 
       ForjLib.debug(2, "Setup will ask for :\n %s" % aSetup.to_yaml)
 
+      Logging.info("Configuring account : '#{config[:account_name]}', provider '#{config[:provider_name]}'")
+
       # Ask for user input
       aSetup.each_index { | iStep |
          ForjLib.debug(2, "Ask step %s:" % iStep)
-         puts aSetup[iStep][:desc] unless aSetup[iStep][:desc].nil?
+         puts "%s%s%s" % [ANSI.bold, aSetup[iStep][:desc], ANSI.clear] unless aSetup[iStep][:desc].nil?
          aOrder = aSetup[iStep][:order]
          aOrder.each_index { | iIndex |
          ForjLib.debug(2, "Ask order %s:" % iIndex)
@@ -1200,9 +1208,11 @@ class BaseDefinition
                hParam = _get_meta_data(sKey)
                hParam = {} if hParam.nil?
 
+               bOk = false
+
                if hParam[:pre_step_function]
                   pProc = hParam[:pre_step_function]
-                  @oForjProcess.method(pProc).call()
+                  bOk = not(@oForjProcess.method(pProc).call(sKey))
                end
 
 
@@ -1214,7 +1224,6 @@ class BaseDefinition
 
                rValidate = hParam[:validate] unless hParam[:validate].nil?
                bRequired = (hParam[:required] == true)
-               bOk = false
                while not bOk
                   bOk = true
                   if not hParam[:list_values].nil?
@@ -1226,6 +1235,7 @@ class BaseDefinition
                      case hValues[:query_type]
                         when :controller_call
                            oObject = @ObjectData[sObjectToLoad, :ObjectData]
+                           Logging.state("Loading #{sObjectToLoad}.")
                            oObject = Create(sObjectToLoad) if oObject.nil?
                            return nil if oObject.nil?
                            oParams = ObjectData.new
@@ -1241,6 +1251,7 @@ class BaseDefinition
                         when :query_call
                            sQuery = {}
                            sQuery = hValues[:query_params] unless hValues[:query_params].nil?
+                           Logging.state("Querying #{sObjectToLoad}.")
                            oObjectList = Query(sObjectToLoad, sQuery)
                            aList = []
                            oObjectList.each { | oElem |
@@ -1277,14 +1288,26 @@ class BaseDefinition
                      end
                   else
                      pValidateProc = hParam[:validate_function]
+                     pAskProc = hParam[:ask_function]
 
-                     unless pValidateProc.nil?
-                        value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
-                        while not @oForjProcess.method(pValidateProc).call(value)
+                     if pAskProc.nil?
+                        unless pValidateProc.nil?
+                           value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                           while not @oForjProcess.method(pValidateProc).call(value)
+                              value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                           end
+                        else
                            value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
                         end
                      else
-                        value = _ask(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                        unless pValidateProc.nil?
+                           value = @oForjProcess.method(pAskProc).call(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                           while not @oForjProcess.method(pValidateProc).call(value)
+                              value = @oForjProcess.method(pAskProc).call(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                           end
+                        else
+                           value = @oForjProcess.method(pAskProc).call(sDesc, sDefault, rValidate, hParam[:encrypted], bRequired)
+                        end
                      end
                   end
 
