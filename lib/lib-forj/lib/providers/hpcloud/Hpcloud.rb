@@ -85,7 +85,7 @@ class Hpcloud < BaseDefinition
 
    define_obj :keypairs
 
-   get_attr_mapping :id, nil    # Do not return any predefined ID
+   undefine_attribute :id    # Do not return any predefined ID
 
    define_obj  :router
    # The FORJ gateway_network_id is extracted from Fog::HP::Network::Router[:external_gateway_info][:network_id]

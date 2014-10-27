@@ -17,8 +17,6 @@
 
 require 'rubygems'
 require 'fog'
-require 'yaml_parse.rb'
-include YamlParse
 
 #
 # Connection module
@@ -29,19 +27,19 @@ class SSLErrorMgt
    def initialize()
       @iRetry=0
    end
- 
+
    def ErrorDetected(message,backtrace)
-      if message.match('SSLv2/v3 read server hello A: unknown protocol') 
+      if message.match('SSLv2/v3 read server hello A: unknown protocol')
          if @iRetry <5
             sleep(2)
             @iRetry+=1
             print "%s/5 try...\r" % @iRetry if $FORJ_LOGGER.level == 0
             return false
-         else   
+         else
             Logging.error('Too many retry. %s' % message)
             return true
          end
-      else   
+      else
          Logging.error("%s\n%s" % [message,backtrace.join("\n")])
          return true
       end
@@ -58,7 +56,7 @@ class ForjConnection
    def initialize(oConfig, bAutoConnect = true)
 
      Logging.fatal(1, 'Internal Error: Missing global $HPC_ACCOUNTS') if not $HPC_ACCOUNTS
-     
+
      @oConfig = oConfig
      @sAccountName = @oConfig.get(:account_name)
      @provider='HP' # TODO: Support multiple provider. (Generic Provider object required)
@@ -97,7 +95,7 @@ class ForjConnection
        Logging.fatal(1, 'Compute: Unable to connect.', e)
      end
    end
-   
+
    def network_connect
      # Trying to get Network object
      oSSLError=SSLErrorMgt.new # Retry object

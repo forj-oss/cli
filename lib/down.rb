@@ -20,8 +20,6 @@ require 'require_relative'
 
 require_relative 'network.rb'
 include Network
-require_relative 'yaml_parse.rb'
-include YamlParse
 require_relative 'security.rb'
 include SecurityGroup
 #require_relative 'log.rb'
@@ -48,7 +46,7 @@ module Down
       #~ router = Network.get_router(oFC, 'private-ext')
       #~ subnet = Network.get_subnet(oFC, name)
       #~ Network.delete_router_interface(subnet.id, router)
-#~ 
+#~
       #~ Network.delete_subnet(oFC, subnet.id)
       #~ network = Network.get_network(oFC, name)
       #~ Network.delete_network(oFC, network.name)

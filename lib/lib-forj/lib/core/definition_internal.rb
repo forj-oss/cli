@@ -149,8 +149,10 @@ class BaseDefinition
          oMapPath = KeyPath.new(map)
          next if not map
          if pProc
+            ForjLib::debug(4, "Calling process function '%s' to retrieve/map Controller object '%s' data " % [pProc, sCloudObj])
             controller_attr_value = @oForjProcess.method(pProc).call(sCloudObj, oControlerObject)
          else
+            ForjLib::debug(4, "Calling controller function 'get_attr' to retrieve/map Controller object '%s' data " % [sCloudObj])
             controller_attr_value = @oProvider.get_attr(oControlerObject, oMapPath.aTree) if bController
          end
 
@@ -159,11 +161,13 @@ class BaseDefinition
             hValueMapping.each { | map_key, map_value |
                if controller_attr_value == map_value
                   rhSet(attr_value, map_key ,oKeyPath.aTree)
+                  ForjLib::debug(5, "Object '%s' value mapped '%s': '%s' => '%s'" % [sCloudObj, oKeyPath.aTree, controller_attr_value, map_value])
                   break
                end
             }
             raise ForjError.new(), "'%s.%s': No controller value mapping for '%s'." % [sCloudObj, oKeyPath.sKey, controller_attr_value] if attr_value.nil?
          else
+            ForjLib::debug(5, "Object '%s' value '%s' extracted: '%s'" % [sCloudObj, oKeyPath.aTree, controller_attr_value])
             rhSet(attr_value, controller_attr_value ,oKeyPath.aTree)
          end
       }

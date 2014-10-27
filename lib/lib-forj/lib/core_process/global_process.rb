@@ -21,7 +21,7 @@ class SSLErrorMgt
       @iMaxRetry = iMaxRetry
    end
 
-   def ErrorDetected(message,backtrace)
+   def ErrorDetected(message,backtrace, e)
       if message.match('SSLv2/v3 read server hello A: unknown protocol')
          if @iRetry <@iMaxRetry
             sleep(2)
@@ -33,7 +33,7 @@ class SSLErrorMgt
             return true
          end
       else
-         Logging.error("%s\n%s" % [message,backtrace.join("\n")])
+         Logging.error("Exception %s: %s\n%s" % [e.class, message,backtrace.join("\n")])
          return true
       end
    end
@@ -48,7 +48,7 @@ class CloudProcess < BaseProcess
       begin
          controler.connect(sCloudObj)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
          Logging.error('%s:%s: Unable to connect.\n%s' % [self.class, sCloudObj, e.message ])
@@ -76,14 +76,38 @@ class CloudProcess
          Logging.fatal("Public key file is not found. Please run 'forj setup %s'" % config[:account_name])
       end
 
-
       Logging.state("Searching for keypair '%s'" % [sKeypair_name] )
 
       keypairs = forj_query_keypair(sCloudObj, {:name => sKeypair_name}, hParams)
       if keypairs.length > 0
          keypair = keypairs[0]
+         # Check the public key with the one found here, locally.
+         if not keypair[:public_key].nil? and keypair[:public_key] != ""
+            begin
+               local_pub_key = File.read(hParams[:public_key_file])
+            rescue => e
+               Logging.error("Unable to read '%s'.\n%s",[hParams[:public_key_file], e.message] )
+               keypair[:coherent] = false
+            else
+               if local_pub_key.split(' ')[1].strip == keypair[:public_key].split(' ')[1].strip
+                  Logging.info("keypair '%s' local files are coherent with keypair in your cloud service. You will be able to connect to your box over SSH." % sKeypair_name)
+                  keypair[:coherent] = true
+               else
+                  keypair[:coherent] = false
+                  Logging.warning("Your local keypair file '%s' are incoherent with public key '%s' found in your cloud. You won't be able to access your box with this keypair.\nPublic key found in the cloud:\n%s" % [hParams[:public_key_file], sKeypair_name, keypair[:public_key]])
+               end
+            end
+         else
+            keypair[:coherent] = false
+            Logging.warning("Unable to verify keypair coherence between your cloud and your local SSH keys. The cloud controller did not provided ':public_key'")
+         end
       else
          keypair = create_keypair(sCloudObj,hParams)
+         if not hKeys[:private_key_exist? ]
+            keypair[:coherent] = false
+         else
+            keypair[:coherent] = true
+         end
       end
       # Adding information about key files.
       keypair[:private_key_file] = hParams[:private_key_file]
@@ -98,7 +122,7 @@ class CloudProcess
          oList = controler.query(sCloudObj, sQuery)
          query_single(sCloudObj, oList, sQuery, key_name)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message, e.backtrace, e)
             retry
          end
       end
@@ -112,7 +136,7 @@ class CloudProcess
       begin
          controler.create(sCloudObj)
       rescue StandardError => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
          Logging.error "error importing keypair '%s'" % [key_name]
@@ -191,7 +215,7 @@ class CloudProcess
       begin
          oList = controler.query(sCloudObj, sQuery)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
       end
@@ -229,7 +253,7 @@ class CloudProcess < BaseProcess
       begin
          controler.query(sCloudObj, sQuery)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
            retry
          end
       end
@@ -261,7 +285,7 @@ class CloudProcess < BaseProcess
          oList = controler.query(sCloudObj, sQuery)
          query_single(sCloudObj, oList, sQuery, server_name)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
            retry
          end
       end
@@ -272,7 +296,7 @@ class CloudProcess < BaseProcess
       begin
          controler.get(sCloudObj, sId)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
            retry
          end
       end
@@ -298,7 +322,7 @@ class CloudProcess < BaseProcess
       begin
          controler.get(sCloudObj, sId)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
            retry
          end
       end
@@ -337,7 +361,7 @@ class CloudProcess < BaseProcess
          oList = controler.query(sCloudObj, sQuery)
          query_single(sCloudObj, oList, sQuery, server_name, sInfo)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
            retry
          end
       end
@@ -348,7 +372,7 @@ class CloudProcess < BaseProcess
       begin
          controler.get(sCloudObj, sId)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
            retry
          end
       end

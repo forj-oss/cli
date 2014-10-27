@@ -321,13 +321,13 @@ class BaseDefinition
 
    def self.def_attribute(key, options = nil)
       self.get_attr_mapping(key, options)
-      self.def_query_attribute(key) unless options and options.key?(:not_queriable) and  options[:not_queriable]== true
+      #~ self.def_query_attribute(key) unless options and options.key?(:not_queriable) and  options[:not_queriable]== true
    end
 
    # Function used by the controler to define mapping.
    # By default, any attributes are queriable as well. No need to call
    # query_mapping
-   def self.get_attr_mapping(key, map = key, options = nil)
+   def self.get_attr_mapping(key, map = nil, options = nil)
       return nil if not [String, Symbol].include?(key.class)
       return nil if not [NilClass, Symbol, String, Array].include?(map.class)
 
@@ -338,12 +338,36 @@ class BaseDefinition
 
       sCloudObj = @@Context[:oCurrentObj]
       oKeyPath = KeyPath.new(key)
-      oMapPath = KeyPath.new(map)
+      oMapPath = oKeyPath
+      oMapPath = KeyPath.new(map) unless map.nil?
 
       rhSet(@@meta_obj, oMapPath.sFullPath, sCloudObj, :returns, oKeyPath.sFullPath)
       @@Context[:oCurrentKey] = oKeyPath
+      if oMapPath == oKeyPath
+         ForjLib::debug(4, "%s: Defining object attribute '%s'" % [sCloudObj, oKeyPath.sFullPath])
+      else
+         ForjLib::debug(4, "%s: Defining object attribute mapping '%s' => '%s'" % [sCloudObj, oKeyPath.sFullPath, oMapPath.sFullPath])
+      end
 
       self.query_mapping(key, map) unless options and options.key?(:not_queriable) and  options[:not_queriable]== true
+   end
+
+   def self.undefine_attribute(key)
+      return nil if not [String, Symbol].include?(key.class)
+
+      aCaller = caller
+      aCaller.pop
+
+      raise ForjError.new(), "%s: No Object defined. Missing define_obj?" % [ self.class], aCaller if @@Context[:oCurrentObj].nil?
+
+      sCloudObj = @@Context[:oCurrentObj]
+      oKeyPath = KeyPath.new(key)
+
+      rhSet(@@meta_obj, nil, sCloudObj, :returns, oKeyPath.sFullPath)
+      @@Context[:oCurrentKey] = oKeyPath
+      ForjLib::debug(4, "%s: Undefining attribute mapping '%s'" % [sCloudObj, oKeyPath.sFullPath])
+
+      self.query_mapping(key, nil)
    end
 
    # Defines/update CloudData parameters

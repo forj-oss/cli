@@ -22,9 +22,12 @@ require 'fileutils'
 require 'find'
 require 'digest'
 require 'json'
+require 'encryptor' # gem install encryptor
+require 'base64'
 
 $INFRA_VERSION = "0.0.37"
 
+# Functions for boot
 class ForjCoreProcess
 
    def build_metadata(sObjectType, hParams)
@@ -135,11 +138,16 @@ Your server is up and running and is publically accessible through IP '#{oAddres
 You can connect to '#{oServer[:name]}' with:
 ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:keypairs, :private_key_file)}
             END
+            if not object.get_data(:keypairs)[:coherent]
+               sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
+            end
             Logging.info(sMsg)
 
             oLog = object.Get(:server_log, 5)[:attrs][:output]
             if /cloud-init boot finished/ =~ oLog
                sStatus = :active
+            else
+               sStatus = :cloud_init
             end
          end
       else
@@ -149,7 +157,11 @@ ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:ke
 
       while sStatus != :active
          maestro_create_status(sStatus)
-         oServer = object.Get(:server, oServer[:attrs][:id])
+         begin
+            oServer = object.Get(:server, oServer[:attrs][:id])
+         rescue => e
+            Logging.error(e.message)
+         end
          if sStatus == :starting
             if oServer[:attrs][:status] == :active
                sStatus = :assign_ip
@@ -166,6 +178,9 @@ do
   sleep 5
 done
             END
+            if not object.get_data(:keypairs)[:coherent]
+               sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
+            end
             Logging.info(sMsg)
             sStatus = :cloud_init
          elsif sStatus == :cloud_init
@@ -195,10 +210,6 @@ done
       end
    end
 
-end
-
-
-class ForjCoreProcess
    def clone_or_use_maestro_repo(sObjectType, hParams)
 
       maestro_url = hParams[:maestro_url]
@@ -230,10 +241,7 @@ class ForjCoreProcess
       oMaestro[:maestro_repo] = hResult[:maestro_repo]
       oMaestro
    end
-end
 
-
-class ForjCoreProcess
    def create_or_use_infra(sObjectType, hParams)
       infra = File.expand_path(hParams[:infra_repo])
       maestro_repo = hParams[:maestro_repository, :maestro_repo]
@@ -399,10 +407,59 @@ class ForjCoreProcess
       end
    end
 
+   def build_userdata(sObjectType, hParams)
+      # get the paths for maestro and infra repositories
+      maestro_path = hParams[:maestro_repository].values
+      infra_path = hParams[:infra_repository].values
+
+      # concatenate the paths for boothook and cloud_config files
+      #~ build_dir = File.expand_path(File.join($FORJ_DATA_PATH, '.build'))
+      #~ boothook = File.join(maestro_path, 'build', 'bin', 'build-tools')
+      #~ cloud_config = File.join(maestro_path, 'build', 'maestro')
+
+      # TODO: Be able to support multiple call of forj cli...
+      mime = File.join($FORJ_BUILD_PATH, 'userdata.mime')
+
+      meta_data = JSON.generate(hParams[:metadata, :meta_data])
+
+      build_tmpl_dir = File.expand_path(File.join($LIB_PATH, 'build_tmpl'))
+
+      Logging.state("Preparing user_data - file '%s'" % mime)
+      # generate boot_*.sh
+      mime_cmd = "#{build_tmpl_dir}/write-mime-multipart.py"
+      bootstrap = "#{build_tmpl_dir}/bootstrap_build.sh"
+
+      cmd = "%s '%s' '%s' '%s' '%s' '%s' '%s'" % [
+         bootstrap, # script
+         $FORJ_DATA_PATH, # $1 = Forj data base dir
+         hParams[:maestro_repository, :maestro_repo], # $2 = Maestro repository dir
+         config[:bootstrap_dirs], # $3 = Bootstrap directories
+         config[:bootstrap_extra_dir], # $4 = Bootstrap extra directory
+         meta_data,  # $5 = meta_data (string)
+         mime_cmd # $6: mime script file to execute.
+      ]
+      raise ForjError.new, "#{bootstrap} script file is not found." if not File.exists?(bootstrap)
+      Logging.debug("Running '%s'" % cmd)
+      Kernel.system(cmd)
+
+      raise ForjError.new(), "mime file '%s' not found." % mime if not File.exists?(mime)
+
+      user_data = File.read(mime)
+
+      config[:user_data] = user_data
+
+      oUserData = register(hParams, sObjectType)
+      oUserData[:user_data] = user_data
+      oUserData[:user_data_encoded] = Base64.strict_encode64(user_data)
+      oUserData[:mime] = mime
+      Logging.info("user_data prepared. File: '%s'" % mime)
+      oUserData
+  end
+
 end
 
+# Functions for setup
 class ForjCoreProcess
-   # Functions for setup
 
    # Check files existence
    def forj_check_keypairs_files(keypath)
@@ -484,8 +541,9 @@ class ForjCoreProcess
       forj_public_key_file = File.join($FORJ_KEYPAIRS_PATH, key_name + ".pub")
 
       # Saving sequences
+
       if keys[:keypair_path] != $FORJ_KEYPAIRS_PATH
-         if not File.exists?(forj_private_key_file)
+         if not File.exists?(forj_private_key_file) or not File.exists?(forj_public_key_file)
             Logging.info("Importing key pair to FORJ keypairs list.")
             FileUtils.copy(private_key_file, forj_private_key_file)
             FileUtils.copy(public_key_file, forj_public_key_file)
@@ -493,6 +551,20 @@ class ForjCoreProcess
             rhSet(@hAccountData, key_name, :credentials, 'keypair_name')
             rhSet(@hAccountData, forj_private_key_file, :credentials, 'keypair_path')
             config.oConfig.LocalSet(key_name.to_s, private_key_file, :imported_keys)
+         else
+            # Checking source/dest files content
+            if Digest::MD5.file(private_key_file).hexdigest != Digest::MD5.file(forj_private_key_file).hexdigest
+               Logging.info("Updating private key keypair piece to FORJ keypairs list.")
+               FileUtils.copy(private_key_file, forj_private_key_file)
+            else
+               Logging.info("Private key keypair up to date.")
+            end
+            if Digest::MD5.file(public_key_file).hexdigest != Digest::MD5.file(forj_public_key_file).hexdigest
+               Logging.info("Updating public key keypair piece to FORJ keypairs list.")
+               FileUtils.copy(public_key_file, forj_public_key_file)
+            else
+               Logging.info("Public key keypair up to date.")
+            end
          end
       end
       # Saving internal copy of private key file for forj use.
@@ -522,7 +594,7 @@ class ForjCoreProcess
       begin
          tenants = Connection.instance.tenants(@sAccountName)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
          Logging.fatal(1, 'Network: Unable to connect.')
@@ -539,56 +611,4 @@ class ForjCoreProcess
       @oConfig.set('tenants', tenants)
    end
 
-end
-
-
-class ForjCoreProcess
-   def build_userdata(sObjectType, hParams)
-      # get the paths for maestro and infra repositories
-      maestro_path = hParams[:maestro_repository].values
-      infra_path = hParams[:infra_repository].values
-
-      # concatenate the paths for boothook and cloud_config files
-      #~ build_dir = File.expand_path(File.join($FORJ_DATA_PATH, '.build'))
-      #~ boothook = File.join(maestro_path, 'build', 'bin', 'build-tools')
-      #~ cloud_config = File.join(maestro_path, 'build', 'maestro')
-
-      # TODO: Be able to support multiple call of forj cli...
-      mime = File.join($FORJ_BUILD_PATH, 'userdata.mime')
-
-      meta_data = JSON.generate(hParams[:metadata, :meta_data])
-
-      build_tmpl_dir = File.expand_path(File.join($LIB_PATH, 'build_tmpl'))
-
-      Logging.state("Preparing user_data - file '%s'" % mime)
-      # generate boot_*.sh
-      mime_cmd = "#{build_tmpl_dir}/write-mime-multipart.py"
-      bootstrap = "#{build_tmpl_dir}/bootstrap_build.sh"
-
-      cmd = "%s '%s' '%s' '%s' '%s' '%s' '%s'" % [
-         bootstrap, # script
-         $FORJ_DATA_PATH, # $1 = Forj data base dir
-         hParams[:maestro_repository, :maestro_repo], # $2 = Maestro repository dir
-         config[:bootstrap_dirs], # $3 = Bootstrap directories
-         config[:bootstrap_extra_dir], # $4 = Bootstrap extra directory
-         meta_data,  # $5 = meta_data (string)
-         mime_cmd # $6: mime script file to execute.
-      ]
-      raise ForjError.new, "#{bootstrap} script file is not found." if not File.exists?(bootstrap)
-      Logging.debug("Running '%s'" % cmd)
-      Kernel.system(cmd)
-
-      raise ForjError.new(), "mime file '%s' not found." % mime if not File.exists?(mime)
-
-      user_data = File.read(mime)
-
-      config[:user_data] = user_data
-
-      oUserData = register(hParams, sObjectType)
-      oUserData[:user_data] = user_data
-      oUserData[:user_data_encoded] = Base64.strict_encode64(user_data)
-      oUserData[:mime] = mime
-      Logging.info("user_data prepared. File: '%s'" % mime)
-      oUserData
-  end
 end

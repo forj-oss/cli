@@ -539,7 +539,7 @@ class ForjCloud < ForjObject
       unless oConfig.is_a?(ForjAccount)
          oForjAccount = ForjAccount.new(oConfig)
          unless sAccount.nil?
-            oForjAccount.ac_load(sAccount, false)
+            oForjAccount.ac_load(sAccount)
          end
       else
          oForjAccount = oConfig

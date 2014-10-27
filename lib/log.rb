@@ -21,6 +21,7 @@
 require 'rubygems'
 require 'logger'
 require 'ansi'
+require 'ansi/logger'
 
 require 'require_relative'
 
@@ -58,7 +59,17 @@ module Logging
         @level = level
         @oOutLogger.level = @level
         @oOutLogger.formatter = proc do |severity, datetime, progname, msg|
-            severity == 'ANY'?"#{msg} \n":"#{severity}: #{msg} \n"
+            case severity
+               when 'ANY'
+                  str = "#{msg} \n"
+               when "ERROR", "FATAL"
+                  str = ANSI.bold(ANSI.red("#{severity}!!!")) + ": #{msg} \n"
+               when "WARN"
+                  str = ANSI.bold(ANSI.yellow("WARNING")) + ": #{msg} \n"
+               else
+                  str = "#{severity}: #{msg} \n"
+            end
+            str
          end
      end
 

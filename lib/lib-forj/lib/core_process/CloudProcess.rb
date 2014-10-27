@@ -40,8 +40,8 @@ class BaseDefinition
    obj_needs   :data, :account_key
    obj_needs   :data, :tenant
 
-   get_attr_mapping :id, nil    # Do not return any predefined ID
-   get_attr_mapping :name, nil  # Do not return any predefined NAME
+   undefine_attribute :id    # Do not return any predefined ID
+   undefine_attribute :name  # Do not return any predefined NAME
 
 
    # compute_connection
@@ -55,8 +55,8 @@ class BaseDefinition
    obj_needs   :data, :tenant
    obj_needs   :data, :compute
 
-   get_attr_mapping :id, nil    # Do not return any predefined ID
-   get_attr_mapping :name, nil  # Do not return any predefined NAME
+   undefine_attribute :id    # Do not return any predefined ID
+   undefine_attribute :name  # Do not return any predefined NAME
 
    # network_connection
    define_obj(:network_connection,
@@ -69,8 +69,8 @@ class BaseDefinition
    obj_needs   :data, :tenant
    obj_needs   :data, :network
 
-   get_attr_mapping :id, nil    # Do not return any predefined ID
-   get_attr_mapping :name, nil  # Do not return any predefined NAME
+   undefine_attribute :id    # Do not return any predefined ID
+   undefine_attribute :name  # Do not return any predefined NAME
 
    # ************************************ Network Object
    # Identify the network
@@ -159,7 +159,7 @@ class BaseDefinition
 #         :delete_e   => :forj_delete_rule
       })
 
-   get_attr_mapping :name, nil  # Do not return any predefined name attribute
+   undefine_attribute :name  # Do not return any predefined name attribute
 
    obj_needs   :CloudObject,  :network_connection
    obj_needs   :CloudObject,  :security_groups,    { :for => [:create_e] }
@@ -172,8 +172,8 @@ class BaseDefinition
    obj_needs   :data,         :port_max,           { :for => [:create_e] }
    obj_needs   :data,         :addr_map,           { :for => [:create_e] }
 
-   # ************************************ keypair Object
-   # Identify keypair
+   # ************************************ keypairs Object
+   # Identify keypairs
    define_obj(:keypairs,
       {
          :create_e   => :forj_get_or_create_keypair,
@@ -184,6 +184,8 @@ class BaseDefinition
    obj_needs   :CloudObject,  :compute_connection
    obj_needs   :data,         :keypair_name,       { :for => [:create_e] }
    obj_needs   :data,         :keypair_path,       { :for => [:create_e] }
+
+   def_attribute :public_key
 
    # ************************************ Image Object
    # Identify image
@@ -281,7 +283,7 @@ class BaseDefinition
 
    def_attribute :server_id
    def_attribute :public_ip
-   get_attr_mapping :name, nil # No name to extract
+   undefine_attribute :name # No name to extract
 
    # ************************************ SERVER Console Object
    # Object representing the console log attached to a server
@@ -293,8 +295,8 @@ class BaseDefinition
 
    obj_needs   :CloudObject,  :server
    obj_needs   :data,         :log_lines
-   get_attr_mapping  :name,   nil
-   get_attr_mapping  :id,     nil
+   undefine_attribute  :name
+   undefine_attribute  :id
    def_attribute  :output
 
    # ************************************ Internet SERVER Object

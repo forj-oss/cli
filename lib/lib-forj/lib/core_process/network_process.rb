@@ -432,7 +432,7 @@ class CloudProcess
          sec_group = get_security_group(oFC, security_group)
          oFC.oNetwork.security_groups.get(sec_group.id).destroy
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
       end
@@ -445,7 +445,7 @@ class CloudProcess
       begin
          sgroups = controler.query(sCloudObj, sQuery)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
          Logging.fatal(1, "Unable to get list of security groups.", e)
@@ -481,7 +481,7 @@ class CloudProcess
     begin
       controler.delete(sCloudObj)
     rescue => e
-      if not oSSLError.ErrorDetected(e.message,e.backtrace)
+      if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
          retry
       end
     end
@@ -500,7 +500,7 @@ class CloudProcess
          oList = controler.query(sCloudObj, sQuery)
          query_single(sCloudObj, oList, sQuery, sRule, sInfo)
       rescue => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
       end
@@ -536,7 +536,7 @@ class CloudProcess
       begin
          controler.create(sCloudObj)
       rescue StandardError => e
-         if not oSSLError.ErrorDetected(e.message,e.backtrace)
+         if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
          Logging.error 'error creating the rule for port %s' % [sRule]
