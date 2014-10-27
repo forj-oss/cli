@@ -18,12 +18,6 @@
 require 'rubygems'
 require 'git'
 require 'fileutils'
-require 'require_relative'
-
-require_relative 'yaml_parse.rb'
-include YamlParse
-#require_relative 'log.rb'
-#include Logging
 
 #
 # Repositories module

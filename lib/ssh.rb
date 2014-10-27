@@ -23,25 +23,28 @@ include SecurityGroup
 # ssh module
 #
 module Ssh
-  def connect(name, server, oConfig)
-    msg = 'logging into %s : %s' % [name, server]
-    Logging.info(msg)
+   def connect(name, server, oConfig)
+      # Following line to remove as soon as ssh function is implemented with forj-lib framework
+      Logging.warning("This function may not work appropriately. Currenty under development. Thank you for your understanding.")
 
-	oForjAccount = ForjAccount.new(oConfig)
+      msg = 'logging into %s : %s' % [name, server]
+      Logging.info(msg)
 
-	oForjAccount.ac_load()
+      oForjAccount = ForjAccount.new(oConfig)
 
-	oKey = SecurityGroup.keypair_detect(oForjAccount.get(:keypair_name), oForjAccount.get(:keypair_path))
+      oForjAccount.ac_load()
 
-    update = '%s/ssh.sh -u %s' % [ $LIB_PATH, oConfig.get(:account_name)]
-    connection = '%s/ssh.sh %s %s %s' % [$LIB_PATH, name, server, File.join(oKey[:keypair_path],oKey[:private_key_name]) ]
+      oKey = SecurityGroup.keypair_detect(oForjAccount.get(:keypair_name), oForjAccount.get(:keypair_path))
 
-    # update the list of servers
-    Logging.debug("Executing '%s'" % update)
-    Kernel.system(update)
+      update = '%s/ssh.sh -u %s' % [ $LIB_PATH, oConfig.get(:account_name)]
+      connection = '%s/ssh.sh %s %s %s' % [$LIB_PATH, name, server, File.join(oKey[:keypair_path],oKey[:private_key_name]) ]
 
-    # connect to the server
-    Logging.debug("Executing '%s'" % connection)
-    Kernel.system(connection)
-  end
+      # update the list of servers
+      Logging.debug("Executing '%s'" % update)
+      Kernel.system(update)
+
+      # connect to the server
+      Logging.debug("Executing '%s'" % connection)
+      Kernel.system(connection)
+   end
 end

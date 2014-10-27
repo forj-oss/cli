@@ -184,6 +184,7 @@ Maestro/infra bootstrap debugging:"
       oConfig.set(:branch ,        options[:branch])
       oConfig.set(:test_box, File.expand_path(options[:test_box])) if options[:test_box] and File.directory?(File.expand_path(options[:test_box]))
 
+      Logging.warning("test_box is currently disabled in this version. It will be re-activated in newer version.") if options[:test_box]
 
       if options[:key_path]
          mFound = options[:key_path].match(/^(.*)(\.pub)?$/)
