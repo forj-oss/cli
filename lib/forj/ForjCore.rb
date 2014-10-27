@@ -74,8 +74,8 @@ class BaseDefinition
    obj_needs_optional
 
    # If requested by user, ask Maestro to manage the DNS.
-   obj_needs   :data,   :service
-   obj_needs   :data,   :tenant_id
+   obj_needs   :data,   :dns_service
+   obj_needs   :data,   :dns_tenant_id
 
    # If requested by user, ask Maestro to instantiate a blueprint.
    obj_needs   :data,   :blueprint

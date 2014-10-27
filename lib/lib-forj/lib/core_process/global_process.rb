@@ -26,7 +26,17 @@ class SSLErrorMgt
          if @iRetry <@iMaxRetry
             sleep(2)
             @iRetry+=1
-            print "%s/%s try...\r" % [@iRetry, @iMaxRetry] if $FORJ_LOGGER.level == 0
+            print "%s/%s try... 'unknown protocol' SSL Error\r" % [@iRetry, @iMaxRetry] if $FORJ_LOGGER.level == 0
+            return false
+         else
+            Logging.error('Too many retry. %s' % message)
+            return true
+         end
+      elsif e.is_a?(Excon::Errors::InternalServerError)
+         if @iRetry <@iMaxRetry
+            sleep(2)
+            @iRetry+=1
+            print "%s/%s try... %s\n" % [@iRetry, @iMaxRetry, ANSI.red(e.class)] if $FORJ_LOGGER.level == 0
             return false
          else
             Logging.error('Too many retry. %s' % message)

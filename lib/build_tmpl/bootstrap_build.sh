@@ -23,6 +23,7 @@ BOOTSTRAP_DIR="$3"
 BOOTSTRAP_EXTRA="$4"
 META_JSON="$5"
 MIME_SCRIPT="$6"
+USER_DATA="$7"
 
 mkdir -p $BUILD_DIR
 
@@ -128,15 +129,15 @@ do
    printf "$FILE\e[32m$TYPE\e[0m "
 done
 
-$MIME_SCRIPT $FILES -o $BUILD_DIR/userdata.mime
+$MIME_SCRIPT $FILES -o "$USER_DATA"
 if [ $? -ne 0 ]
 then
    echo "cloudinit.conf: Error while building $BUILD_DIR/userdata.mime with 'write-mime-multipart.py'. Please check."
    exit 1
 fi
-echo " > $BUILD_DIR/userdata.mime"
+echo " > $USER_DATA"
 
-USER_DATA=$BUILD_DIR/userdata.mime
+
 
 }
 

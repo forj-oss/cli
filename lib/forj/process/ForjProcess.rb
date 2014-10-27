@@ -92,9 +92,9 @@ class ForjCoreProcess
          'hpcloud_priv' => Base64.strict_encode64(hpcloud_priv).gsub('=', '') # Remove pad
       }
 
-      if hParams[:dns, :service]
-         hMeta['dns_zone'] = hParams[:dns, :service]
-         hMeta['dns_tenantid'] = hParams[:dns, :tenant_id]
+      if hParams[:dns_service]
+         hMeta['dns_zone'] = hParams[:dns_service]
+         hMeta['dns_tenantid'] = hParams[:dns_tenant_id]
       end
       # If requested by user, ask Maestro to instantiate a blueprint.
       hMeta['blueprint'] = hParams[:blueprint] if hParams[:blueprint]
@@ -417,8 +417,7 @@ done
       #~ boothook = File.join(maestro_path, 'build', 'bin', 'build-tools')
       #~ cloud_config = File.join(maestro_path, 'build', 'maestro')
 
-      # TODO: Be able to support multiple call of forj cli...
-      mime = File.join($FORJ_BUILD_PATH, 'userdata.mime')
+      mime = File.join($FORJ_BUILD_PATH, 'userdata.mime.%s' % rand(36**5).to_s(36))
 
       meta_data = JSON.generate(hParams[:metadata, :meta_data])
 
@@ -429,14 +428,15 @@ done
       mime_cmd = "#{build_tmpl_dir}/write-mime-multipart.py"
       bootstrap = "#{build_tmpl_dir}/bootstrap_build.sh"
 
-      cmd = "%s '%s' '%s' '%s' '%s' '%s' '%s'" % [
+      cmd = "%s '%s' '%s' '%s' '%s' '%s' '%s' '%s'" % [
          bootstrap, # script
          $FORJ_DATA_PATH, # $1 = Forj data base dir
          hParams[:maestro_repository, :maestro_repo], # $2 = Maestro repository dir
          config[:bootstrap_dirs], # $3 = Bootstrap directories
          config[:bootstrap_extra_dir], # $4 = Bootstrap extra directory
          meta_data,  # $5 = meta_data (string)
-         mime_cmd # $6: mime script file to execute.
+         mime_cmd, # $6: mime script file to execute.
+         mime # $7: mime file generated.
       ]
       raise ForjError.new, "#{bootstrap} script file is not found." if not File.exists?(bootstrap)
       Logging.debug("Running '%s'" % cmd)
@@ -444,7 +444,16 @@ done
 
       raise ForjError.new(), "mime file '%s' not found." % mime if not File.exists?(mime)
 
-      user_data = File.read(mime)
+      begin
+         user_data = File.read(mime)
+      rescue => e
+         Logging.fatal(1, e.message)
+      end
+      if $LIB_FORJ_DEBUG < 5
+         File.delete(mime)
+      else
+         ForjLib.debug(5, "user_data temp file '%s' kept" % mime)
+      end
 
       config[:user_data] = user_data
 

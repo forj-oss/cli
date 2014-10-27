@@ -183,13 +183,13 @@
          :account:            true
          :post_step_function: :forj_DNS_settings
          :ask_step:           3
-      :service:
+      :dns_service:
          :desc:               "DNS service region name Maestro will use."
          :account_exclusive:  true
          :account:            true
          :pre_step_function:  :forj_DNS_settings?
          :ask_step:           3
-      :tenant_id:
+      :dns_tenant_id:
          :desc:               "DNS Tenant ID Maestro will use"
          :account_exclusive:  true
          :account:            true
