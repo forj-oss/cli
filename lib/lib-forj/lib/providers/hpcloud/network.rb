@@ -96,8 +96,18 @@ module HPNetwork
       oNetworkConnect.routers.all(sQuery)
    end
 
-   def HPNetwork.update_router(oRouter)
+   def HPNetwork.update_router(oRouters)
       oRouters.save
+   end
+
+   def HPNetwork.create_router(oNetwork, hOptions)
+      oNetwork.routers.create(hOptions)
+   end
+
+   # router interface
+
+   def HPNetwork.add_interface(oRouter, oSubNetwork)
+      oRouter.add_interface(oSubNetwork.id, nil)
    end
 
    # Port driver

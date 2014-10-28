@@ -22,7 +22,7 @@ module HPSecurityGroups
    def HPSecurityGroups.create_sg(oNetwork, name, description)
       params = {:name => name}
       params[:description] = description if description
-      oFC.oNetwork.security_groups.create( params )
+      oNetwork.security_groups.create( params )
    end
 
    def HPSecurityGroups.create_rule(oNetwork, hData)

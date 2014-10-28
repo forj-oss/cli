@@ -87,8 +87,14 @@ class Hpcloud < BaseDefinition
 
    undefine_attribute :id    # Do not return any predefined ID
 
+   # ************************************ Router Object
    define_obj  :router
+
+   obj_needs_optional
+   obj_needs   :data,   :router_name,           :mapping => :name
    # The FORJ gateway_network_id is extracted from Fog::HP::Network::Router[:external_gateway_info][:network_id]
+   obj_needs   :data,   :external_gateway_id,   :mapping => [:external_gateway_info, 'network_id' ]
+
    get_attr_mapping :gateway_network_id, [:external_gateway_info, 'network_id']
 
    # ************************************ SERVER Object
@@ -219,20 +225,21 @@ class HpcloudController < BaseController
             required?(hParams, :network)
             required?(hParams, :subnetwork_name)
             HPNetwork.create_subnetwork(hParams[:network_connection], hParams[:network], hParams[:subnetwork_name])
-         when :security_group
+         when :security_groups
             required?(hParams, :network_connection)
             required?(hParams, :security_group)
             HPSecurityGroups.create_sg(hParams[:network_connection], hParams[:security_group], hParams[:sg_desc])
          when :keypairs
             required?(hParams, :compute_connection)
             required?(hParams, :keypair_name)
-            required?(hParams, :public_key_file)
-            HPKeyPairs.create_keypair(hParams[:compute_connection], hParams[:keypair_name], hParams[:public_key_file])
+            required?(hParams, :public_key)
+            HPKeyPairs.create_keypair(hParams[:compute_connection], hParams[:keypair_name], hParams[:public_key])
          when :router
             required?(hParams, :network_connection)
-            if hParams.key?(:external_gateway_id)
-               hParams[:hdata][:external_gateway_info] = { 'network_id' => hParams[:external_gateway_id] }
-            end
+            required?(hParams, :router_name)
+            #~ if hParams[:external_gateway_id]
+               #~ hParams[:hdata][:external_gateway_info] = { 'network_id' => hParams[:external_gateway_id] }
+            #~ end
             hParams[:hdata] = hParams[:hdata].merge(:admin_state_up => true) # Forcelly used admin_status_up to true.
 
             HPNetwork.create_router(hParams[:network_connection], hParams[:hdata])
@@ -240,6 +247,10 @@ class HpcloudController < BaseController
             required?(hParams, :network_connection)
             required?(hParams, :security_groups)
             HPSecurityGroups.create_rule(hParams[:network_connection], hParams[:hdata])
+         when :router_interface
+            required?(hParams, :router)
+            required?(hParams, :subnetwork)
+            HPNetwork.add_interface(hParams[:router], hParams[:subnetwork])
          else
             forjError "'%s' is not a valid object for 'create'" % sObjectType
       end
@@ -358,10 +369,12 @@ class HpcloudController < BaseController
    end
 
 
-   def update(sObjectType, hParams)
+   def update(sObjectType, oObject, hParams)
       case sObjectType
          when :router
-            HPNetwork.update_router(hParams[:router])
+            forjError "Object to update is nil" if oObject.nil?
+
+            HPNetwork.update_router(oObject[:object])
          else
             forjError "'%s' is not a valid list for 'update'" % oFogObject.class
       end

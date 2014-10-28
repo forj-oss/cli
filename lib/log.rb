@@ -156,7 +156,7 @@ module Logging
 
   def high_level_msg(message)
      # Not DEBUG and not INFO. Just printed to the output.
-     puts ("%s" % [message]) if $FORJ_LOGGER.level > 1
+     print ("%s" % [message]) if $FORJ_LOGGER.level > 1
   end
 
 end

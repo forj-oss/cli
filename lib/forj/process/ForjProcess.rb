@@ -116,7 +116,12 @@ class ForjCoreProcess
 
    def build_forge(sObjectType, hParams)
 
-      oServer = object.Create(:server)
+
+      object.Create(:internet_server)
+
+      Logging.high_level_msg ("\nBuilding your forge...\n")
+
+      oServer = DataObjects(:server, :ObjectData)
 
       # Define the log lines to get and test.
       config.set(:log_lines, 5)
@@ -126,29 +131,26 @@ class ForjCoreProcess
 
       sStatus = :checking
       maestro_create_status(sStatus)
+      oAddress = DataObjects(:public_ip, :ObjectData)
+
       if oServer[:attrs][:status] == :active
-         oAddresses = object.Query(:public_ip, :server_id => oServer[:id])
-         if oAddresses.length == 0
-            sStatus = :assign_ip
-         else
-            oAddress = oAddresses[0]
-            sMsg = <<-END
+         sMsg = <<-END
 Your server is up and running and is publically accessible through IP '#{oAddress[:public_ip]}'.
 
 You can connect to '#{oServer[:name]}' with:
 ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:keypairs, :private_key_file)}
-            END
-            if not object.get_data(:keypairs)[:coherent]
-               sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
-            end
-            Logging.info(sMsg)
+         END
+         if not object.get_data(:keypairs)[:coherent]
+            sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
+         end
+         Logging.info(sMsg)
+         Logging.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
 
-            oLog = object.Get(:server_log, 5)[:attrs][:output]
-            if /cloud-init boot finished/ =~ oLog
-               sStatus = :active
-            else
-               sStatus = :cloud_init
-            end
+         oLog = object.Get(:server_log, 5)[:attrs][:output]
+         if /cloud-init boot finished/ =~ oLog
+            sStatus = :active
+         else
+            sStatus = :cloud_init
          end
       else
          sleep 5
@@ -167,8 +169,16 @@ ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:ke
                sStatus = :assign_ip
             end
          elsif sStatus == :assign_ip
-            # Assigning Public IP.
-            oAddress = object.Create(:public_ip)
+            if oAddress.empty?
+               query_cache_cleanup(:public_ip) # To be able to ask for server IP assigned
+               oAddresses = object.Query(:public_ip, :server_id => oServer[:id])
+               if oAddresses.length == 0
+                  # Assigning Public IP.
+                  oAddress = object.Create(:public_ip)
+               else
+                  oAddress = oAddresses[0]
+               end
+            end
             sMsg = <<-END
 Public IP for server '#{oServer[:name]}' is assigned'
 Now, as soon as the server respond to the ssh port, you will be able to get a tail of the build with:
@@ -182,6 +192,7 @@ done
                sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
             end
             Logging.info(sMsg)
+            Logging.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
             sStatus = :cloud_init
          elsif sStatus == :cloud_init
             oLog = object.Get(:server_log, 5)[:attrs][:output]
@@ -191,7 +202,10 @@ done
          end
          sleep(5) if sStatus != :active
       end
-      Logging.info("Server '%s' is now ACTIVE. Bootstrap done." % oServer[:name])
+      sMsg = "Server '%s' is now ACTIVE. Bootstrap done." % oServer[:name]
+      Logging.info(sMsg)
+      # TODO: read the blueprint/layout to identify which services are implemented and can be accessible.
+      Logging.high_level_msg ("Your Forge '%s' is over and accessible from IP #{oAddress[:public_ip]}. Enjoy!\n" % config[:instance_name])
       oServer
    end
 
@@ -438,6 +452,13 @@ done
          mime_cmd, # $6: mime script file to execute.
          mime # $7: mime file generated.
       ]
+
+      # TODO: Replace shell script call to ruby functions
+      if $LIB_FORJ_DEBUG >=1
+         cmd += " >> #{$FORJ_DATA_PATH}/forj.log"
+      else
+         cmd += " | tee -a #{$FORJ_DATA_PATH}/forj.log"
+      end
       raise ForjError.new, "#{bootstrap} script file is not found." if not File.exists?(bootstrap)
       Logging.debug("Running '%s'" % cmd)
       Kernel.system(cmd)

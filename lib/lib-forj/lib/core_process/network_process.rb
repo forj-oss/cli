@@ -62,10 +62,10 @@ class CloudProcess < BaseProcess
       # Creates an object subnet, attached to the network.
       if not hParams[:subnetwork_name]
          hParams[:subnetwork_name] = 'sub-' + hParams[:network_name]
-         config.set(:subnetwork_name, hParams[:subnetwork_name])
+         config[:subnetwork_name] = hParams[:subnetwork_name]
       end
 
-      get_or_create_subnet(hParams)
+      object.Create(:subnetwork)
 
       network
 
@@ -95,12 +95,15 @@ class CloudProcess < BaseProcess
    # It returns:
    # nil or Provider Object
    def create_network(sCloudObj, hParams)
+      name = hParams[:network_name]
       begin
-         Logging.debug('creating network %s' % [name])
-         controler.create(sCloudObj)
+         Logging.state("Creating network '%s'" % [name])
+         network = controler.create(sCloudObj)
+         Logging.info("Network '%s' created" % [network[:name]])
       rescue => e
-         Logging.fatal(1, "Unable to create network '%s'" % name, e)
+         Logging.fatal(1, "Unable to create network '%s'" % [name, e])
       end
+      network
    end
 
    # Search for a network from his name.
@@ -118,12 +121,12 @@ class CloudProcess < BaseProcess
       end
    end
 
-   def get_or_create_subnet(hParams)
+   def forj_get_or_create_subnetwork(sCloudObj, hParams)
 
-      Logging.state("Searching for sub-network attached '%s'" % [hParams[:network_name]])
+      Logging.state("Searching for sub-network attached to network '%s'" % [hParams[:network, :name]])
       #######################
       begin
-         sQuery = { :network_id => get_data(:network, :id) }
+         sQuery = { :network_id => hParams[:network, :id] }
          subnets = controler.query(:subnetwork, sQuery)
       rescue => e
          Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
@@ -131,21 +134,20 @@ class CloudProcess < BaseProcess
       if subnets
          case subnets.length()
             when 0
-               Logging.info("No subnet found from '%s' network" % [hParams[:network_name]])
+               Logging.info("No subnet found from '%s' network" % [hParams[:network, :name]])
                subnet = ForjLib::Data.new
             when 1
-               Logging.info("Found '%s' subnet from '%s' network" % [subnets[0, :name], hParams[:network_name]])
+               Logging.info("Found '%s' subnet from '%s' network" % [subnets[0, :name], hParams[:network, :name]])
                subnet = subnets[0]
             else
-               Logging.warning("Several subnet was found on '%s'. Choosing the first one = '%s'" % [hParams[:network_name], subnets[0, :name]])
+               Logging.warning("Several subnet was found on '%s'. Choosing the first one = '%s'" % [hParams[:network, :name], subnets[0, :name]])
                subnet = subnets[0]
          end
       end
-      if not subnet
+      if not subnet or subnets.length == 0
          # Create the subnet
-         subname = hParams[:subnetwork_name]
          begin
-            subnet = create_subnet(hParams[:network_connection], hParams[:network], subname)
+            subnet = create_subnet(sCloudObj, hParams)
          rescue => e
             Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
          end
@@ -154,16 +156,17 @@ class CloudProcess < BaseProcess
       subnet
    end
 
-  def create_subnet(oNetworkConnect, oNetwork, network_name)
-    Logging.state("Creating subnet '%s'" % [network_name])
-    begin
-      subnet = provider_create_subnetwork(oNetworkConnect, oNetwork, network_name)
-      Logging.info("Subnet '%s' created." % [network_name])
-    rescue => e
-      Logging.fatal(1, "Unable to create '%s' subnet." % network_name, e)
-    end
-    subnet
-  end
+   def create_subnet(sCloudObj, hParams)
+      name = hParams[:subnetwork_name]
+      Logging.state("Creating subnet '%s'" % [name])
+      begin
+         subnet = controler.create(sCloudObj)
+         Logging.info("Subnet '%s' created." % [subnet[:name]])
+      rescue => e
+         Logging.fatal(1, "Unable to create '%s' subnet." % name, e)
+      end
+      subnet
+   end
 
    def delete_subnet()
 
@@ -186,21 +189,21 @@ end
 class CloudProcess
    # Process Create handler
    def forj_get_or_create_router(sCloudObj, hParams)
-      oNetwork = hParams.get(:network)
       oSubNetwork = hParams[:subnetwork]
 
-      router_name = rhGet(hParams, :router_name)
-      if not router_name
-         router_name = 'router-%s' % router_name
+      if not hParams[:router_name]
+         config[:router_name] = 'router-%s' % hParams[:network, :name]
+         hParams[:router_name] = config[:router_name]
       end
 
+      router_name = hParams[:router_name]
       router_port = get_router_interface_attached(:port, hParams)
 
-      if not router_port
+      if not router_port or router_port.empty?
          # Trying to get router
          router = get_router(router_name)
-         router = create_router(router_name) if not router
-         create_router_interface(oSubNetwork, router) if router
+         router = create_router(router_name) if not router or router.empty?
+         create_router_interface(oSubNetwork, router) if router and not router.empty?
       else
          sQuery = {:id => get_data(router_port, :device_id)}
          routers = controler.query(:router, sQuery)
@@ -210,7 +213,7 @@ class CloudProcess
                   routers[0, :name],
                   get_data(:network, :name)
                ])
-               router = routers[:list][0]
+               router = routers[0]
             else
                Logging.warning("Unable to find the router id '%s'" % [ get_data(router_port, :device_id) ])
                router = ForjLib::Data.new
@@ -221,7 +224,7 @@ class CloudProcess
    end
 
    def forj_update_router(sCloudObj, hParams)
-      controler.update(sObjectType)
+      controler.update(sCloudObj)
             ################################
             #routers[0].external_gateway_info = { 'network_id' => external_network.id }
             #routers[0].save
@@ -239,7 +242,7 @@ class CloudProcess
             when 1
                routers[0]
             else
-               Logging.warning("Router '%s' not found." % [ name ] )
+               Logging.info("Router '%s' not found." % [ name ] )
                ForjLib::Data.new
          end
       rescue => e
@@ -248,26 +251,25 @@ class CloudProcess
    end
 
    def create_router(router_name, oExternalNetwork = nil)
-
-      sExtNet = nil
-      sExtNet = get_data(oExternalNetwork, :name) if oExternalNetwork
-
       begin
-         hRouter = {
-            :router_name => router_name,
-            :external_gateway_id => get_data(oExternalNetwork, :id)
-         }
          if oExternalNetwork
+            sExtNet = get_data(oExternalNetwork, :name)
             Logging.state("Creating router '%s' attached to the external Network '%s'" % [router_name, sExtNet])
-
-            hRouter[:external_gateway_id] = get_data(oExternalNetwork, :id)
+            config[:external_gateway_id] = get_data(oExternalNetwork, :id)
          else
             Logging.state("Creating router '%s' without external Network" % [router_name])
          end
-         controler.create(:router)
+
+         router = controler.create(:router)
+         if oExternalNetwork
+            Logging.info("Router '%s' created and attached to the external Network '%s'." % [router_name, sExtNet])
+         else
+            Logging.info("Router '%s' created without external Network." % [router_name])
+         end
       rescue => e
          raise ForjError.new(), "Unable to create '%s' router\n%s" % [router_name, e.message]
       end
+      router
    end
 
    def delete_router(oNetworkConnect, oRouter)
@@ -281,19 +283,21 @@ class CloudProcess
       end
    end
 
-  # Router interface to connect to the network
-  def create_router_interface(oSubnet, oRouter)
-    Logging.fatal(1, "Internal Error: subnet/router object not passed.") if not oSubnet or not oRouter
+   # TODO: Move router interface management to hpcloud controller.
+   # Router interface to connect to the network
+   def create_router_interface(oSubnet, oRouter)
 
-    Logging.state("Attaching subnet '%s' to router '%s'" % [oSubnet.name, oRouter.name])
-    begin
-      #################
-      provider_add_interface()
-      # oRouter.add_interface(oSubnet.id, nil)
-    rescue => e
-      Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
-    end
-  end
+      Logging.state("Attaching subnet '%s' to router '%s'" % [oSubnet[:name], oRouter[:name]])
+      begin
+         controler.create(:router_interface)
+
+         #################
+         #provider_add_interface()
+         # oRouter.add_interface(oSubnet.id, nil)
+      rescue => e
+         Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
+      end
+   end
 
   def delete_router_interface(oSubnet, oRouter)
     Logging.state("Removing subnet '%s' from router '%s'" % [oSubnet.name, oRouter.name])
@@ -306,22 +310,6 @@ class CloudProcess
     end
   end
 
-  #~ def get_router_interface(oNetworkConnect, network_id, device_id)
-    #~ begin
-      #~ # Searching for router port attached
-      #~ #################
-      #~ ports=oNetworkConnect.ports.all({:network_id => network_id, :device_id => device_id})
-      #~ case ports.length()
-        #~ when 0
-          #~ nil
-        #~ else
-          #~ port[0]
-      #~ end
-    #~ rescue => e
-      #~ Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
-    #~ end
-  #~ end
-
   def get_router_interface_attached(sCloudObj, hParams)
 
       oNetwork = hParams[:network]
@@ -329,7 +317,8 @@ class CloudProcess
       begin
          # Searching for router port attached
          #################
-         sQuery = {:network_id => get_data(:network, :id), :device_owner => 'network:router_interface'}
+         sQuery = {:network_id => hParams[:network, :id], :device_owner => 'network:router_interface'}
+
          ports = controler.query(sCloudObj, sQuery)
          case ports.length()
             when 0
@@ -452,7 +441,7 @@ class CloudProcess
       end
       case sgroups.length()
          when 0
-            Logging.info("No security group '%s' found" % [ hParams[:name] ] )
+            Logging.info("No security group '%s' found" % [ hParams[:security_group] ] )
             nil
          when 1
             Logging.info("Found security group '%s'" % [sgroups[0, :name]])
@@ -463,12 +452,14 @@ class CloudProcess
    # SecurityGroups Process internal functions #
    #-------------------------------------------#
   def create_security_group(sCloudObj, hParams)
-    Logging.state("creating security group '%s'" % hParams[:name])
+    Logging.state("Creating security group '%s'" % hParams[:security_group])
     begin
-      controler.create(sCloudObj)
+      sg = controler.create(sCloudObj)
+      Logging.info("Security group '%s' created." % sg[:name])
     rescue => e
       Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
     end
+    sg
   end
 
    # Rules handler #
@@ -531,16 +522,18 @@ class CloudProcess
    def create_rule(sCloudObj, hParams)
 
       sRule = '%s %s:%s - %s to %s' % [ hParams[:dir], hParams[:rule_proto], hParams[:port_min], hParams[:port_max], hParams[:addr_map] ]
-      Logging.debug("Creating rule '%s'" % [sRule])
+      Logging.state("Creating rule '%s'" % [sRule])
       oSSLError=SSLErrorMgt.new
       begin
-         controler.create(sCloudObj)
+         rule = controler.create(sCloudObj)
+         Logging.info("Rule '%s' created." % [sRule])
       rescue StandardError => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
          Logging.error 'error creating the rule for port %s' % [sRule]
       end
+      rule
    end
 
 end
@@ -551,26 +544,30 @@ end
 class CloudProcess
    def forj_get_or_create_ext_net(sCloudObj, hParams)
 
-      Logging.state("Checking router's gateway'")
+      Logging.state("Checking router '%s' gateway" % hParams[:router, :name])
 
-      oRouter = hParams.get(:router)
-      sRouterName = get_data(:router, :name)
-      sNetworkId = get_data(:router, :gateway_network_id)
+      oRouter = hParams[:router]
+      sRouterName = hParams[:router, :name]
+      sNetworkId = hParams[:router, :gateway_network_id]
       if sNetworkId
-         Logging.info("Found router '%s' attached to an external gateway." % [ sRouterName ] )
-         forj_query_external_network(sCloudObj, {:id => sNetworkId}, hParams)
+         external_network = forj_query_external_network(sCloudObj, {:id => sNetworkId}, hParams)
+         Logging.info("Router '%s' is attached to the external gateway '%s'." % [ sRouterName, external_network[:name] ] )
       else
-         #byebug
-         Logging.info("Found router '%s' but need to be attached to an external gateway. Attaching" % [ sRouterName ] )
+         Logging.info("Router '%s' needs to be attached to an external gateway." % [ sRouterName ] )
+         Logging.state("Attaching")
          external_network = forj_query_external_network(:network, {}, hParams)
-         if external_network
-            oRouter[:attrs][:gateway_network_id] = get_data(external_network, :id)
+         if not external_network.empty?
+            oRouter[:gateway_network_id] = external_network[:id]
             forj_update_router(:router, hParams)
-            Logging.info("Router '%s' attached to the external network '%s'." % [routers[:list][0][:attrs][:name], get_data(external_network, :name) ])
+            Logging.info("Router '%s' attached to the external network '%s'." % [ sRouterName, external_network[:name] ])
          else
             Logging.fatal(1, "Unable to attach router '%s' to an external gateway. Required for boxes to get internet access. " % [ get_data(:router, :name) ] )
          end
       end
+
+      # Need to keep the :network object as :external_network object type.
+      external_network.type = sCloudObj
+      external_network
    end
 
    def forj_query_external_network(sCloudObj, sQuery, hParams)
@@ -579,16 +576,16 @@ class CloudProcess
          # Searching for external network
          networks = controler.query(:network, sQuery.merge({ :external => true }))
 
-         case networks[:list].length()
+         case networks.length()
          when 0
             Logging.info("No external network")
             nil
          when 1
-            Logging.info("Found external network '%s'." % [networks[:list][0][:attrs][:name] ])
-            networks[:list][0]
+            Logging.info("Found external network '%s'." % [networks[0, :name] ])
+            networks[0]
          else
-            Logging.warning("Found several external networks. Selecting the first one '%s'" % [networks[:list][0][:attrs][:name]])
-            networks[:list][0]
+            Logging.warning("Found several external networks. Selecting the first one '%s'" % [networks[0, :name]])
+            networks[0]
          end
       rescue => e
          Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])

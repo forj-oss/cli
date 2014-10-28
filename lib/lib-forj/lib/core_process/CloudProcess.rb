@@ -91,21 +91,26 @@ class BaseDefinition
 
    # ************************************ SubNetwork Object
    # Identify subnetwork as part of network.
-   define_obj(:subnetwork,    :nohandler => true)
+   define_obj(:subnetwork,
+              :create_e    => :forj_get_or_create_subnetwork
+             )
 
    obj_needs   :CloudObject,  :network_connection
    obj_needs   :CloudObject,  :network
+   obj_needs   :data,         :subnetwork_name
 
    def_query_attribute :network_id
 
    # ************************************ Port Object
    # Identify port attached to network
-   define_obj   :port,    :nohandler => true
+   define_obj  :port,   :nohandler => true
 
+   obj_needs   :CloudObject,  :network_connection
    def_attribute :device_id
 
    def_query_attribute :network_id
    def_query_attribute :device_owner
+
 
    # ************************************ Router Object
    # Identify the router of a network.
@@ -124,6 +129,21 @@ class BaseDefinition
    obj_needs   :data,         :router_name,        { :for => [:create_e] }
 
    def_attribute :gateway_network_id
+
+   # ************************************ Router interface Object
+   # Identify interface attached to a router
+   # This object will probably be moved to controller task
+   # To keep the network model more generic.
+
+   # No process handler defined. Just Controller object
+   define_obj  :router_interface,   :nohandler => true
+
+   obj_needs   :CloudObject,  :network_connection
+   obj_needs   :CloudObject,  :router,             { :for => [:create_e] }
+   obj_needs   :CloudObject,  :subnetwork,         { :for => [:create_e] }
+
+   undefine_attribute   :name
+   undefine_attribute   :id
 
    # Identify an external network thanks to the network router.
    define_obj(:external_network,
@@ -184,6 +204,9 @@ class BaseDefinition
    obj_needs   :CloudObject,  :compute_connection
    obj_needs   :data,         :keypair_name,       { :for => [:create_e] }
    obj_needs   :data,         :keypair_path,       { :for => [:create_e] }
+
+   obj_needs_optional
+   obj_needs   :data,         :public_key,         { :for => [:create_e] }
 
    def_attribute :public_key
 

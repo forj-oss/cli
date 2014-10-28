@@ -59,11 +59,11 @@ module ForjLib
             oType = oObj.type?
             case oType
                when :data, :object
-                  @data[:object_type] = oObj.object_type?
+                  @data[:object_type] = ((sObjType.nil?)? (oObj.object_type?) : sObjType)
                   @data[:object] = oObj.get(:object)
                   @data[:attrs] = oObj.get(:attrs)
                when :list
-                  @data[:object_type] = oObj.object_type?
+                  @data[:object_type] = ((sObjType.nil?)? (oObj.object_type?) : sObjType)
                   @data[:object] = oObj.get(:object)
                   @data[:list] = oObj.get(:list)
                   @data[:query] = oObj.get(:query)
@@ -104,6 +104,12 @@ module ForjLib
          self
       end
 
+      def type=(sObjType)
+         return self if self.empty?
+         @data[:object_type] = sObjType
+         self
+      end
+
       def [](*key)
          get(*key)
       end
@@ -140,7 +146,12 @@ module ForjLib
          end
       end
 
+      def empty?()
+         @data[:object].nil?
+      end
+
       def nil?()
+         # Obsolete Use empty? instead.
          @data[:object].nil?
       end
 
@@ -573,6 +584,16 @@ class BaseProcess
    end
    private
 
+   def query_cache_cleanup(sObjectType)
+      raise ForjError.new(), "No Base object loaded." if not @oDefinition
+      @oDefinition.query_cleanup(sObjectType)
+   end
+
+   def object_cache_cleanup(sObjectType)
+      raise ForjError.new(), "No Base object loaded." if not @oDefinition
+      @oDefinition.object_cleanup(sObjectType)
+   end
+
    def controler
       raise ForjError.new(), "No Controler object loaded." if not @oDefinition
       @oDefinition
@@ -593,6 +614,11 @@ class BaseProcess
 
       raise ForjError.new(), "No Base object loaded." if not @oDefinition
       @oDefinition.format_list(sObjectType, oMiscObj, hQuery)
+   end
+
+   def DataObjects(sObjectType, *key)
+      raise ForjError.new(), "No Base object loaded." if not @oDefinition
+      @oDefinition.DataObjects(sObjectType, *key)
    end
 
    def get_data(oObj, *key)
@@ -697,30 +723,30 @@ end
 
 
 class BaseController
-   # Default handlers which needs to be defined by the cloud provider,
+   # Default handlers which needs to be defined by the cloud controller,
    # called by BaseDefinition Create, Delete, Get, Query and Update functions.
    def connect(sObjectType, hParams)
-      raise ForjError.new(), "connect has not been redefined by the provider '%s'" % self.class
+      raise ForjError.new(), "connect has not been redefined by the controller '%s'" % self.class
    end
 
    def create(sObjectType, hParams)
-      raise ForjError.new(), "create_object has not been redefined by the provider '%s'" % self.class
+      raise ForjError.new(), "create_object has not been redefined by the controller '%s'" % self.class
    end
 
    def delete(sObjectType, hParams)
-      raise ForjError.new(), "delete_object has not been redefined by the provider '%s'" % self.class
+      raise ForjError.new(), "delete_object has not been redefined by the controller '%s'" % self.class
    end
 
    def get(sObjectType, sUniqId, hParams)
-      raise ForjError.new(), "get_object has not been redefined by the provider '%s'" % self.class
+      raise ForjError.new(), "get_object has not been redefined by the controller '%s'" % self.class
    end
 
    def query(sObjectType, sQuery, hParams)
-      raise ForjError.new(), "query_object has not been redefined by the provider '%s'" % self.class
+      raise ForjError.new(), "query_object has not been redefined by the controller '%s'" % self.class
    end
 
-   def update(sObjectType, hParams)
-      raise ForjError.new(), "update_object has not been redefined by the provider '%s'" % self.class
+   def update(sObjectType, oObject, hParams)
+      raise ForjError.new(), "update_object has not been redefined by the controller '%s'" % self.class
    end
 
    def forjError(msg)
@@ -800,13 +826,13 @@ class ObjectData
    end
 
    def delete(oObj)
-      if oObject.is_a?(Symbol)
+      if oObj.is_a?(Symbol)
          sObjectType = oObj
          @hParams[sObjectType] = nil
       else
-         raise ForjError.new(), "ObjectData: delete error. oObj is not a symbol or a recognized formatted Object." unless oObj.key?(:object)
+         raise ForjError.new(), "ObjectData: delete error. oObj is not a framework data Object." unless oObj.is_a?(ForjLib::Data)
          if oObj[:object_type] == :object_list
-            rhSet(@hParams, nil, :list, sObjectType)
+            rhSet(@hParams, nil, :query, sObjectType)
          else
             sObjectType = oObj[:object_type]
             @hParams[sObjectType] = nil
@@ -875,8 +901,6 @@ class BaseDefinition
 
       pProc = rhGet(@@meta_obj, sCloudObj, :lambdas, :create_e)
 
-      return nil if pProc.nil?
-
       # Check required parameters
       oObjMissing = _check_required(sCloudObj, :create_e, pProc).reverse
 
@@ -890,18 +914,26 @@ class BaseDefinition
       end
       @RuntimeContext[:oCurrentObj] = sCloudObj # Context: Default object used.
 
-      # build Function params to pass to the event handler.
-      aParams = _get_object_params(sCloudObj, :create_e, pProc,)
-      ForjLib.debug(2, "Create Object '%s' - Running '%s'" % [sCloudObj, pProc])
+      if pProc.nil?
+         # This object is a meta object, without any data.
+         # Used to build other kind of objects.
+         oObject = ForjLib::Data.new
+         oObject.set({}, sCloudObj) {}
+      else
+         # build Function params to pass to the event handler.
+         aParams = _get_object_params(sCloudObj, :create_e, pProc,)
+         ForjLib.debug(2, "Create Object '%s' - Running '%s'" % [sCloudObj, pProc])
 
-      # Call the process function.
-      # At some point, the process will call the controller, via the framework.
-      # This controller call via the framework has the role to
-      # create an ObjectData well formatted, with _return_map function
-      # See Definition.connect/create/update/query/get functions (lowercase)
-      oObject = @oForjProcess.method(pProc).call(sCloudObj, aParams)
-      # return usually is the main object that the process called should provide.
-      # Save Object if the object has been created by the process, without controller
+         # Call the process function.
+         # At some point, the process will call the controller, via the framework.
+         # This controller call via the framework has the role to
+         # create an ObjectData well formatted, with _return_map function
+         # See Definition.connect/create/update/query/get functions (lowercase)
+         oObject = @oForjProcess.method(pProc).call(sCloudObj, aParams)
+         # return usually is the main object that the process called should provide.
+         # Save Object if the object has been created by the process, without controller
+      end
+
       unless oObject.nil?
          @ObjectData.add(oObject)
       end
@@ -937,6 +969,21 @@ class BaseDefinition
       end
 
    end
+
+   def query_cleanup(sCloudObj)
+      oList = @ObjectData[:query, sCloudObj]
+      unless oList.nil?
+         @ObjectData.delete(oList)
+      end
+   end
+
+   def object_cleanup(sCloudObj)
+      oObject = @ObjectData[sCloudObj, :ObjectData]
+      unless oObject.nil?
+         @ObjectData.delete(oObject)
+      end
+   end
+
 
    # This function returns a list of objects
    def Query(sCloudObj, hQuery)
@@ -1475,6 +1522,10 @@ class BaseDefinition
       @ObjectData.add oDataObject
    end
 
+   def DataObjects(sObjectType, *key)
+      @ObjectData[sObjectType, key]
+   end
+
    # get an attribute/object/... from an object.
    def get_data(oObj, *key)
       if oObj.is_a?(Hash) and oObj.key?(:object_type)
@@ -1595,34 +1646,34 @@ class BaseDefinition
 
       hParams = _get_object_params(sObjectType, :update_e, :update, true)
 
-      oObject = hParams.get(sObjectType)
-      oControlerObject = hParams[sObjectType]
+      oObject = @ObjectData[sObjectType, :ObjectData]
+      oControlerObject = oObject[:object]
 
       bUpdated = false
-      oObject[attrs].each { |key, value |
-         #      hValueMapping = rhGet(@@meta_obj, sCloudObj, :value_mapping, key)
+      oObject[:attrs].each { |key, value |
          oKeyPath = KeyPath.new(key)
-         oMapPath = KeyPath.new(rhGet(@@meta_obj, sCloudObj, :returns, oKeyPath.sFullPath))
+         oMapPath = KeyPath.new(rhGet(@@meta_obj, sObjectType, :returns, oKeyPath.sFullPath))
          old_value = @oProvider.get_attr(oControlerObject, oMapPath.aTree)
          if value != old_value
             bUpdated = true
-            @oProvider.set_attr(oControlerObject, hMap, value)
+            @oProvider.set_attr(oControlerObject, oMapPath.aTree, value)
             ForjLib.debug(2, "%s.%s - Updating: %s = %s (old : %s)" % [@oForjProcess.class, sObjectType, key, value, old_value])
          end
       }
-      oControlerObject = @oProvider.update(sObjectType, hParams) if bUpdated
-      ForjLib.debug(1, "%s.%s - Saved." % [@oForjProcess.class, sObjectType])
-      oDataObject = ForjLib::Data.new
-      oDataObject.set(oControlerObject, sObjectType) { | sObjType, oObject |
+
+      bDone = @oProvider.update(sObjectType, oObject, hParams) if bUpdated
+
+      raise ForjError.new, "Controller function 'update' must return True or False. Class returned: '%s'" % bDone.class if not [TrueClass, FalseClass].include?(bDone.class)
+
+      ForjLib.debug(1, "%s.%s - updated." % [@oForjProcess.class, sObjectType]) if bDone
+      oObject.set(oControlerObject, sObjectType) { | sObjType, oObject |
          begin
             _return_map(sObjType, oObject)
          rescue => e
             raise ForjError.new(), "update %s.%s : %s" % [@oForjProcess.class, sObjectType, e.message]
          end
       }
-      @ObjectData.add oDataObject
-
-      oDataObject
+      bDone
    end
 
 

@@ -112,7 +112,8 @@ class CloudProcess
             Logging.warning("Unable to verify keypair coherence between your cloud and your local SSH keys. The cloud controller did not provided ':public_key'")
          end
       else
-         keypair = create_keypair(sCloudObj,hParams)
+         config[:public_key] = File.read(hParams[:public_key_file])
+         keypair = create_keypair(sCloudObj, hParams)
          if not hKeys[:private_key_exist? ]
             keypair[:coherent] = false
          else
@@ -139,18 +140,20 @@ class CloudProcess
 
    end
 
-   def keypair_create(sCloudObj,hParams)
+   def create_keypair(sCloudObj, hParams)
       key_name = hParams[:keypair_name]
-      Logging.debug("Importing keypair '%s'" % [key_name])
+      Logging.state("Importing keypair '%s'" % [key_name])
       oSSLError=SSLErrorMgt.new
       begin
-         controler.create(sCloudObj)
+         keypair = controler.create(sCloudObj)
+         Logging.info("Keypair '%s' imported." % [keypair[:name]])
       rescue StandardError => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
          Logging.error "error importing keypair '%s'" % [key_name]
       end
+      keypair
    end
 
    def keypair_detect(keypair_name, key_fullpath)

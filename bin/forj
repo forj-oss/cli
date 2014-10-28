@@ -218,6 +218,9 @@ Maestro/infra bootstrap debugging:"
          oConfig[:blueprint] = blueprint
          Logging.info("Starting boot process of '%s' with blueprint '%s'." % [oConfig[:instance_name], oConfig[:blueprint]])
       end
+
+      Logging.high_level_msg ("Preparing your forge '%s'. Please be patient\n" % oConfig[:instance_name])
+
       oCloud.Create(:forge)
       #Boot.boot(blueprint, name, options[:build], options[:boothook], options[:box_name], oForjAccount)
   end

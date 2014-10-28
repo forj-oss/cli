@@ -208,7 +208,7 @@ class BaseDefinition
             # [:section1][subsect][key] = value
             # oParam => [:hdata][mykey] = value
             # not oParam => [:hdata][:section1][subsect][mykey] = value
-            oParam[:hdata][rhGet(hParams, :mapping)] = value
+            rhSet(oParam[:hdata], value, rhGet(hParams, :mapping))
          end
       end
       oParam[oKeyPath.aTree] = value
