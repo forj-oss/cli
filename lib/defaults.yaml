@@ -69,6 +69,12 @@
    :ask_step:
       -  :desc:    "Provider configuration:"
       -  :desc:    "Maestro Cloud compute configuration:"
+         :explanation:        |-
+            Maestro (gardener) is currently configured to access your cloud Compute service with fog openstack.
+            Fog openstack is compatible with hpcloud services
+
+            It requires the openstack project name, user and password.
+
       -  :desc:    "Maestro and blueprint configuration:"
          :add:
             - :keypair_files
@@ -148,18 +154,11 @@
       :account:            true
       :required:           true
     :tenant:
-      :explanation:        |-
-
-         Maestro is currently configured to access your cloud Compute service with fog openstack.
-         Fog openstack is compatible with hpcloud services
-
-         It requires the openstack project name to use, user and password.
-
-      :desc:               "Openstack Tenant name"
+      :desc:               "Openstack Tenant ID"
       :account_exclusive:  true
       :account:            true
       :required:           true
-      :ask_step:           1
+      :ask_step:           0
     :os_user:
       :desc:               "Openstack compute cloud User name"
       :account_exclusive:  true
@@ -199,6 +198,10 @@
   :maestro:
     :tenant_name:
       :desc:            "Tenant name required by fog/openstack on gardener"
+      :account:         true
+      :validate:        !ruby/regexp /^\w?[\w_-]*$/
+      :ask_step:        1
+      :ask_sort:        0
     :network_name:
       :desc:            "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
       :default:         network

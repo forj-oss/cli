@@ -1063,6 +1063,7 @@ class BaseDefinition
       hAskStep.each{ | value |
          aSetup << {
             :desc => value[:desc],
+            :explanation => value[:explanation],
             :pre_step_handler => value[:pre_step_function],
             :order => [[]],
             :post_step_handler => value[:post_step_function]
@@ -1202,6 +1203,7 @@ class BaseDefinition
       aSetup.each_index { | iStep |
          ForjLib.debug(2, "Ask step %s:" % iStep)
          puts "%s%s%s" % [ANSI.bold, aSetup[iStep][:desc], ANSI.clear] unless aSetup[iStep][:desc].nil?
+         puts "%s\n\n" % ANSI.yellow(aSetup[iStep][:explanation]) unless aSetup[iStep][:explanation].nil?
          aOrder = aSetup[iStep][:order]
          aOrder.each_index { | iIndex |
          ForjLib.debug(2, "Ask order %s:" % iIndex)
