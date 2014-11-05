@@ -24,6 +24,7 @@ require 'digest'
 require 'json'
 require 'encryptor' # gem install encryptor
 require 'base64'
+require 'net/ssh'
 
 $INFRA_VERSION = "0.0.37"
 
@@ -771,4 +772,82 @@ class ForjCoreProcess
          Logging.high_level_msg ("The forge '%s' server selected has been removed.\n"  % [oForge[:name]])
       end
   end
+end
+
+class ForjCoreProcess
+  def ssh_connection(sObjectType, hParams)
+    oForge = hParams[:forge]
+    oServer = nil
+
+    oForge[:servers].each{|server|
+      next if hParams[:forge_server] != server[:id]
+      oServer = server
+      break
+    }
+
+    register(oServer)
+    oAddress = object.Query(:public_ip, :server_id =>  oServer[:id])
+
+    if oAddress.length == 0
+      Logging.fatal(1, "ip address for %s server was not found" % oServer[:name])
+    else
+      public_ip = oAddress[0][:public_ip]
+    end
+
+    #Get server
+    server = object.Get(:server, hParams[:forge_server])
+
+    keypairs = []
+
+    hKeys       = keypair_detect(hParams[:keypair_name], File.expand_path(hParams[:keypair_path]))
+    hParams     = get_keypairs_path(hParams, hKeys)
+    keypairs[0] = object.Get(:keypairs, server[:key_name])
+    keypair     = coherent_keypair?(hParams, hKeys, keypairs)
+
+    if not keypair[:coherent]
+      Logging.fatal(1, "Unable to verify keypair '%s' coherence between your cloud and your local SSH keys" % keypair[:name])
+    else
+      private_key_file = keypair[:private_key_file]
+
+      if not private_key_file.include? ".pem"
+        command = "cp %s %s " % [ private_key_file, private_key_file + ".pem" ]
+        system(command)
+        private_key_file = private_key_file + ".pem"
+      end
+
+    end
+
+    #Get ssh user
+    user = hParams[:ssh_user]
+
+    if user.nil?
+      image  = object.Get(:image, server[:image_id])
+      user   = ssh_user(image[:name])
+    end
+
+    Logging.debug("Found ssh_user '%s'" % user)
+
+    begin
+      session = Net::SSH.start(public_ip, user, :keys => private_key_file) do |ssh|
+        Logging.state("creating ssh connection with '%s' box" % oServer[:name])
+        ssh_login(private_key_file, user, public_ip)
+      end
+      Logging.debug("Error closing ssh connection, box %s " % oServer[:name]) if not session
+    rescue => e
+      Logging.fatal(1, e.message)
+    end
+
+  end
+
+  def ssh_login(key, user, public_ip)
+    command = 'ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=180 -i %s %s@%s' % [key, user, public_ip]
+    system(command)
+  end
+
+  def ssh_user(image_name)
+    return "fedora" if image_name =~ /fedora/i
+    return "centos" if image_name =~ /centos/i
+    return "ubuntu"
+  end
+
 end

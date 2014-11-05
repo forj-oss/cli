@@ -110,4 +110,8 @@ module HPCompute
     oComputeConnect.servers.get(oServer.id).destroy
   end
 
+  def HPCompute.get_image(oComputeConnect, oImageID)
+    oComputeConnect.images.get(oImageID)
+  end
+
 end

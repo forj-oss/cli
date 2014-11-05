@@ -453,19 +453,30 @@ Ex: To get the keypair_name defined from the account, or from your ~/.forj/confi
    end
 
 ################################# SSH
-  desc 'ssh <Instance> <Server> [options]', 'connect to your forge thru ssh'
+  desc 'ssh <instance_name> [options]', 'connect to your forge thru ssh'
+
   long_desc <<-LONGDESC
 Connect through ssh to a node attached to an instance
 
-ex: forj ssh myforge review
+List all the servers available using given instance name
+
+  ex. ssh <instance_name>
+
+Connect to a specific box
+
+  ex. ssh  <instance_name> -b [box_name]
   LONGDESC
 
-  def ssh(name, server)
+  method_option :box_ssh,        :aliases => '-b',   :desc => "box name to create ssh connection"
+
+  def ssh(oInstanceName)
     Logging.set_level(Logger::INFO) if options[:verbose]
     Logging.set_level(Logger::DEBUG) if options[:debug]
-   oConfig = ForjConfig.new(options[:config])
-   oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
-    Ssh.connect(name, server, oConfig)
+    oConfig = ForjConfig.new(options[:config])
+
+    oConfig.set(:box_ssh,   options[:box_ssh]) if options[:box_ssh]
+
+    Ssh.connect(oInstanceName, oConfig)
   end
 
 ################################# SETUP

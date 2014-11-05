@@ -103,7 +103,8 @@ class Hpcloud < BaseDefinition
    attr_value_mapping :create, "BUILD"
    attr_value_mapping :boot,   :boot
    attr_value_mapping :active, "ACTIVE"
-
+   get_attr_mapping :image_id, :image_id
+   get_attr_mapping :key_name, :key_name
    # ************************************ SERVER log Object
    define_obj  :server_log
 
@@ -193,6 +194,9 @@ class HpcloudController < BaseController
 
    def create(sObjectType, hParams)
       case sObjectType
+         #when :ssh
+            #required?(hParams, :compute_connection)
+            #HPCompute.get_server(hParams[:compute_connection], sUniqId)
          when :public_ip
             required?(hParams, :compute_connection)
             required?(hParams, :server)
@@ -261,6 +265,9 @@ class HpcloudController < BaseController
    # Used by network process.
    def query(sObjectType, sQuery, hParams)
       case sObjectType
+         #when :ssh
+            #required?(hParams, :compute_connection)
+            #HPCompute.query_server(hParams[:compute_connection], sQuery)
          when :public_ip
             required?(hParams, :compute_connection)
             required?(hParams, :server)
@@ -318,9 +325,11 @@ class HpcloudController < BaseController
 
    def get(sObjectType, sUniqId, hParams)
       case sObjectType
+        #when :ssh
+            #required?(hParams, :compute_connection)
+            #HPCompute.get_server(hParams[:compute_connection], sUniqId)
         when :server_log
             required?(hParams, :server)
-
             hParams[:server].console_output(sUniqId)
         when :server
             required?(hParams, :compute_connection)
@@ -328,10 +337,13 @@ class HpcloudController < BaseController
         when :image
             required?(hParams, :compute_connection)
             HPCompute.get_image(hParams[:compute_connection], sUniqId)
-         when :network
+        when :network
             required?(hParams, :network_connection)
             HPNetwork.get_network(hParams[:network_connection], sUniqId)
-         else
+        when :keypairs
+            required?(hParams, :compute_connection)
+            HPKeyPairs.get_keypair(hParams[:compute_connection], sUniqId)
+        else
             forjError "'%s' is not a valid object for 'get'" % sObjectType
       end
    end

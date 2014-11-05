@@ -27,12 +27,17 @@ class ForjCliProcess
 end
 
 class BaseDefinition
-
-   define_obj  :box_ssh,
+   # ************************************ SSH Object
+   define_obj(:ssh,
       {
-         :create_e => :connect_to
-      }
+         :create_e      => :ssh_connection
+      })
    obj_needs   :CloudObject,  :forge
-   obj_needs   :data,         :box_name
+   obj_needs   :data,         :instance_name
+   obj_needs   :data,         :keypair_name
+   obj_needs   :data,         :keypair_path
 
+   obj_needs_optional
+   obj_needs    :data,         :forge_server
+   obj_needs    :data,         :ssh_user
 end

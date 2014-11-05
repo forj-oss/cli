@@ -18,8 +18,8 @@
 source 'https://rubygems.org'
 group(:development, :test) do
   gem 'rake'
-  gem 'debugger'
-  gem 'byebug'
+#  gem 'debugger'
+#  gem 'byebug'
   gem 'rspec', "~> 3.1.0", :require => false
 end
 
@@ -37,4 +37,4 @@ gem 'thor', '>=0.16.0'
 gem 'highline','>=1.6.21'
 gem 'ansi','>=1.4.3'
 gem 'encryptor','>=1.3.0'
-gem 'bundler', '1.7.3'
+gem 'bundler'

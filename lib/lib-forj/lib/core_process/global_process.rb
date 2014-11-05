@@ -75,55 +75,12 @@ class CloudProcess
       sKeypair_name = hParams[:keypair_name]
       # setup has configured and copied the appropriate key to forj keypairs.
 
-      hKeys = keypair_detect(sKeypair_name, File.expand_path(hParams[:keypair_path]))
-      if hKeys[:private_key_exist? ]
-         hParams[:private_key_file] = File.join(hKeys[:keypair_path], hKeys[:private_key_name])
-         Logging.info("Openssh private key file '%s' exists." % hParams[:private_key_file])
-      end
-      if hKeys[:public_key_exist? ]
-         hParams[:public_key_file] = File.join(hKeys[:keypair_path], hKeys[:public_key_name])
-      else
-         Logging.fatal("Public key file is not found. Please run 'forj setup %s'" % config[:account_name])
-      end
-
-      Logging.state("Searching for keypair '%s'" % [sKeypair_name] )
-
+      hKeys    = keypair_detect(sKeypair_name, File.expand_path(hParams[:keypair_path]))
+      hParams  = get_keypairs_path(hParams, hKeys)
       keypairs = forj_query_keypair(sCloudObj, {:name => sKeypair_name}, hParams)
-      if keypairs.length > 0
-         keypair = keypairs[0]
-         # Check the public key with the one found here, locally.
-         if not keypair[:public_key].nil? and keypair[:public_key] != ""
-            begin
-               local_pub_key = File.read(hParams[:public_key_file])
-            rescue => e
-               Logging.error("Unable to read '%s'.\n%s",[hParams[:public_key_file], e.message] )
-               keypair[:coherent] = false
-            else
-               if local_pub_key.split(' ')[1].strip == keypair[:public_key].split(' ')[1].strip
-                  Logging.info("keypair '%s' local files are coherent with keypair in your cloud service. You will be able to connect to your box over SSH." % sKeypair_name)
-                  keypair[:coherent] = true
-               else
-                  keypair[:coherent] = false
-                  Logging.warning("Your local keypair file '%s' are incoherent with public key '%s' found in your cloud. You won't be able to access your box with this keypair.\nPublic key found in the cloud:\n%s" % [hParams[:public_key_file], sKeypair_name, keypair[:public_key]])
-               end
-            end
-         else
-            keypair[:coherent] = false
-            Logging.warning("Unable to verify keypair coherence between your cloud and your local SSH keys. The cloud controller did not provided ':public_key'")
-         end
-      else
-         config[:public_key] = File.read(hParams[:public_key_file])
-         keypair = create_keypair(sCloudObj, hParams)
-         if not hKeys[:private_key_exist? ]
-            keypair[:coherent] = false
-         else
-            keypair[:coherent] = true
-         end
-      end
-      # Adding information about key files.
-      keypair[:private_key_file] = hParams[:private_key_file]
-      keypair[:public_key_file] = hParams[:public_key_file]
+      keypair  = coherent_keypair?(hParams, hKeys, keypairs)
       keypair
+
    end
 
    def forj_query_keypair(sCloudObj, sQuery, hParams)
@@ -188,6 +145,77 @@ class CloudProcess
       }
    end
 
+  def forj_get_keypair(sCloudObj, sName, hParams)
+    oSSLError = SSLErrorMgt.new
+    begin
+      controler.get(sCloudObj, sName)
+    rescue => e
+      if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
+        retry
+      end
+    end
+  end
+
+  def get_keypairs_path(hParams, hKeys)
+    sKeypair_name = hParams[:keypair_name]
+
+    if hKeys[:private_key_exist? ]
+      hParams[:private_key_file] = File.join(hKeys[:keypair_path], hKeys[:private_key_name])
+      Logging.info("Openssh private key file '%s' exists." % hParams[:private_key_file])
+    end
+    if hKeys[:public_key_exist? ]
+      hParams[:public_key_file] = File.join(hKeys[:keypair_path], hKeys[:public_key_name])
+    else
+      Logging.fatal("Public key file is not found. Please run 'forj setup %s'" % config[:account_name])
+    end
+
+    Logging.state("Searching for keypair '%s'" % [sKeypair_name] )
+
+    hParams
+  end
+
+  def coherent_keypair?(hParams, hKeys, keypairs)
+    #send keypairs by parameter
+    #keypairs = forj_query_keypair(sCloudObj, {:name => sKeypair_name}, hParams)
+    sKeypair_name = hParams[:keypair_name]
+
+    if keypairs.length > 0
+      keypair = keypairs[0]
+      # Check the public key with the one found here, locally.
+      if not keypair[:public_key].nil? and keypair[:public_key] != ""
+        begin
+          local_pub_key = File.read(hParams[:public_key_file])
+        rescue => e
+          Logging.error("Unable to read '%s'.\n%s",[hParams[:public_key_file], e.message] )
+          keypair[:coherent] = false
+        else
+          if local_pub_key.split(' ')[1].strip == keypair[:public_key].split(' ')[1].strip
+            Logging.info("keypair '%s' local files are coherent with keypair in your cloud service. You will be able to connect to your box over SSH." % sKeypair_name)
+            keypair[:coherent] = true
+          else
+            keypair[:coherent] = false
+            Logging.warning("Your local keypair file '%s' are incoherent with public key '%s' found in your cloud. You won't be able to access your box with this keypair.\nPublic key found in the cloud:\n%s" % [hParams[:public_key_file], sKeypair_name, keypair[:public_key]])
+          end
+        end
+      else
+        keypair[:coherent] = false
+        Logging.warning("Unable to verify keypair coherence between your cloud and your local SSH keys. The cloud controller did not provided ':public_key'")
+      end
+    else
+      config[:public_key] = File.read(hParams[:public_key_file])
+      keypair = create_keypair(sCloudObj, hParams)
+      if not hKeys[:private_key_exist? ]
+        keypair[:coherent] = false
+      else
+        keypair[:coherent] = true
+      end
+    end
+    # Adding information about key files.
+    keypair[:private_key_file] = hParams[:private_key_file]
+    keypair[:public_key_file] = hParams[:public_key_file]
+    keypair
+
+  end
 end
 
 # ---------------------------------------------------------------------------
@@ -271,6 +299,17 @@ class CloudProcess < BaseProcess
          end
       end
    end
+
+  def  forj_get_image(sCloudObj, sId, hParams)
+    oSSLError = SSLErrorMgt.new
+    begin
+      controler.get(sCloudObj, sId)
+    rescue => e
+      if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
+        retry
+      end
+    end
+  end
 end
 
 # ---------------------------------------------------------------------------

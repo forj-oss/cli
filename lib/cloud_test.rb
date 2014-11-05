@@ -62,12 +62,60 @@ end
 
 oCloud = ForjCloud.new(oConfig, 'hpcloud', aProcesses)
 
-oConfig.set(:instance_name, "test")
+#oConfig.set(:instance_name, "test")
 #oCloud.Create(:metadata)
 #oCloud.Create(:infra_repository)
-oCloud.Create(:userdata)
+#oCloud.Create(:userdata)
+
 
 #oCloud.Setup(:server, 'hpcloud')
 #oCloud.Setup(:forge, 'hpcloud')
 
 #oCloud.Create(:forge)
+
+#oConfig.set(:instance_name, 'servertestluis')
+#oCloud.Create(:forge)
+
+oForge = oCloud.Get(:forge, "luistest")
+
+#Ask the user to get server(s) to destroy
+server_id_length = 0
+server_name_length = 0
+
+oForge[:server].each{ |server|
+  if server[:id].length() >  server_id_length
+    server_id_length = server[:id].length()
+  end
+
+  if server[:name].length() >  server_name_length
+    server_name_length = server[:name].length()
+  end
+}
+
+server_index = 1
+#Display headers
+puts "|%s |%s |%s |" % ["Index ".ljust(6), "Name".ljust(server_name_length), "ID".ljust(server_id_length) ]
+#puts "|%s |%s |%s |" % ["0", "all".ljust(server_name_length), " ".ljust(server_id_length) ]
+#Display Forge servers detail
+oForge[:server].each{ |server|
+  puts "|%s |%s |%s |" % [server_index.to_s().ljust(6), server[:name].to_s().ljust(server_name_length), server[:id].to_s().ljust(server_id_length) ]
+  server_index = server_index + 1
+}
+
+oHighLine = HighLine.new()
+
+index = oHighLine.ask("Select the index of the server to create the ssh connection", Integer)do |q|
+  q.below=oForge[:server].count + 1
+  q.above=0
+end
+
+
+oConfig.set(:instance_name, 'luistest')
+oConfig.set(:forge_server, oForge[:server][index - 1][:id])
+oConfig.set(:server_name, oForge[:server][index - 1][:name])
+#oConfig.set(:box, 'maestro')
+#oConfig.set(:instance_name, 'luistest')
+#oConfig.Create(:server)
+oCloud.Create(:ssh)
+
+#oCloud.Query(:server, 'maestro')

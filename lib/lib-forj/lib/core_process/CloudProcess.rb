@@ -197,7 +197,8 @@ class BaseDefinition
    define_obj(:keypairs,
       {
          :create_e   => :forj_get_or_create_keypair,
-         :query_e    => :forj_query_keypair
+         :query_e    => :forj_query_keypair,
+         :get_e      => :forj_get_keypair
 #         :delete_e   => :forj_delete_keypair
       })
 
@@ -215,14 +216,17 @@ class BaseDefinition
    define_obj(:image,
       {
          :create_e   => :forj_get_or_create_image,
-         :query_e    => :forj_query_image
-#         :get_e      => :forj_get_image
+         :query_e    => :forj_query_image,
+         :get_e      => :forj_get_image
 #         :update_e   => :forj_update_image
 #         :delete_e   => :forj_delete_image
       })
 
    obj_needs   :CloudObject,  :compute_connection
    obj_needs   :data,         :image_name,         { :for => [:create_e] }
+
+   obj_needs_optional
+   obj_needs   :data,         :image_id
 
    # ************************************ Flavor Object
    # Identify flavor
@@ -291,6 +295,8 @@ class BaseDefinition
    def_attribute  :private_ip_address
    def_attribute  :public_ip_address
 
+   def_attribute  :image_id
+   def_attribute  :key_name
    # ************************************ SERVER Addresses Object
    # Object representing the list of IP addresses attached to a server.
    define_obj(:public_ip,
@@ -329,6 +335,5 @@ class BaseDefinition
    obj_needs   :CloudObject,  :internet_network
    obj_needs   :CloudObject,  :server
    obj_needs   :CloudObject,  :public_ip
-
 
 end

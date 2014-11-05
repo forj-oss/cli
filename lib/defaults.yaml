@@ -37,6 +37,9 @@
   # Network: If network doesn't exist, forj cli will try to create it, and attach it a router.
   :network: forj
 
+  # Users: Default user for ssh connection, if user doesn't exits, forj cli will try to get the user from the server image on it's name attribute
+  #:users: ['ubuntu', 'fedora', 'cloud-user', 'cirros', 'centos', 'cloud', 'root']
+  :ssh_user: "ubuntu"
   # build.sh internal variables.
   :build_config: box
   :branch: master
@@ -78,6 +81,7 @@
       -  :desc:    "Maestro and blueprint configuration:"
          :add:
             - :keypair_files
+            - :ssh_user
       -  :desc:    "DNS Configuration for Maestro:"
 :sections:
   # This section define updatable data available from config.yaml. But will never be added in an account file.
@@ -252,6 +256,15 @@
          :value:        :name
          :validate:     :list_strict
       :ask_step:        2
+    :ssh_user:
+      :desc:        "user for ssh connection. By default, it is 'ubuntu'"
+      :account:     true
+      :ask_step:    2
+      :list_values:
+        :query_type:  :process_call #Will execute a query on image and return the list of images.
+        :object:      :image
+        :value:       :name
+        :validate:    :list_strict
     :ports:
       :desc:            "List of security group rules (1 port or range of ports) to open to the external network."
     :branch:
