@@ -205,7 +205,8 @@ class CloudProcess
          router = create_router(router_name) if not router or router.empty?
          create_router_interface(oSubNetwork, router) if router and not router.empty?
       else
-         sQuery = {:id => get_data(router_port, :device_id)}
+         #sQuery = {:id => get_data(router_port, :device_id)}
+         sQuery = {:id => router_port[:device_id]}
          routers = controler.query(:router, sQuery)
          case routers.length()
             when 1
