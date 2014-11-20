@@ -828,6 +828,7 @@ class ObjectData
    def delete(oObj)
       if oObj.is_a?(Symbol)
          sObjectType = oObj
+         oObj = @hParams[sObjectType]
          @hParams[sObjectType] = nil
       else
          raise ForjError.new(), "ObjectData: delete error. oObj is not a framework data Object." unless oObj.is_a?(ForjLib::Data)
@@ -838,7 +839,7 @@ class ObjectData
             @hParams[sObjectType] = nil
          end
       end
-      oObj.unregister
+      oObj.unregister unless oObj.nil?
    end
 
    def << (hHash)
@@ -965,7 +966,7 @@ class BaseDefinition
       bState = @oForjProcess.method(pProc).call(sCloudObj, aParams)
       # return usually is the main object that the process called should provide.
       if bState
-         @ObjectData.del(sCloudObj)
+         @ObjectData.delete(sCloudObj)
       end
 
    end
@@ -1587,7 +1588,7 @@ class BaseDefinition
    def delete(sObjectType)
       hParams = _get_object_params(sObjectType, :delete_e, :delete, true)
       bState = @oProvider.delete(sObjectType, hParams)
-      @ObjectData.delete(sCloudObj) if bState
+      @ObjectData.delete(sObjectType) if bState
       bState
    end
 
