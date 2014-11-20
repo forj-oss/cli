@@ -222,6 +222,12 @@ class BaseDefinition
       hkeyPaths = rhGet(hTopParams, :keys)
       raise ForjError.new(), "'%s' Object data needs not set. Forgot obj_needs?" % [sCloudObj] if hkeyPaths.nil?
 
+      if sEventType == :delete_e
+        if @ObjectData.exist?(sCloudObj)
+          oParams.add(@ObjectData[sCloudObj, :ObjectData])
+        end
+      end
+
       hkeyPaths.each { | sKeypath, hParams|
          next if not hParams[:for].include?(sEventType)
          oKeyPath = KeyPath.new(sKeypath)
@@ -273,6 +279,12 @@ class BaseDefinition
       hTopParams= rhGet(@@meta_obj,sCloudObj, :params)
       hkeyPaths = rhGet(hTopParams, :keys)
       raise ForjError.new(), "'%s' Object data needs not set. Forgot obj_needs?" % [sCloudObj] if hkeyPaths.nil?
+
+      if sEventType == :delete_e
+        if @ObjectData.type?(sCloudObj) != :DataObject
+          oObjMissing << sCloudObj
+        end
+      end
 
       hkeyPaths.each { | sKeypath, hParams|
          next if not hParams[:for].include?(sEventType)
