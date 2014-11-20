@@ -307,7 +307,11 @@ class HpcloudController < BaseController
          when :rule
             HPSecurityGroups.delete_rule(hParams[:network_connection], hParams[:id])
             hParams[:network_connection].security_group_rules.get(hParams[:id]).destroy
-         else
+        when :server
+            required?(hParams, :compute_connection)
+            required?(hParams, :server)
+            HPCompute.delete_server(hParams[:compute_connection], hParams[:server] )
+        else
             nil
       end
    end

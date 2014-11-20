@@ -267,9 +267,9 @@ class BaseDefinition
       {
          :create_e   => :forj_get_or_create_server,
          :query_e    => :forj_query_server,
-         :get_e      => :forj_get_server
+         :get_e      => :forj_get_server,
 #         :update_e   => :forj_update_server,
-#         :delete_e   => :forj_delete_server
+         :delete_e   => :forj_delete_server
       })
 
    obj_needs   :CloudObject,  :compute_connection

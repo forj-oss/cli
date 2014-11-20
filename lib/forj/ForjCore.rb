@@ -97,12 +97,14 @@ class BaseDefinition
    # ******************* forge object
    define_obj  :forge,
       {
-         :create_e => :build_forge
-#         :delete_e => :drop_forge
+         :create_e => :build_forge,
+         :delete_e => :delete_forge,
+         :get_e    => :get_forge
       }
-   obj_needs   :CloudObject,  :metadata
-   obj_needs   :CloudObject,  :userdata
-   obj_needs   :data,         :instance_name
+   obj_needs   :CloudObject,  :compute_connection
+   obj_needs   :CloudObject,  :metadata,        { :for => [:create_e] }
+   obj_needs   :CloudObject,  :userdata,        { :for => [:create_e] }
+   obj_needs   :data,         :instance_name,   { :for => [:create_e] }
 
    obj_needs_optional
    obj_needs   :CloudObject,  :server

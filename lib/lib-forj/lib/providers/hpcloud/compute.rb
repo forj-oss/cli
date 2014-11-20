@@ -105,4 +105,9 @@ module HPCompute
       # This list must support the each function.
       oAddress
    end
+
+  def HPCompute.delete_server(oComputeConnect, oServer)
+    oComputeConnect.servers.get(oServer.id).destroy
+  end
+
 end

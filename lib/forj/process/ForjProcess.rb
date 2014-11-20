@@ -642,3 +642,45 @@ class ForjCoreProcess
    end
 
 end
+
+#Funtions for get
+class ForjCoreProcess
+  def get_forge(sCloudObj, sForgeId, hParams)
+    sQuery = {}
+    hServers = []
+    sQuery[:name] = sForgeId
+
+    oServers = object.query(:server, sQuery )
+
+    regex =  Regexp.new('\.%s$' % sForgeId)
+
+    oServers.each { |oServer|
+      oName = oServer[:name]
+      hServers<<oServer if regex =~ oName
+    }
+   Logging.info("%s server(s) were found under instance name %s " % [hServers.count(), sQuery[:name]])
+
+   oForge = register(hServers, sCloudObj)
+   oForge[:server] = hServers
+   oForge
+  end
+end
+
+#Funtions for destroy
+class ForjCoreProcess
+  def delete_forge(sCloudObj, hParams)
+
+    Logging.state("Destroying server(s) of your forge...\n")
+
+    forge_serverid = config.get(:forge_server)
+
+    oForge = hParams[:forge]
+
+    oForge[:server].each{|server|
+      next if forge_serverid and forge_serverid != server[:id]
+      register(server)
+      object.Delete(:server)
+    }
+
+  end
+end

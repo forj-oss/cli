@@ -290,6 +290,18 @@ class CloudProcess < BaseProcess
       end
    end
 
+   def forj_delete_server(sCloudObj, hParams)
+     oSSLError = SSLErrorMgt.new
+     begin
+       controler.delete(sCloudObj)
+       Logging.info("Server %s was destroyed " % hParams[:server][:name] )
+     rescue => e
+       if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
+         retry
+       end
+     end
+   end
+
    def forj_query_server(sCloudObj, sQuery, hParams)
       server_name = "Undefined"
       server_name = sQuery[:name] if sQuery.key?(:name)

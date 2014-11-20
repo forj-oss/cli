@@ -34,7 +34,6 @@ Gem::Specification.new do |s|
                      lib/network.rb
                      lib/security.rb
                      lib/defaults.yaml
-                     lib/down.rb
                      lib/appinit.rb
                      lib/forj-settings.rb
                      lib/repositories.rb

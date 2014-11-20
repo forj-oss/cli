@@ -39,10 +39,8 @@ require 'forj-config.rb' # Load class ForjConfig and Meta data class variables. 
 require 'forj-account.rb' # Load class ForjAccount
 require 'connection.rb' # Load class ForjConnection
 
-require 'down.rb'
 require 'ssh.rb'
 
-include Down
 include Ssh
 require 'forj-settings.rb' # Settings features
 
@@ -267,15 +265,17 @@ queriable Objects:
       end
    end
 
-################################# DOWN
-   desc 'down <InstanceName>', 'delete the Maestro box and all systems installed by the blueprint'
+################################# DESTROY
+   desc 'destroy <InstanceName> [options]', 'delete the Maestro box and all systems installed by the blueprint'
    long_desc <<-LONGDESC
-This action all servers that has been created under the instance name.
+This action destoy all the server found under the instance name and allow you to destroy all of them or just one of them.
 
 Warning! This action don't removed any network/security groups cloud object.
    LONGDESC
 
-   def down(name)
+  method_option :force_destroy, :aliases => "-f", :desc => "force deletion of all servers for the given InstanceName"
+
+   def destroy(name)
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
 
@@ -284,7 +284,80 @@ Warning! This action don't removed any network/security groups cloud object.
       oForjAccount = ForjAccount.new(oConfig)
       oForjAccount.ac_load()
 
-      Down.down(oForjAccount, name)
+      aProcesses = []
+
+      # Defines how to manage Maestro and forges
+      # create a maestro box. Identify a forge instance, delete it,...
+      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
+
+      # Defines how cli will control FORJ features
+      # boot/down/ssh/...
+      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
+
+      oCloud = ForjCloud.new(oForjAccount, oConfig[:account_name], aProcesses)
+
+      oForge = oCloud.Get(:forge, name)
+
+      if oForge[:server].count > 0
+
+        if options[:force_destroy]
+          #Destroy all servers found
+          oCloud.Delete(:forge)
+        elsif
+          #Ask the user to get server(s) to destroy
+          server_id_length = 0
+          server_name_length = 0
+
+          oForge[:server].each{ |server|
+            if server[:id].length() >  server_id_length
+              server_id_length = server[:id].length()
+            end
+
+            if server[:name].length() >  server_name_length
+              server_name_length = server[:name].length()
+            end
+          }
+
+          server_index = 1
+          #Display headers
+          puts "|%s |%s |%s |" % ["Index ".ljust(6), "Name".ljust(server_name_length), "ID".ljust(server_id_length) ]
+          #puts "|%s |%s |%s |" % ["0", "all".ljust(server_name_length), " ".ljust(server_id_length) ]
+          #Display Forge servers detail
+          oForge[:server].each{ |server|
+            puts "|%s |%s |%s |" % [server_index.to_s().ljust(6), server[:name].to_s().ljust(server_name_length), server[:id].to_s().ljust(server_id_length) ]
+            server_index = server_index + 1
+          }
+          #All option
+          puts "|%s |%s |%s |" % [server_index.to_s().ljust(6), "all".ljust(server_name_length), " ".ljust(server_id_length) ]
+          server_index = server_index + 1
+          #Esc option
+          puts "|%s |%s |%s |" % [server_index.to_s().ljust(6), "esc".ljust(server_name_length), " ".ljust(server_id_length) ]
+
+          oHighLine = HighLine.new()
+
+          index = oHighLine.ask("Select the index of the server that you want to destroy?", Integer)do |q|
+            q.below=oForge[:server].count + 3
+            q.above=0
+          end
+
+          if index > 0 and index <= oForge[:server].count
+            #Destroy selected server
+            oConfig.set(:forge_server, oForge[:server][index - 1][:id] )
+            oCloud.Delete(:forge)
+          elsif index ==  oForge[:server].count + 1
+            #Destroy all servers found
+            oCloud.Delete(:forge)
+          elsif index ==  oForge[:server].count + 2
+            #esc
+            Logger.high_level_msg("No server(s) destroyed for instance name '%s' \n" % name )
+          end
+
+        end
+
+      elsif
+        Logger.high_level_msg("No server(s) found for instance name '%s' \n" % name )
+      end
+
    end
 
 ################################# SET
