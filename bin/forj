@@ -303,7 +303,7 @@ Warning! This action don't removed any network/security groups cloud object.
         if options[:force_destroy]
           #Destroy all servers found
           oCloud.Delete(:forge)
-        elsif
+        else
           #Ask the user to get server(s) to destroy
           server_id_length = 0
           server_name_length = 0
@@ -354,7 +354,7 @@ Warning! This action don't removed any network/security groups cloud object.
 
         end
 
-      elsif
+      else
         Logger.high_level_msg("No server(s) found for instance name '%s' \n" % name )
       end
 
