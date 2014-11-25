@@ -86,15 +86,14 @@ Gem::Specification.new do |s|
   ## require 'NAME.rb' or'/lib/NAME/file.rb' can be as require 'NAME/file.rb'
   s.require_paths = %w[lib]
 
-  s.add_runtime_dependency 'thor', '~>0.16.0'
-  s.add_runtime_dependency 'nokogiri', '~>1.5.11'
-  s.add_runtime_dependency 'fog', '~>1.19.0'
-  s.add_runtime_dependency 'hpcloud', '~>2.0.9'
+  s.add_runtime_dependency 'thor', '>=0.16.0'
+  s.add_runtime_dependency 'fog', '1.19.0'
   s.add_runtime_dependency 'git', '>=1.2.7'
-  s.add_runtime_dependency 'rbx-require-relative', '~>0.0.7'
-  s.add_runtime_dependency 'highline', '~> 1.6.21'
+  s.add_runtime_dependency 'highline', '>= 1.6.21'
   s.add_runtime_dependency 'ansi', '>= 1.4.3'
-  s.add_runtime_dependency 'encryptor', '1.3.0'
+  s.add_runtime_dependency 'encryptor', '>=1.3.0'
   s.add_runtime_dependency 'json', '1.7.5'
+  s.add_runtime_dependency 'bundler', '1.7.3'
+  s.add_runtime_dependency 'nokogiri','1.5.11'
 
 end

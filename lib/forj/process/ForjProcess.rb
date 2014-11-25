@@ -106,7 +106,9 @@ class ForjCoreProcess
 
       config.set(:meta_data, hMeta) # Used by :server object
 
-      Logging.info("Metadata set:\n%s" % hMeta)
+      hMetaPrintable = hMeta.clone
+      hMetaPrintable['hpcloud_priv'] = "XXX - data hidden - XXX"
+      Logging.info("Metadata set:\n%s" % hMetaPrintable)
 
       oMetaData = register(hMeta, sObjectType)
       oMetaData[:meta_data] = hMeta

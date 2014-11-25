@@ -23,9 +23,9 @@ require 'logger'
 require 'ansi'
 require 'ansi/logger'
 
-require 'require_relative'
+#require 'require_relative'
 
-require_relative 'helpers.rb'
+require 'helpers'
 include Helpers
 
 

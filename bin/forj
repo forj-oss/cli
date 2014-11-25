@@ -17,7 +17,7 @@
 
 require 'rubygems'
 require 'bundler/setup'
-require 'require_relative'
+#require 'require_relative'
 require 'thor'
 require 'ansi'
 
