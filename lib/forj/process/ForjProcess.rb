@@ -118,10 +118,30 @@ class ForjCoreProcess
 
    def build_forge(sObjectType, hParams)
 
+      oForge = object.Get(sObjectType, config[:instance_name])
+      if oForge.empty?
+         object.Create(:internet_server)
 
-      object.Create(:internet_server)
+         Logging.high_level_msg ("\nBuilding your forge...\n")
+      else
+         oForge[:servers].each { | oServerToFind |
+            object.Get(:server, oServerToFind[:id]) if /^maestro\./ =~ oServerToFind[:name]
+         }
+         Logging.high_level_msg ("\nChecking your forge...\n")
+         oServer = DataObjects(:server, :ObjectData)
+         if oServer
+            oIP = object.Query(:public_ip, :server_id => oServer[:id])
+            if oIP.length > 0
+               register oIP[0]
+            end
+            object.Create(:keypairs)
+         else
+            Logging.high_level_msg ("\nYour forge exist, without maestro. Building Maestro...\n")
+            object.Create(:internet_server)
 
-      Logging.high_level_msg ("\nBuilding your forge...\n")
+            Logging.high_level_msg ("\nBuilding your forge...\n")
+         end
+      end
 
       oServer = DataObjects(:server, :ObjectData)
 
@@ -137,7 +157,7 @@ class ForjCoreProcess
 
       if oServer[:attrs][:status] == :active
          sMsg = <<-END
-Your server is up and running and is publically accessible through IP '#{oAddress[:public_ip]}'.
+Your forj Maestro server is up and running and is publically accessible through IP '#{oAddress[:public_ip]}'.
 
 You can connect to '#{oServer[:name]}' with:
 ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:keypairs, :private_key_file)}
@@ -146,12 +166,13 @@ ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:ke
             sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
          end
          Logging.info(sMsg)
-         Logging.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
 
-         oLog = object.Get(:server_log, 5)[:attrs][:output]
+         oLog = object.Get(:server_log, 25)[:attrs][:output]
          if /cloud-init boot finished/ =~ oLog
             sStatus = :active
+            Logging.high_level_msg ("\n%s\nThe forge is ready...\n" % sMsg)
          else
+            Logging.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
             sStatus = :cloud_init
          end
       else
@@ -159,8 +180,14 @@ ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:ke
          sStatus = :starting
       end
 
+      mCloudInitError = []
+      iCurAct = 0
+      oOldLog = ""
+
       while sStatus != :active
-         maestro_create_status(sStatus)
+         maestro_create_status(sStatus, iCurAct)
+         iCurAct += 1
+         iCurAct = iCurAct % 4
          begin
             oServer = object.Get(:server, oServer[:attrs][:id])
          rescue => e
@@ -182,7 +209,7 @@ ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:ke
                end
             end
             sMsg = <<-END
-Public IP for server '#{oServer[:name]}' is assigned'
+Public IP for server '#{oServer[:name]}' is assigned.
 Now, as soon as the server respond to the ssh port, you will be able to get a tail of the build with:
 while [ 1 = 1 ]
 do
@@ -196,31 +223,85 @@ done
             Logging.info(sMsg)
             Logging.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
             sStatus = :cloud_init
-         elsif sStatus == :cloud_init
-            oLog = object.Get(:server_log, 5)[:attrs][:output]
+         else #analyze the log output
+            oLog = object.Get(:server_log, 25)[:attrs][:output]
+            iCurAct = 4 if oLog == oOldLog
+            oOldLog = oLog
             if /cloud-init boot finished/ =~ oLog
                sStatus = :active
+               if mCloudInitError != []
+                  Logging.high_level_msg ("Critical error cleared. Cloud-init seems moving...")
+                  Logging.info ("Critical error cleared. Cloud-init seems moving...")
+                  mCloudInitError = []
+               end
+            elsif /\[CRITICAL\]/ =~ oLog
+               mCritical = oLog.scan(/.*\[CRITICAL\].*\n/)
+               if not (mCloudInitError == mCritical)
+                  sReported = oLog.clone
+                  sReported['CRITICAL'] = ANSI.bold('CRITICAL')
+                  Logging.error("cloud-init error detected:\n-----\n%s\n-----\nPlease connect to the box to decide what you need to do." % [sReported])
+                  mCloudInitError = mCritical
+               end
+            elsif sStatus == :cloud_init and /cloud-init-nonet gave up waiting for a network device/ =~ oLog
+               # Valid for ubuntu image 12.04
+               Logging.warning("Cloud-init has gave up to configure the network. waiting...")
+               sStatus = :nonet
+            elsif sStatus == :nonet and /Booting system without full network configuration/ =~ oLog
+               # Valid for ubuntu image 12.04
+               Logging.warning("forj has detected an issue to bring up your maestro server. Removing it and re-creating a new one. please be patient...")
+               sStatus = :restart
+            elsif sStatus == :restart
+               object.Delete(:server)
+               object.Create(:internet_server)
+               sStatus = :starting
             end
          end
          sleep(5) if sStatus != :active
       end
-      sMsg = "Server '%s' is now ACTIVE. Bootstrap done." % oServer[:name]
-      Logging.info(sMsg)
+      oForge = get_forge(sObjectType, config[:instance_name], hParams)
+      sMsg = "Your Forge '%s' is ready and accessible from IP #{oAddress[:public_ip]}." % config[:instance_name]
       # TODO: read the blueprint/layout to identify which services are implemented and can be accessible.
-      Logging.high_level_msg ("Your Forge '%s' is over and accessible from IP #{oAddress[:public_ip]}. Enjoy!\n" % config[:instance_name])
-      oServer
+      if config[:blueprint]
+         sMsg += "\nMaestro has implemented the following server(s) for your blueprint '%s':" % config[:blueprint]
+         oForge[:servers].each { | oServer|
+            next if /^maestro\./ =~ oServer[:name]
+            register(oServer)
+            oIP = object.Query(:public_ip, :server_id => oServer[:id])
+            if oIP.length == 0
+               sMsg += "\n- %s (No public IP)" % [oServer[:name]]
+            else
+               sMsg += "\n- %s (%s)" % [oServer[:name], oIP[0][:public_ip]]
+            end
+         }
+      else
+         sMsg += "\nMaestro has NOT implemented any servers, because you did not provided a blueprint. Connect to Maestro, and ask Maestro to implement any kind of blueprint you need. (Feature currently under development)"
+      end
+      Logging.info(sMsg)
+      Logging.high_level_msg ("\n%s\nEnjoy!\n" % sMsg)
+      oForge
    end
 
-   def maestro_create_status(sStatus)
+   def maestro_create_status(sStatus, iCurAct = 4)
+      sActivity = "/-\\|?"
+      if iCurAct < 4
+         sCurAct = "ACTIVE"
+      else
+         sCurAct = ANSI.bold("PENDING")
+      end
+
       case sStatus
          when :checking
             Logging.state("Checking server status")
          when :starting
             Logging.state("STARTING")
          when :assign_ip
-            Logging.state("ACTIVE - Assigning Public IP")
+            Logging.state("%s - %s - Assigning Public IP" % [sActivity[iCurAct], sCurAct])
          when :cloud_init
-            Logging.state("ACTIVE - Currently running cloud-init. Be patient.")
+            Logging.state("%s - %s - Currently running cloud-init. Be patient." % [sActivity[iCurAct], sCurAct])
+         when :nonet
+            Logging.state("%s - %s - Currently running cloud-init. Be patient." % [sActivity[iCurAct], sCurAct])
+         when :restart
+            Logging.state("RESTARTING - Currently restarting maestro box. Be patient.")
          when :active
             Logging.info("Server is active")
       end
@@ -663,26 +744,30 @@ class ForjCoreProcess
    Logging.info("%s server(s) were found under instance name %s " % [hServers.count(), sQuery[:name]])
 
    oForge = register(hServers, sCloudObj)
-   oForge[:server] = hServers
+   oForge[:servers] = hServers
    oForge
   end
 end
 
 #Funtions for destroy
 class ForjCoreProcess
-  def delete_forge(sCloudObj, hParams)
+   def delete_forge(sCloudObj, hParams)
 
-    Logging.state("Destroying server(s) of your forge...\n")
+      Logging.state("Destroying server(s) of your forge...\n")
 
-    forge_serverid = config.get(:forge_server)
+      forge_serverid = config.get(:forge_server)
 
-    oForge = hParams[:forge]
+      oForge = hParams[:forge]
 
-    oForge[:server].each{|server|
-      next if forge_serverid and forge_serverid != server[:id]
-      register(server)
-      object.Delete(:server)
-    }
-
+      oForge[:servers].each{|server|
+         next if forge_serverid and forge_serverid != server[:id]
+         register(server)
+         object.Delete(:server)
+      }
+      if forge_serverid.nil?
+         Logging.high_level_msg ("The forge '%s' has been destroyed. (all servers linked to the forge)" % oForge )
+      else
+         Logging.high_level_msg ("The forge '%s' server selected has been removed."  % [oForge])
+      end
   end
 end

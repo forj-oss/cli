@@ -875,7 +875,7 @@ class ObjectData
    #~ end
 
    def type?(key)
-      return nil if rhExist?(@hParams, key) != 1
+      return nil if rhExist?(@hParams, key) != 1 or @hParams[key].nil?
       :data
       :DataObject if @hParams[key].type?() == :object
    end

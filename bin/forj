@@ -175,7 +175,7 @@ Maestro/infra bootstrap debugging:"
       oConfig.set(:keypair_name,   options[:key_name])
       oConfig.set(:keypair_path,   options[:key_path])
       oConfig.set(:security_group, options[:security_group])
-      oConfig.set(:image_name,     options[:image])
+      oConfig.set(:image_name,     options[:image_name])
       oConfig.set(:flavor,         options[:maestro_flavor])
       oConfig.set(:bp_flavor,      options[:bp_flavor])
       oConfig.set(:maestro_repo ,  options[:maestro_repo])
@@ -217,7 +217,7 @@ Maestro/infra bootstrap debugging:"
          Logging.info("Starting boot process of '%s' with blueprint '%s'." % [oConfig[:instance_name], oConfig[:blueprint]])
       end
 
-      Logging.high_level_msg ("Preparing your forge '%s'. Please be patient\n" % oConfig[:instance_name])
+      Logging.high_level_msg ("Preparing your forge '%s'. Please be patient. more output in '%s'\n" % [oConfig[:instance_name], File.join($FORJ_DATA_PATH, "forj.log")])
 
       oCloud.Create(:forge)
       #Boot.boot(blueprint, name, options[:build], options[:boothook], options[:box_name], oForjAccount)
@@ -355,7 +355,7 @@ Warning! This action don't removed any network/security groups cloud object.
         end
 
       else
-        Logger.high_level_msg("No server(s) found for instance name '%s' \n" % name )
+        Logger.high_level_msg("No server(s) to destroy found for instance name '%s' \n" % name )
       end
 
    end
