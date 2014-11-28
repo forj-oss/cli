@@ -745,6 +745,7 @@ class ForjCoreProcess
 
    oForge = register(hServers, sCloudObj)
    oForge[:servers] = hServers
+   oForge[:name] = sForgeId
    oForge
   end
 end
@@ -753,7 +754,7 @@ end
 class ForjCoreProcess
    def delete_forge(sCloudObj, hParams)
 
-      Logging.state("Destroying server(s) of your forge...\n")
+      Logging.state("Destroying server(s) of your forge...")
 
       forge_serverid = config.get(:forge_server)
 
@@ -765,9 +766,9 @@ class ForjCoreProcess
          object.Delete(:server)
       }
       if forge_serverid.nil?
-         Logging.high_level_msg ("The forge '%s' has been destroyed. (all servers linked to the forge)" % oForge )
+         Logging.high_level_msg ("The forge '%s' has been destroyed. (all servers linked to the forge)\n" % oForge[:name] )
       else
-         Logging.high_level_msg ("The forge '%s' server selected has been removed."  % [oForge])
+         Logging.high_level_msg ("The forge '%s' server selected has been removed.\n"  % [oForge[:name]])
       end
   end
 end
