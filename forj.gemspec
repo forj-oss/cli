@@ -27,53 +27,10 @@ Gem::Specification.new do |s|
   s.authors     = ['forj team']
   s.email       = %w(forj@forj.io)
 
-  s.executables = ['forj']
-  s.files       = %w(bin/forj
-                     lib/compute.rb
-                     lib/connection.rb
-                     lib/network.rb
-                     lib/security.rb
-                     lib/defaults.yaml
-                     lib/appinit.rb
-                     lib/forj-settings.rb
-                     lib/repositories.rb
-                     lib/ssh.rb
-                     lib/ssh.sh
-                     lib/log.rb
-                     lib/helpers.rb
-                     lib/forj-config.rb
-                     lib/forj-account.rb
-                     lib/build_tmpl/bootstrap_build.sh
-                     lib/build_tmpl/write-mime-multipart.py                     
-                     lib/forj/ForjCore.rb
-                     lib/forj/ForjCli.rb
-                     lib/forj/process/ForjProcess.rb
-                     lib/lib-forj/lib/providers/templates/compute.rb
-                     lib/lib-forj/lib/providers/templates/network.rb
-                     lib/lib-forj/lib/providers/templates/core.rb
-                     lib/lib-forj/lib/providers/hpcloud/security_groups.rb
-                     lib/lib-forj/lib/providers/hpcloud/Hpcloud.rb
-                     lib/lib-forj/lib/providers/hpcloud/compute.rb
-                     lib/lib-forj/lib/providers/hpcloud/network.rb
-                     lib/lib-forj/lib/core_process/global_process.rb
-                     lib/lib-forj/lib/core_process/CloudProcess.rb
-                     lib/lib-forj/lib/core_process/network_process.rb
-                     lib/lib-forj/lib/core/definition.rb
-                     lib/lib-forj/lib/core/core.rb
-                     lib/lib-forj/lib/core/definition_internal.rb
-                     lib/lib-forj/lib/lib-forj.rb
-                     spec/boot_spec.rb
-                     spec/connection_spec.rb
-                     spec/down_spec.rb
-                     spec/network_spec.rb
-                     spec/repositories_spec.rb
-                     spec/setup_spec.rb
-                     spec/spec_helper.rb
-                     spec/ssh_spec.rb
-                     spec/forj-config_spec.rb
-                     Rakefile
-                     Gemfile
-                     README.md)
+  s.files         = `git ls-files -z`.split("\x0")
+  s.executables   = s.files.grep(%r{^bin/}) { |f| File.basename(f) }
+  s.test_files    = s.files.grep(%r{^(test|spec|features)/})
+  s.require_paths = ["lib"]
 
   s.homepage    = 'https://forj.io'
   s.license     = 'Apache License, Version 2.0.'
@@ -93,7 +50,15 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'ansi', '>= 1.4.3'
   s.add_runtime_dependency 'encryptor', '>=1.3.0'
   s.add_runtime_dependency 'json', '1.7.5'
-  s.add_runtime_dependency 'bundler', '1.7.3'
+  s.add_runtime_dependency 'bundler'
   s.add_runtime_dependency 'nokogiri','1.5.11'
+  s.add_runtime_dependency 'lorj', '0.1.0'
+
+  s.add_development_dependency "bundler"
+  s.add_development_dependency "rake", "~> 10.0"
+  s.add_development_dependency "rspec", "~> 3.1.0"
+  s.rdoc_options << '--title' << 'Lorj - The Process Controllers framework system' <<
+  '--main' << 'README.md'
+
 
 end

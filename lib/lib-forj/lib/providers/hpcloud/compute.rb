@@ -58,7 +58,7 @@ module HPCompute
       HPCompute.get_server(oComputeConnect, server.id ) if server
    end
 
-   def HPCompute.query_server_assigned_addresses(oComputeConnect, oServer, sQuery)
+   def HPCompute.query_server_assigned_addresses(oComputeConnect, sQuery)
       # CloudProcess used a simplified way to manage IPs.
       # Following is the translation to get the public IPs for the server
 

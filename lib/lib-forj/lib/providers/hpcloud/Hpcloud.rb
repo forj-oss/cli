@@ -270,8 +270,7 @@ class HpcloudController < BaseController
             #HPCompute.query_server(hParams[:compute_connection], sQuery)
          when :public_ip
             required?(hParams, :compute_connection)
-            required?(hParams, :server)
-            HPCompute.query_server_assigned_addresses(hParams[:compute_connection], hParams[:server], sQuery)
+            HPCompute.query_server_assigned_addresses(hParams[:compute_connection], sQuery)
          when :server
             required?(hParams, :compute_connection)
             HPCompute.query_server(hParams[:compute_connection], sQuery)
