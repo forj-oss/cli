@@ -38,8 +38,8 @@
   :network: forj
 
   # Users: Default user for ssh connection, if user doesn't exits, forj cli will try to get the user from the server image on it's name attribute
-  #:users: ['ubuntu', 'fedora', 'cloud-user', 'cirros', 'centos', 'cloud', 'root']
-  :ssh_user: "ubuntu"
+  :users: ['ubuntu', 'fedora', 'cloud-user', 'cirros', 'centos', 'cloud', 'root']
+
   # build.sh internal variables.
   :build_config: box
   :branch: master
@@ -125,7 +125,7 @@
          The public key is used to configure your server to authorize you to access the box with your private key.
          This keypair files will be copied to '$HOME/.forj/keypairs/ under <keypair_name> files for 'forj' needs.
 
-         If the keypair does exists locally, it will be created for you.
+         If the keypair doesn't exist locally, it will be created for you.
       :desc:               "Base keypair file name"
       :default_value:      "~/.ssh/id_rsa-forj"
       :validate_function:  :forj_check_keypairs_files
@@ -257,14 +257,23 @@
          :validate:     :list_strict
       :ask_step:        2
     :ssh_user:
-      :desc:        "user for ssh connection. By default, it is 'ubuntu'"
+      :desc:        "User name for ssh connection of your selected image."
+      :explanation: |-
+        The image name you have selected has a unique SSH Account access.
+
+        Thanks to the name of the image, setup assume the account name to use.
+        If this name is incoherent with the image you choosed, please update it.
+
+        Checking image '<%= config[:image_name] %>'...
       :account:     true
       :ask_step:    2
       :list_values:
-        :query_type:  :process_call #Will execute a query on image and return the list of images.
+        :query_type:  :process_call # Will execute a query on image and return the list of images.
+        :query_call:  :setup_ssh_user
+        :query_params:
+          :image_name: lorj::config[:image_name]
         :object:      :image
         :value:       :name
-        :validate:    :list_strict
     :ports:
       :desc:            "List of security group rules (1 port or range of ports) to open to the external network."
     :branch:

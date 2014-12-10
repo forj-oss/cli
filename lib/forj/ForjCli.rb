@@ -21,12 +21,8 @@
 # Define framework object on BaseDefinition
 # See lib/core/definition.rb for function details usage.
 
-class ForjCliProcess
-   def connect_to(sObjectType, hParams)
-   end
-end
 
-class BaseDefinition
+class Lorj::BaseDefinition
    # ************************************ SSH Object
    define_obj(:ssh,
       {

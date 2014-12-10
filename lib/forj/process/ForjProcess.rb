@@ -42,12 +42,12 @@ class ForjCoreProcess
             :iv => Base64::strict_encode64(OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv)
          }
 
-         Logging.debug("Writing '%s' key file" % key_file)
+         PrcLib.debug("Writing '%s' key file" % key_file)
          File.open(key_file, 'w') do |out|
             out.write(Base64::encode64(entr.to_yaml))
          end
       else
-         Logging.debug("Loading '%s' key file" % key_file)
+         PrcLib.debug("Loading '%s' key file" % key_file)
          encoded_key = IO.read(key_file)
          entr = YAML.load(Base64::decode64(encoded_key))
       end
@@ -109,7 +109,7 @@ class ForjCoreProcess
 
       hMetaPrintable = hMeta.clone
       hMetaPrintable['hpcloud_priv'] = "XXX - data hidden - XXX"
-      Logging.info("Metadata set:\n%s" % hMetaPrintable)
+      PrcLib.info("Metadata set:\n%s" % hMetaPrintable)
 
       oMetaData = register(hMeta, sObjectType)
       oMetaData[:meta_data] = hMeta
@@ -119,37 +119,46 @@ class ForjCoreProcess
 
    def build_forge(sObjectType, hParams)
 
-      oForge = object.Get(sObjectType, config[:instance_name])
-      if oForge.empty?
-         object.Create(:internet_server)
-
-         Logging.high_level_msg ("\nBuilding your forge...\n")
+      oForge = Get(sObjectType, config[:instance_name])
+      if oForge.empty? or oForge[:servers].length == 0
+         PrcLib.high_level_msg ("\nBuilding your forge...\n")
+         Create(:internet_server)
       else
          oForge[:servers].each { | oServerToFind |
-            object.Get(:server, oServerToFind[:id]) if /^maestro\./ =~ oServerToFind[:name]
+            Get(:server, oServerToFind[:id]) if /^maestro\./ =~ oServerToFind[:name]
          }
-         Logging.high_level_msg ("\nChecking your forge...\n")
+         PrcLib.high_level_msg ("\nChecking your forge...\n")
          oServer = DataObjects(:server, :ObjectData)
          if oServer
-            oIP = object.Query(:public_ip, :server_id => oServer[:id])
+            oIP = Query(:public_ip, :server_id => oServer[:id])
             if oIP.length > 0
                register oIP[0]
             end
-            object.Create(:keypairs)
+            Create(:keypairs)
          else
-            Logging.high_level_msg ("\nYour forge exist, without maestro. Building Maestro...\n")
-            object.Create(:internet_server)
+            PrcLib.high_level_msg ("\nYour forge exist, without maestro. Building Maestro...\n")
+            Create(:internet_server)
 
-            Logging.high_level_msg ("\nBuilding your forge...\n")
+            PrcLib.high_level_msg ("\nBuilding your forge...\n")
          end
       end
 
       oServer = DataObjects(:server, :ObjectData)
 
+      #Get keypairs
+      hKeys = keypair_detect(oServer[:key_name], File.join($FORJ_KEYPAIRS_PATH, oServer[:key_name]))
+
+      private_key_file = File.join(hKeys[:keypair_path], hKeys[:private_key_name])
+      public_key_file  = File.join(hKeys[:keypair_path], hKeys[:public_key_name])
+
+      oServerKey = Get(:keypairs, oServer[:key_name])
+
+      keypair_coherent = coherent_keypair?(hKeys, oServerKey)
+
       # Define the log lines to get and test.
       config.set(:log_lines, 5)
 
-      Logging.info("Maestro server '%s' id is '%s'." % [oServer[:name], oServer[:id]])
+      PrcLib.info("Maestro server '%s' id is '%s'." % [oServer[:name], oServer[:id]])
       # Waiting for server to come online before assigning a public IP.
 
       sStatus = :checking
@@ -161,19 +170,19 @@ class ForjCoreProcess
 Your forj Maestro server is up and running and is publically accessible through IP '#{oAddress[:public_ip]}'.
 
 You can connect to '#{oServer[:name]}' with:
-ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:keypairs, :private_key_file)}
+ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{private_key_file}
          END
-         if not object.get_data(:keypairs)[:coherent]
+         if not keypair_coherent
             sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
          end
-         Logging.info(sMsg)
+         PrcLib.info(sMsg)
 
-         oLog = object.Get(:server_log, 25)[:attrs][:output]
+         oLog = Get(:server_log, 25)[:attrs][:output]
          if /cloud-init boot finished/ =~ oLog
             sStatus = :active
-            Logging.high_level_msg ("\n%s\nThe forge is ready...\n" % sMsg)
+            PrcLib.high_level_msg ("\n%s\nThe forge is ready...\n" % sMsg)
          else
-            Logging.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
+            PrcLib.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
             sStatus = :cloud_init
          end
       else
@@ -190,9 +199,9 @@ ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:ke
          iCurAct += 1
          iCurAct = iCurAct % 4
          begin
-            oServer = object.Get(:server, oServer[:attrs][:id])
+            oServer = Get(:server, oServer[:attrs][:id])
          rescue => e
-            Logging.error(e.message)
+            PrcLib.error(e.message)
          end
          if sStatus == :starting
             if oServer[:attrs][:status] == :active
@@ -201,10 +210,10 @@ ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:ke
          elsif sStatus == :assign_ip
             if oAddress.empty?
                query_cache_cleanup(:public_ip) # To be able to ask for server IP assigned
-               oAddresses = object.Query(:public_ip, :server_id => oServer[:id])
+               oAddresses = Query(:public_ip, :server_id => oServer[:id])
                if oAddresses.length == 0
                   # Assigning Public IP.
-                  oAddress = object.Create(:public_ip)
+                  oAddress = Create(:public_ip)
                else
                   oAddress = oAddresses[0]
                end
@@ -214,25 +223,25 @@ Public IP for server '#{oServer[:name]}' is assigned.
 Now, as soon as the server respond to the ssh port, you will be able to get a tail of the build with:
 while [ 1 = 1 ]
 do
-  ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{get_data(:keypairs, :private_key_file)} tail -f /var/log/cloud-init.log
+  ssh ubuntu@#{oAddress[:public_ip]} -o StrictHostKeyChecking=no -i #{private_key_file} tail -f /var/log/cloud-init.log
   sleep 5
 done
             END
-            if not object.get_data(:keypairs)[:coherent]
+            if not keypair_coherent
                sMsg += ANSI.bold("\nUnfortunatelly") + " your current keypair is not usable to connect to your server.\nYou need to fix this issue to gain access to your server."
             end
-            Logging.info(sMsg)
-            Logging.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
+            PrcLib.info(sMsg)
+            PrcLib.high_level_msg ("\n%s\nThe forge is still building...\n" % sMsg)
             sStatus = :cloud_init
          else #analyze the log output
-            oLog = object.Get(:server_log, 25)[:attrs][:output]
+            oLog = Get(:server_log, 25)[:attrs][:output]
             iCurAct = 4 if oLog == oOldLog
             oOldLog = oLog
             if /cloud-init boot finished/ =~ oLog
                sStatus = :active
                if mCloudInitError != []
-                  Logging.high_level_msg ("Critical error cleared. Cloud-init seems moving...")
-                  Logging.info ("Critical error cleared. Cloud-init seems moving...")
+                  PrcLib.high_level_msg ("Critical error cleared. Cloud-init seems moving...")
+                  PrcLib.info ("Critical error cleared. Cloud-init seems moving...")
                   mCloudInitError = []
                end
             elsif /\[CRITICAL\]/ =~ oLog
@@ -240,45 +249,55 @@ done
                if not (mCloudInitError == mCritical)
                   sReported = oLog.clone
                   sReported['CRITICAL'] = ANSI.bold('CRITICAL')
-                  Logging.error("cloud-init error detected:\n-----\n%s\n-----\nPlease connect to the box to decide what you need to do." % [sReported])
+                  PrcLib.error("cloud-init error detected:\n-----\n%s\n-----\nPlease connect to the box to decide what you need to do." % [sReported])
                   mCloudInitError = mCritical
                end
             elsif sStatus == :cloud_init and /cloud-init-nonet gave up waiting for a network device/ =~ oLog
                # Valid for ubuntu image 12.04
-               Logging.warning("Cloud-init has gave up to configure the network. waiting...")
+               PrcLib.warning("Cloud-init has gave up to configure the network. waiting...")
                sStatus = :nonet
             elsif sStatus == :nonet and /Booting system without full network configuration/ =~ oLog
                # Valid for ubuntu image 12.04
-               Logging.warning("forj has detected an issue to bring up your maestro server. Removing it and re-creating a new one. please be patient...")
+               PrcLib.warning("forj has detected an issue to bring up your maestro server. Removing it and re-creating a new one. please be patient...")
                sStatus = :restart
             elsif sStatus == :restart
-               object.Delete(:server)
-               object.Create(:internet_server)
+               Delete(:server)
+               Create(:internet_server)
                sStatus = :starting
             end
          end
          sleep(5) if sStatus != :active
       end
+
       oForge = get_forge(sObjectType, config[:instance_name], hParams)
       sMsg = "Your Forge '%s' is ready and accessible from IP #{oAddress[:public_ip]}." % config[:instance_name]
       # TODO: read the blueprint/layout to identify which services are implemented and can be accessible.
       if config[:blueprint]
          sMsg += "\nMaestro has implemented the following server(s) for your blueprint '%s':" % config[:blueprint]
+         iCount = 0
          oForge[:servers].each { | oServer|
             next if /^maestro\./ =~ oServer[:name]
             register(oServer)
-            oIP = object.Query(:public_ip, :server_id => oServer[:id])
+            oIP = Query(:public_ip, :server_id => oServer[:id])
             if oIP.length == 0
                sMsg += "\n- %s (No public IP)" % [oServer[:name]]
             else
                sMsg += "\n- %s (%s)" % [oServer[:name], oIP[0][:public_ip]]
             end
+            iCount += 1
          }
+         if iCount > 0
+            sMsg += "\n%d server(s) identified.\n" % iCount
+         else
+            sMsg = "No servers found except maestro"
+            PrcLib.warning("Something went wrong, while creating nodes for " \
+               "blueprint '%s'. check maestro logs." % config[:blueprint])
+         end
       else
          sMsg += "\nMaestro has NOT implemented any servers, because you did not provided a blueprint. Connect to Maestro, and ask Maestro to implement any kind of blueprint you need. (Feature currently under development)"
       end
-      Logging.info(sMsg)
-      Logging.high_level_msg ("\n%s\nEnjoy!\n" % sMsg)
+      PrcLib.info(sMsg)
+      PrcLib.high_level_msg ("\n%s\nEnjoy!\n" % sMsg)
       oForge
    end
 
@@ -292,19 +311,19 @@ done
 
       case sStatus
          when :checking
-            Logging.state("Checking server status")
+            PrcLib.state("Checking server status")
          when :starting
-            Logging.state("STARTING")
+            PrcLib.state("STARTING")
          when :assign_ip
-            Logging.state("%s - %s - Assigning Public IP" % [sActivity[iCurAct], sCurAct])
+            PrcLib.state("%s - %s - Assigning Public IP" % [sActivity[iCurAct], sCurAct])
          when :cloud_init
-            Logging.state("%s - %s - Currently running cloud-init. Be patient." % [sActivity[iCurAct], sCurAct])
+            PrcLib.state("%s - %s - Currently running cloud-init. Be patient." % [sActivity[iCurAct], sCurAct])
          when :nonet
-            Logging.state("%s - %s - Currently running cloud-init. Be patient." % [sActivity[iCurAct], sCurAct])
+            PrcLib.state("%s - %s - Currently running cloud-init. Be patient." % [sActivity[iCurAct], sCurAct])
          when :restart
-            Logging.state("RESTARTING - Currently restarting maestro box. Be patient.")
+            PrcLib.state("RESTARTING - Currently restarting maestro box. Be patient.")
          when :active
-            Logging.info("Server is active")
+            PrcLib.info("Server is active")
       end
    end
 
@@ -317,11 +336,11 @@ done
 
       begin
          if maestro_repo and File.directory?(maestro_repo)
-            Logging.info("Using maestro repo '%s'" % maestro_repo)
+            PrcLib.info("Using maestro repo '%s'" % maestro_repo)
             hResult[:maestro_repo] = maestro_repo
          else
             hResult[:maestro_repo] = File.join(path_maestro, 'maestro')
-            Logging.state("Cloning maestro repo from '%s' to '%s'" % [maestro_url, File.join(path_maestro, 'maestro')])
+            PrcLib.state("Cloning maestro repo from '%s' to '%s'" % [maestro_url, File.join(path_maestro, 'maestro')])
             if File.directory?(path_maestro)
                if File.directory?(File.join(path_maestro, 'maestro'))
                   FileUtils.rm_r File.join(path_maestro, 'maestro')
@@ -329,11 +348,11 @@ done
             end
             git = Git.clone(maestro_url, 'maestro', :path => path_maestro)
             git.checkout(config[:branch]) if config[:branch] != 'master'
-            Logging.info("Maestro repo '%s' cloned on branch '%s'" % [File.join(path_maestro, 'maestro'), config[:branch]])
+            PrcLib.info("Maestro repo '%s' cloned on branch '%s'" % [File.join(path_maestro, 'maestro'), config[:branch]])
          end
       rescue => e
-         Logging.error("Error while cloning the repo from %s\n%s\n%s" % [maestro_url, e.message, e.backtrace.join("\n")])
-         Logging.info("If this error persist you could clone the repo manually in ~/.forj/")
+         PrcLib.error("Error while cloning the repo from %s\n%s\n%s" % [maestro_url, e.message, e.backtrace.join("\n")])
+         PrcLib.info("If this error persist you could clone the repo manually in ~/.forj/")
       end
       oMaestro = register(hResult, sObjectType)
       oMaestro[:maestro_repo] = hResult[:maestro_repo]
@@ -355,16 +374,16 @@ done
       bReBuildInfra = infra_is_original?(infra, maestro_repo)
 
       if bReBuildInfra
-         Logging.state("Building your infra workspace in '%s'" % [infra])
+         PrcLib.state("Building your infra workspace in '%s'" % [infra])
 
-         Logging.debug("Copying recursively '%s' to '%s'" % [cloud_init, infra])
+         PrcLib.debug("Copying recursively '%s' to '%s'" % [cloud_init, infra])
          FileUtils.copy_entry(cloud_init, dest_cloud_init)
 
          file_ver = File.join(infra, 'forj-cli.ver')
          File.write(file_ver, $INFRA_VERSION)
-         Logging.info("The infra workspace '%s' has been built from maestro predefined files." % [infra])
+         PrcLib.info("The infra workspace '%s' has been built from maestro predefined files." % [infra])
       else
-         Logging.info("Re-using your infra... in '%s'" % [infra])
+         PrcLib.info("Re-using your infra... in '%s'" % [infra])
       end
 
 
@@ -384,7 +403,7 @@ done
          begin
             hResult = YAML.load_file(sMD5List)
          rescue => e
-            Logging.error("Unable to load valid Original files list '%s'. Your infra workspace won't be migrated, until fixed." % sMD5List)
+            PrcLib.error("Unable to load valid Original files list '%s'. Your infra workspace won't be migrated, until fixed." % sMD5List)
             bResult = false
          end
          if not hResult
@@ -402,9 +421,9 @@ done
                md5_file = Digest::MD5.file(sInfra_path).hexdigest
                if hResult.key?(sMaestroRelPath) and hResult[sMaestroRelPath] != md5_file
                   bResult = false
-                  Logging.info("'%s' infra file has changed from original template in maestro." % sInfra_path)
+                  PrcLib.info("'%s' infra file has changed from original template in maestro." % sInfra_path)
                else
-                  Logging.debug("'%s' infra file has not been updated." % sInfra_path)
+                  PrcLib.debug("'%s' infra file has not been updated." % sInfra_path)
                end
             end
             md5_file = Digest::MD5.file(path).hexdigest
@@ -416,12 +435,12 @@ done
             YAML.dump(hResult, out)
          end
       rescue => e
-         Logging.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
+         PrcLib.error("%s\n%s" % [e.message, e.backtrace.join("\n")])
       end
       if bResult
-         Logging.debug("No original files found has been updated. Infra workspace can be updated/created if needed.")
+         PrcLib.debug("No original files found has been updated. Infra workspace can be updated/created if needed.")
       else
-         Logging.warning("At least, one file has been updated. Infra workspace won't be updated by forj cli.")
+         PrcLib.warning("At least, one file has been updated. Infra workspace won't be updated by forj cli.")
       end
       bResult
    end
@@ -442,7 +461,7 @@ done
    end
 
    def old_infra_data_update(oConfig, version, infra_dir)
-      Logging.info("Migrating your local infra repo (%s) to the latest version." % version)
+      PrcLib.info("Migrating your local infra repo (%s) to the latest version." % version)
       bRebuild = false # Be default migration is successful. No need to rebuild it.
       case version
          when '0.0.36'
@@ -465,7 +484,7 @@ done
             Dir.foreach(infra_dir) do | file |
                next if not /^maestro\.box\..*\.env$/ =~ file
                build_env = File.join(infra_dir, file)
-               Logging.debug("Reading data from '%s'" % build_env)
+               PrcLib.debug("Reading data from '%s'" % build_env)
                tags = {'SET_DNS_TENANTID' => :tenant_id,
                        'SET_DNS_ZONE' => :service,
                        'SET_DOMAIN' => :domain_name
@@ -477,16 +496,16 @@ done
                      f.each_line do |line|
                         mObj = line.match(/^(SET_[A-Z_]+)=["'](.*)["'].*$/)
                         if mObj
-                           Logging.debug("Reviewing detected '%s' tag" % [mObj[1]])
+                           PrcLib.debug("Reviewing detected '%s' tag" % [mObj[1]])
                            tag = (tags[mObj[1]]? tags[mObj[1]] : nil)
                            if tag and mObj[2]
                               if bUpdate == nil and rhGet(yDns, tag) and rhGet(yDns, tag) != mObj[2]
-                                 Logging.message("Your account setup is different than build env.")
-                                 Logging.message("We suggest you to update your account setup with data from your build env.")
+                                 PrcLib.message("Your account setup is different than build env.")
+                                 PrcLib.message("We suggest you to update your account setup with data from your build env.")
                                  bUpdate = agree("Do you want to update your setup with those build environment data?")
                               end
                               if bUpdate != nil and bUpdate
-                                 Logging.debug("Saved: '%s' = '%s'" % [mObj[1],mObj[2]])
+                                 PrcLib.debug("Saved: '%s' = '%s'" % [mObj[1],mObj[2]])
                                  rhSet(yDns, mObj[2], tag)
                               end
                            end
@@ -494,7 +513,7 @@ done
                      end
                   end
                rescue => e
-                  Logging.fatal(1, "Failed to open the build environment file '%s'" % build_env, e)
+                  PrcLib.fatal(1, "Failed to open the build environment file '%s'" % build_env, e)
                end
             end
             file_ver = File.join(infra_dir, 'forj-cli.ver')
@@ -521,7 +540,7 @@ done
 
       build_tmpl_dir = File.expand_path(File.join($LIB_PATH, 'build_tmpl'))
 
-      Logging.state("Preparing user_data - file '%s'" % mime)
+      PrcLib.state("Preparing user_data - file '%s'" % mime)
       # generate boot_*.sh
       mime_cmd = "#{build_tmpl_dir}/write-mime-multipart.py"
       bootstrap = "#{build_tmpl_dir}/bootstrap_build.sh"
@@ -538,13 +557,13 @@ done
       ]
 
       # TODO: Replace shell script call to ruby functions
-      if $LIB_FORJ_DEBUG >=1
+      if $LIB_FORJ_DEBUG >= 1
          cmd += " >> #{$FORJ_DATA_PATH}/forj.log"
       else
          cmd += " | tee -a #{$FORJ_DATA_PATH}/forj.log"
       end
       raise ForjError.new, "#{bootstrap} script file is not found." if not File.exists?(bootstrap)
-      Logging.debug("Running '%s'" % cmd)
+      PrcLib.debug("Running '%s'" % cmd)
       Kernel.system(cmd)
 
       raise ForjError.new(), "mime file '%s' not found." % mime if not File.exists?(mime)
@@ -552,7 +571,7 @@ done
       begin
          user_data = File.read(mime)
       rescue => e
-         Logging.fatal(1, e.message)
+         PrcLib.fatal(1, e.message)
       end
       if $LIB_FORJ_DEBUG < 5
          File.delete(mime)
@@ -566,7 +585,7 @@ done
       oUserData[:user_data] = user_data
       oUserData[:user_data_encoded] = Base64.strict_encode64(user_data)
       oUserData[:mime] = mime
-      Logging.info("user_data prepared. File: '%s'" % mime)
+      PrcLib.info("user_data prepared. File: '%s'" % mime)
       oUserData
   end
 
@@ -600,15 +619,15 @@ class ForjCoreProcess
    # keypair_files post setup
    def forj_setup_keypairs_files
       # Getting Account keypair information
-      key_name = config.get(:keypair_name)
-      key_path = File.expand_path(config.get(:keypair_files))
+      key_name = config[:keypair_name]
+      key_path = File.expand_path(config[:keypair_files])
 
       keys_imported = nil
-      keys_imported = keypair_detect(key_name, config.oConfig.LocalGet(key_name, :imported_keys)) if config.oConfig.LocalExist?(key_name, :imported_keys)
+      keys_imported = keypair_detect(key_name, config.oConfig.localGet(key_name, :imported_keys)) if config.oConfig.localExist?(key_name, :imported_keys)
       keys = keypair_detect(key_name, key_path)
 
       if keys_imported and keys_imported[:key_basename] != keys[:key_basename] and $FORJ_KEYPAIRS_PATH != keys[:keypair_path]
-         Logging.warning("The private key '%s' was assigned to a different private key file '%s'.\nTo not overwrite it, we recommend you to choose a different keypair name." % [key_name, keys_imported[:key_basename] ])
+         PrcLib.warning("The private key '%s' was assigned to a different private key file '%s'.\nTo not overwrite it, we recommend you to choose a different keypair name." % [key_name, keys_imported[:key_basename] ])
          new_key_name = key_name
          sMsg = "Please, provide a different keypair name:"
          while key_name == new_key_name
@@ -630,24 +649,24 @@ class ForjCoreProcess
       # Creation sequences
       if not keys[:private_key_exist? ]
          # Need to create a key. ask if we need so.
-         Logging.message("The private key file attached to keypair named '%s' is not found. Running ssh-keygen to create it." % keys[:keypair_name])
+         PrcLib.message("The private key file attached to keypair named '%s' is not found. Running ssh-keygen to create it." % keys[:keypair_name])
          if not File.exists?(private_key_file)
             AppInit.ensure_dir_exists(File.dirname(private_key_file))
             command = 'ssh-keygen -t rsa -f %s' % private_key_file
-            Logging.debug("Executing '%s'" % command)
+            PrcLib.debug("Executing '%s'" % command)
             system(command)
          end
          if not File.exists?(private_key_file)
-            Logging.fatal(1, "'%s' not found. Unable to add your keypair to hpcloud. Create it yourself and provide it with -p option. Then retry." % [private_key_file])
+            PrcLib.fatal(1, "'%s' not found. Unable to add your keypair to hpcloud. Create it yourself and provide it with -p option. Then retry." % [private_key_file])
          else
-            Logging.fatal(1, "ssh-keygen did not created your key pairs. Aborting. Please review errors in ~/.forj/forj.log")
+            PrcLib.fatal(1, "ssh-keygen did not created your key pairs. Aborting. Please review errors in ~/.forj/forj.log")
          end
       end
 
       if not keys[:public_key_exist? ]
-         Logging.message("Your public key '%s' was not found. Getting it from the private one. It may require your passphrase." % [public_key_file])
+         PrcLib.message("Your public key '%s' was not found. Getting it from the private one. It may require your passphrase." % [public_key_file])
          command = 'ssh-keygen -y -f %s > %s' % [private_key_file,public_key_file ]
-         Logging.debug("Executing '%s'" % command)
+         PrcLib.debug("Executing '%s'" % command)
          system(command)
       end
 
@@ -658,7 +677,7 @@ class ForjCoreProcess
 
       if keys[:keypair_path] != $FORJ_KEYPAIRS_PATH
          if not File.exists?(forj_private_key_file) or not File.exists?(forj_public_key_file)
-            Logging.info("Importing key pair to FORJ keypairs list.")
+            PrcLib.info("Importing key pair to FORJ keypairs list.")
             FileUtils.copy(private_key_file, forj_private_key_file)
             FileUtils.copy(public_key_file, forj_public_key_file)
             # Attaching this keypair to the account
@@ -668,22 +687,23 @@ class ForjCoreProcess
          else
             # Checking source/dest files content
             if Digest::MD5.file(private_key_file).hexdigest != Digest::MD5.file(forj_private_key_file).hexdigest
-               Logging.info("Updating private key keypair piece to FORJ keypairs list.")
+               PrcLib.info("Updating private key keypair piece to FORJ keypairs list.")
                FileUtils.copy(private_key_file, forj_private_key_file)
             else
-               Logging.info("Private key keypair up to date.")
+               PrcLib.info("Private key keypair up to date.")
             end
             if Digest::MD5.file(public_key_file).hexdigest != Digest::MD5.file(forj_public_key_file).hexdigest
-               Logging.info("Updating public key keypair piece to FORJ keypairs list.")
+               PrcLib.info("Updating public key keypair piece to FORJ keypairs list.")
                FileUtils.copy(public_key_file, forj_public_key_file)
             else
-               Logging.info("Public key keypair up to date.")
+               PrcLib.info("Public key keypair up to date.")
             end
          end
       end
       # Saving internal copy of private key file for forj use.
       config.set(:keypair_path, forj_private_key_file )
-      Logging.info("Configured forj keypair '%s' with '%s'" % [ keys[:keypair_name], File.join(keys[:keypair_path], keys[:key_basename]) ] )
+      PrcLib.info("Configured forj keypair '%s' with '%s'" % [ keys[:keypair_name], File.join(keys[:keypair_path], keys[:key_basename]) ] )
+      true # forj_setup_keypairs_files successfull
    end
 
    def forj_DNS_settings()
@@ -704,23 +724,23 @@ class ForjCoreProcess
    def setup_tenant_name()
       # TODO: To re-introduce with a Controller call instead.
       oSSLError=SSLErrorMgt.new # Retry object
-      Logging.debug("Getting tenants from hpcloud cli libraries")
+      PrcLib.debug("Getting tenants from hpcloud cli libraries")
       begin
          tenants = Connection.instance.tenants(@sAccountName)
       rescue => e
          if not oSSLError.ErrorDetected(e.message,e.backtrace, e)
             retry
          end
-         Logging.fatal(1, 'Network: Unable to connect.')
+         PrcLib.fatal(1, 'Network: Unable to connect.')
       end
       tenant_id = rhGet(@oConfig.ExtraGet(:hpc_accounts, @sAccountName, :credentials), :tenant_id)
       tenant_name = nil
       tenants.each { |elem| tenant_name = elem['name'] if elem['id'] == tenant_id }
       if tenant_name
-         Logging.debug("Tenant ID '%s': '%s' found." % [tenant_id, tenant_name])
+         PrcLib.debug("Tenant ID '%s': '%s' found." % [tenant_id, tenant_name])
          rhSet(@hAccountData, tenant_name, :maestro, :tenant_name)
       else
-         Logging.error("Unable to find the tenant Name for '%s' ID." % tenant_id)
+         PrcLib.error("Unable to find the tenant Name for '%s' ID." % tenant_id)
       end
       @oConfig.set('tenants', tenants)
    end
@@ -734,7 +754,7 @@ class ForjCoreProcess
     hServers = []
     sQuery[:name] = sForgeId
 
-    oServers = object.query(:server, sQuery )
+    oServers = Query(:server, sQuery )
 
     regex =  Regexp.new('\.%s$' % sForgeId)
 
@@ -742,7 +762,7 @@ class ForjCoreProcess
       oName = oServer[:name]
       hServers<<oServer if regex =~ oName
     }
-   Logging.info("%s server(s) were found under instance name %s " % [hServers.count(), sQuery[:name]])
+   PrcLib.info("%s server(s) were found under instance name %s " % [hServers.count(), sQuery[:name]])
 
    oForge = register(hServers, sCloudObj)
    oForge[:servers] = hServers
@@ -755,7 +775,7 @@ end
 class ForjCoreProcess
    def delete_forge(sCloudObj, hParams)
 
-      Logging.state("Destroying server(s) of your forge...")
+      PrcLib.state("Destroying server(s) of your forge")
 
       forge_serverid = config.get(:forge_server)
 
@@ -764,90 +784,124 @@ class ForjCoreProcess
       oForge[:servers].each{|server|
          next if forge_serverid and forge_serverid != server[:id]
          register(server)
-         object.Delete(:server)
+         PrcLib.state("Destroying server '%s'" % server[:name])
+         Delete(:server)
       }
       if forge_serverid.nil?
-         Logging.high_level_msg ("The forge '%s' has been destroyed. (all servers linked to the forge)\n" % oForge[:name] )
+         PrcLib.high_level_msg ("The forge '%s' has been destroyed. (all servers linked to the forge)\n" % oForge[:name] )
       else
-         Logging.high_level_msg ("The forge '%s' server selected has been removed.\n"  % [oForge[:name]])
+         PrcLib.high_level_msg ("Server(s) selected in the forge '%s' has been removed.\n"  % [oForge[:name]])
       end
   end
 end
 
+# Functions for ssh
 class ForjCoreProcess
-  def ssh_connection(sObjectType, hParams)
-    oForge = hParams[:forge]
-    oServer = nil
+   def ssh_connection(sObjectType, hParams)
+      oForge = hParams[:forge]
+      oServer = nil
 
-    oForge[:servers].each{|server|
-      next if hParams[:forge_server] != server[:id]
-      oServer = server
-      break
-    }
+      oForge[:servers].each{|server|
+         next if hParams[:forge_server] != server[:id]
+         oServer = server
+         break
+      }
 
-    register(oServer)
-    oAddress = object.Query(:public_ip, :server_id =>  oServer[:id])
+      #Get server information
+      PrcLib.state("Getting server information")
+      oServer = Get(:server, oServer[:id])
+      register(oServer)
 
-    if oAddress.length == 0
-      Logging.fatal(1, "ip address for %s server was not found" % oServer[:name])
-    else
-      public_ip = oAddress[0][:public_ip]
-    end
+      # Get Public IP of the server. Needs the server to be loaded.
+      oAddress = Query(:public_ip, :server_id =>  oServer[:id])
 
-    #Get server
-    server = object.Get(:server, hParams[:forge_server])
-
-    keypairs = []
-
-    hKeys       = keypair_detect(hParams[:keypair_name], File.expand_path(hParams[:keypair_path]))
-    hParams     = get_keypairs_path(hParams, hKeys)
-    keypairs[0] = object.Get(:keypairs, server[:key_name])
-    keypair     = coherent_keypair?(hParams, hKeys, keypairs)
-
-    if not keypair[:coherent]
-      Logging.fatal(1, "Unable to verify keypair '%s' coherence between your cloud and your local SSH keys" % keypair[:name])
-    else
-      private_key_file = keypair[:private_key_file]
-
-      if not private_key_file.include? ".pem"
-        command = "cp %s %s " % [ private_key_file, private_key_file + ".pem" ]
-        system(command)
-        private_key_file = private_key_file + ".pem"
+      if oAddress.length == 0
+         PrcLib.fatal(1, "ip address for %s server was not found" % oServer[:name])
+      else
+         public_ip = oAddress[0][:public_ip]
       end
 
-    end
-
-    #Get ssh user
-    user = hParams[:ssh_user]
-
-    if user.nil?
-      image  = object.Get(:image, server[:image_id])
-      user   = ssh_user(image[:name])
-    end
-
-    Logging.debug("Found ssh_user '%s'" % user)
-
-    begin
-      session = Net::SSH.start(public_ip, user, :keys => private_key_file) do |ssh|
-        Logging.state("creating ssh connection with '%s' box" % oServer[:name])
-        ssh_login(private_key_file, user, public_ip)
+      if config[:identity].nil? or not config[:identity].is_a?(String)
+         hKeys = keypair_detect(oServer[:key_name], File.join($FORJ_KEYPAIRS_PATH, oServer[:key_name]))
+      else
+         hKeys = keypair_detect(oServer[:key_name], File.expand_path(config[:identity]))
       end
-      Logging.debug("Error closing ssh connection, box %s " % oServer[:name]) if not session
-    rescue => e
-      Logging.fatal(1, e.message)
-    end
 
-  end
+      private_key_file = File.join(hKeys[:keypair_path], hKeys[:private_key_name])
+      public_key_file = File.join(hKeys[:keypair_path], hKeys[:public_key_name])
 
-  def ssh_login(key, user, public_ip)
-    command = 'ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=180 -i %s %s@%s' % [key, user, public_ip]
-    system(command)
-  end
+      PrcLib.info("Found openssh private key file '%s'." % private_key_file) if hKeys[:private_key_exist? ]
+      if hKeys[:public_key_exist? ]
+         PrcLib.info("Found openssh public key file '%s'."  % public_key_file)
+      else
+         PrcLib.warning("Openssh public key file '%s' not found. Unable to verify keys coherence with remote server." % public_key_file)
+      end
 
-  def ssh_user(image_name)
-    return "fedora" if image_name =~ /fedora/i
-    return "centos" if image_name =~ /centos/i
-    return "ubuntu"
-  end
+      if hKeys[:private_key_exist? ]
+         ssh_options = { :keys => private_key_file}
+         PrcLib.debug("Using private key '%s'." % private_key_file)
+      else
+         PrcLib.fatal 1, <<-END
+The server '#{oServer[:name]}' has been configured with a keypair '#{oServer[:key_name]}' which is not found locally.
+You won't be able to connect to that server without '#{oServer[:key_name]}' private key.
+To connect to this box, you need to provide the appropriate private key file with option -i
+         END
+      end
+
+      # Get ssh user
+      image  = Get(:image, oServer[:image_id])
+      user = hParams[:ssh_user]
+
+      if user.nil?
+         user = image[:ssh_user]
+      end
+
+      PrcLib.debug("Using account '%s'." % user)
+
+      begin
+         PrcLib.state("creating ssh connection with '%s' box" % oServer[:name])
+         session = Net::SSH.start(public_ip, user, ssh_options) do |ssh|
+            ssh_login(ssh_options, user, public_ip)
+         end
+         PrcLib.debug("Error closing ssh connection, box %s " % oServer[:name]) if not session
+      rescue => e
+         PrcLib.fatal 1, <<-END
+#{e.message}
+You were not able to connect to this box. Please note that there is no garantuee that your local private key file '#{private_key_file}' is the one that was used while building this box.
+You have to check with the user who created that box.
+         END
+      end
+      register({ :success => true }, sObjectType)
+   end
+
+   def setup_ssh_user(sCloudObj, hParams)
+       images  = Query(:image, { name: hParams[:image_name]} )
+       case images.length
+         when 0
+            sDefault = hParams[:default_value]
+         else
+            if images[0, :ssh_user].nil?
+               sDefault = hParams[:default_value]
+            else
+               sDefault = images[0, :ssh_user]
+            end
+       end
+       { default_value: sDefault, list: config[:users] }
+   end
+
+   def ssh_login(options, user, public_ip)
+      sOpts = "-o StrictHostKeyChecking=no -o ServerAliveInterval=180"
+      sOpts += " -i %s" % options[:keys] if options[:keys]
+
+      command = 'ssh %s %s@%s' % [sOpts, user, public_ip]
+      PrcLib.debug("Running '%s'" % command)
+      system(command)
+   end
+
+   def ssh_user(image_name)
+      return "fedora" if image_name =~ /fedora/i
+      return "centos" if image_name =~ /centos/i
+      return "ubuntu"
+   end
 
 end

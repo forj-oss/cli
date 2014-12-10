@@ -15,11 +15,11 @@
 #    limitations under the License.
 
 
+require 'lorj'
 
-# Base Logging system started and loaded.
-require 'log.rb' # Load default loggers
-include Logging
-
+# Module to initialize the application
+# TODO: Cleanup about Global variables used. Should be replaced by PrcLib
+#       or other kind of setting.
 module AppInit
 
    def AppInit.forj_initialize()
@@ -45,7 +45,7 @@ module AppInit
    end
 
    def AppInit.ensure_dir_exists(path)
-      if not dir_exists?(path)
+      if not PrcLib.dir_exists?(path)
        FileUtils.mkpath(path) if not File.directory?(path)
       end
    end

@@ -25,7 +25,7 @@ $FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
 
 require File.join($FORJCORE_PATH, "process", "ForjProcess.rb")
 
-class BaseDefinition
+class Lorj::BaseDefinition
 
    process_default :use_controller => false
 

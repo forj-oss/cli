@@ -16,17 +16,27 @@
 
 module Forj
    module Settings
+
+      def Settings.common_options(options)
+         PrcLib.set_level(Logger::INFO) if options[:verbose]
+         PrcLib.set_level(Logger::DEBUG) if options[:debug]
+         unless options[:lorj_debug].nil?
+            PrcLib.core_level = options[:lorj_debug].to_i
+            PrcLib.set_level(Logger::DEBUG)
+         end
+      end
+
       def Settings.account_show_all(oConfig, account_name)
          oConfig.set(:account_name, account_name)
 
-         oForjAccount = ForjAccount.new(oConfig)
+         oForjAccount = Lorj::Account.new(oConfig)
          oForjAccount.ac_load()
          puts "List of account settings for provider '%s': " % [oForjAccount.get(:provider)]
          puts "%-15s %-12s :\n------------------------------" % ['key', 'section name']
 
          oForjAccount.metadata_each { |section, found_key, hValue|
-            next if rhGet(hValue, :readonly)            
-            sDesc = rhGet(hValue, :desc)
+            next if Lorj::rhGet(hValue, :readonly)
+            sDesc = Lorj::rhGet(hValue, :desc)
             puts "%-15s %-12s : %s" % [found_key, section, sDesc]
             }
          puts "\nUse `forj set KeyName=Value -a %s` to set one." % [ account_name]
@@ -37,8 +47,8 @@ module Forj
          puts "List of available FORJ default settings:"
          puts "%-15s %-12s :\n------------------------------" % ['key', 'section name']
          oConfig.meta_each { |section, found_key, hValue|
-            next if rhGet(hValue, :readonly)            
-            sDesc = rhGet(hValue, :desc)
+            next if Lorj::rhGet(hValue, :readonly)
+            sDesc = Lorj::rhGet(hValue, :desc)
             puts "%-15s %-12s : %s" % [found_key, section, sDesc]
             }
          puts "\nUse `forj set KeyName=Value` to set one. "
@@ -48,29 +58,29 @@ module Forj
       def Settings.account_set(oConfig, account_name, *p)
          bDirty = false
 
-         oConfig.set(:account_name, account_name)
+         oConfig[:account_name] = account_name
 
-         oForjAccount = ForjAccount.new(oConfig)
+         oForjAccount = Lorj::Account.new(oConfig)
          oForjAccount.ac_load()
 
          p.flatten!
          p.each { | key_val |
             mkey_val = key_val.match(/^(.*) *= *(.*)$/)
-            
-            Logging.fatal(1, "Syntax error. Please set your value like: 'key=value' and retry.") if not mkey_val
+
+            PrcLib.fatal(1, "Syntax error. Please set your value like: 'key=value' and retry.") if not mkey_val
 
             key_to_set = mkey_val[1]
             key_value = mkey_val[2]
 
             sBef = "unset"
             sAft = "unset"
-            
-            Logging.fatal(1, "Unable to update protected '%s'. use `forj setup`, to update it." % key_to_set) if oForjAccount.readonly?(key_to_set)
+
+            PrcLib.fatal(1, "Unable to update protected '%s'. use `forj setup`, to update it." % key_to_set) if oForjAccount.readonly?(key_to_set)
             if oForjAccount.meta_type?(key_to_set) == :default
-               Logging.fatal(1, "Unable set '%s' value. To update this one, use forj set %s, WITHOUT -a %s" % [key_to_set, key_to_set, account_name])
+               PrcLib.fatal(1, "Unable set '%s' value. To update this one, use forj set %s, WITHOUT -a %s" % [key_to_set, key_to_set, account_name])
             end
 
-            full_key = '%s/%s' % [ForjDefault.get_meta_section(key_to_set), key_to_set]
+            full_key = '%s/%s' % [Lorj::Default.get_meta_section(key_to_set), key_to_set]
 
             old_value = oForjAccount.get(key_to_set)
             sBef = "'%s' (%s)" % [old_value, oForjAccount.exist?(key_to_set)] if oForjAccount.exist?(key_to_set)
@@ -92,63 +102,66 @@ module Forj
             }
          oForjAccount.ac_save() if bDirty
       end
-      
+
       def Settings.config_set(oConfig, *p)
          bDirty = false
 
          p.flatten!
          p.each { | key_val |
             mkey_val = key_val.match(/^(.*) *= *(.*)$/)
-            
-            Logging.fatal(1, "Syntax error. Please set your value like: 'key=value' and retry.") if not mkey_val
+
+            PrcLib.fatal(1, "Syntax error. Please set your value like: 'key=value' and retry.") if not mkey_val
 
             key_to_set = mkey_val[1]
             key_value = mkey_val[2]
 
             sBef = "unset"
             sAft = "unset"
-            
+            if Lorj::Default.get_meta_section(key_to_set).nil?
+               PrcLib.warning("key '%s' is not a recognized default key by forj process. " % key_to_set)
+            end
+
             old_value = oConfig.get(key_to_set)
             sBef = "%s: '%s'" % [oConfig.exist?(key_to_set), oConfig.get(key_to_set)] if oConfig.exist?(key_to_set)
-            
+
             if old_value == key_value
                puts "%-15s: No update" % [key_to_set]
                next
             end
-            
+
             bDirty = true
-            
+
             if key_value != ""
-               oConfig.LocalSet(key_to_set, key_value)
+               oConfig.localSet(key_to_set, key_value)
             else
-               oConfig.LocalDel(key_to_set)
+               oConfig.localDel(key_to_set)
             end
 
             sAft = "%s: '%s'" % [oConfig.exist?(key_to_set), oConfig.get(key_to_set)] if oConfig.exist?(key_to_set)
             puts "%-15s: %s => %s" % [key_to_set, sBef, ANSI.bold+sAft+ANSI.clear]
             }
-         oConfig.SaveConfig() if bDirty
+         oConfig.saveConfig() if bDirty
       end
 
       def Settings.account_get_all(oConfig, account_name)
          oConfig.set(:account_name, account_name)
-         oForjAccount = ForjAccount.new(oConfig)
-         Logging.fatal(1, "Unable to load account '%s'. Not found." % account_name) if not oForjAccount.ac_load
-         
+         oForjAccount = Lorj::Account.new(oConfig)
+         PrcLib.fatal(1, "Unable to load account '%s'. Not found." % account_name) if not oForjAccount.ac_load
+
          puts "legend: default = Application defaults, local = Local default config, %s = '%s' account config\n\n" % [account_name, account_name]
          puts "%s %-15s(%-7s) %-12s:\n----------------------------------------" % ['U', 'key', 'origin', 'section name']
          oForjAccount.metadata_each { | section, mykey, hValue |
             key_exist = oForjAccount.exist?(mykey)
 
             sUpdMsg = '+'
-            sUpdMsg = ' ' if rhGet(hValue, :readonly)
+            sUpdMsg = ' ' if Lorj::rhGet(hValue, :readonly)
 
             if key_exist
                highlight = ''
                highlight = ANSI.bold if key_exist == account_name
                highlight = ANSI.bold + ANSI.yellow if key_exist == 'local'
                default_key = nil
-               default_key = " (from default key '%s')" % rhGet(hValue, :default) if rhExist?(hValue, :default) == 1 and key_exist != account_name
+               default_key = " (from default key '%s')" % Lorj::rhGet(hValue, :default) if Lorj::rhExist?(hValue, :default) == 1 and key_exist != account_name
                puts "%s %-15s(%s%-7s%s) %-12s: '%s'%s" % [sUpdMsg, mykey, highlight, key_exist, ANSI.clear, section, oForjAccount.get(mykey), default_key]
             else
                puts "%s %-15s(       ) %-12s: unset" % [sUpdMsg, mykey, section]
@@ -158,16 +171,16 @@ module Forj
          puts "Use `forj set <key>=<value> -a %s` to update account data." % account_name
          puts "Or  `forj set <key>= -a %s`        to restore key default value." % account_name
       end
-      
+
       def Settings.config_get_all(oConfig)
          puts "legend: default = Application defaults, local = Local default config\n\n"
          puts "%s %-15s(%-7s) %-12s:\n----------------------------------------" % ['U', '''key', 'origin', 'section name']
-         
+
          oConfig.meta_each { |section, found_key, hValue|
             sUpdMsg = '+'
-            sUpdMsg = ' ' if rhGet(hValue, :readonly)
-            found_key = rhGet(hValue, :default) if rhExist?(hValue, :default) == 1
-            
+            sUpdMsg = ' ' if Lorj::rhGet(hValue, :readonly)
+            found_key = Lorj::rhGet(hValue, :default) if Lorj::rhExist?(hValue, :default) == 1
+
             where = oConfig.exist?(found_key)
             if where
                highlight = ''
@@ -180,13 +193,13 @@ module Forj
          puts "\nUse 'forj set <key>=<value>' to update defaults on values identified with '+'"
 
       end
-      
+
       def Settings.account_get(oConfig, account_name, key)
 
          oConfig.set(:account_name, account_name)
-         oForjAccount = ForjAccount.new(oConfig)
+         oForjAccount = Lorj::Account.new(oConfig)
 
-         Logging.fatal(1, "Unable to load account '%s'. Not found." % account_name) if not oForjAccount.ac_load
+         PrcLib.fatal(1, "Unable to load account '%s'. Not found." % account_name) if not oForjAccount.ac_load
 
          if oForjAccount.exist?(key)
             puts "%s: '%s'" % [oForjAccount.exist?(key), oForjAccount.get(key)]
@@ -194,15 +207,15 @@ module Forj
             key_symb = key.parameterize.underscore.to_sym
             puts "%s: '%s'" % [oForjAccount.exist?(key_symb), oForjAccount.get(key_symb)]
          else
-            Logging.message("key '%s' not found"% [key])
+            PrcLib.message("key '%s' not found"% [key])
          end
       end
-      
+
       def Settings.config_get(oConfig, key)
          if oConfig.exist?(key)
             puts "%s:'%s'" % [oConfig.exist?(key), oConfig.get(key)]
          else
-            Logging.message("key '%s' not found" % [key])
+            PrcLib.message("key '%s' not found" % [key])
          end
       end
    end

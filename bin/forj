@@ -16,6 +16,8 @@
 #    limitations under the License.
 
 require 'rubygems'
+#require 'debugger' # Use to debug with Ruby < 2.0
+#require 'byebug'   # Use to debug with Ruby >= 2.0
 require 'bundler/setup'
 #require 'require_relative'
 require 'thor'
@@ -24,29 +26,19 @@ require 'ansi'
 $APP_PATH = File.dirname(__FILE__)
 $LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
 
-$LOAD_PATH << $LIB_PATH
-$LOAD_PATH << File.join($LIB_PATH, 'lib-forj', 'lib')
-
 require 'appinit.rb' # Load generic Application level function
 
 # Initialize forj paths
 AppInit::forj_initialize()
 
-# Initialize global Log object
-$FORJ_LOGGER=ForjLog.new()
+require 'lorj' # Use lorj library for Cloud agnostics feature.
 
-require 'forj-config.rb' # Load class ForjConfig and Meta data class variables. Requires Logging to be fully set.
-require 'forj-account.rb' # Load class ForjAccount
-require 'connection.rb' # Load class ForjConnection
+PrcLib.app_name = 'forj'
+PrcLib.app_defaults = 'forj'
 
+require 'forj-settings.rb' # Settings features
 require 'ssh.rb'
 
-include Ssh
-require 'forj-settings.rb' # Settings features
-
-#require 'debugger' # Use to debug with Ruby < 2.0
-#require 'byebug'   # Use to debug with Ruby >= 2.0
-require 'lib-forj.rb'
 
 $LIB_FORJ_DEBUG = 1 # less verbose
 
@@ -56,7 +48,7 @@ class ForjThor < Thor
   class_option :debug,   :aliases => '-d', :desc => 'Set debug mode'
   class_option :verbose, :aliases => '-v', :desc => 'Set verbose mode'
   class_option :config,  :aliases => '-c', :desc => 'Path to a different forj config file. By default, use ~/.forj/config.yaml'
-  class_option :libforj_debug,             :desc => "Set lib-forj debug level verbosity. 1 to 5. Default is one."
+  class_option :lorj_debug,                :desc => "Set lorj debug level verbosity. 1 to 5. Default is one."
 
 
   desc "help [action]", "Describe available FORJ actions or one specific action"
@@ -138,25 +130,17 @@ Maestro/infra bootstrap debugging:"
                                                test-box will send your local maestro repo to your box, for boot."
 
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil, old_name = nil)
+      Forj::Settings.common_options(options)
 
-      Logging.set_level(Logger::INFO) if options[:verbose]
-      Logging.set_level(Logger::DEBUG) if options[:debug]
-
-      unless options[:libforj_debug].nil?
-         $LIB_FORJ_DEBUG = options[:libforj_debug].to_i
-         Logging.set_level(Logger::DEBUG)
-      end
-
-      oConfig = ForjConfig.new(options[:config])
-
+      oConfig = Lorj::Config.new(options[:config])
 
       # depreciated: <BluePrint> on <AccountName> as <InstanceName>
       if old_accountname and as and old_name
          msg = "The syntax `forj boot '%s' on '%s' as '%s'` is depreciated.\nUse `forj boot '%s' '%s'" % [blueprint, old_accountname, old_name, blueprint, old_name]
          if oConfig.get('account_name') == old_accountname
-            Logging.warning("%s` instead." % msg)
+            PrcLib.warning("%s` instead." % msg)
          else
-            Logging.warning("%s -a '%s'` instead." % [msg, old_accountname])
+            PrcLib.warning("%s -a '%s'` instead." % [msg, old_accountname])
          end
          name = old_name
          oConfig.set(:account_name, old_accountname)
@@ -164,11 +148,11 @@ Maestro/infra bootstrap debugging:"
          name = on_or_name
       end
 
-      Logging.fatal( 1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not (/^[\d[[:lower:]]-]+$/ =~ name)
+      PrcLib.fatal( 1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not (/^[\d[[:lower:]]-]+$/ =~ name)
 
       # Options are added if they are set. Otherwise, get will retrieve the default value.
       oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
-      oForjAccount = ForjAccount.new(oConfig)
+      oForjAccount = Lorj::Account.new(oConfig)
       oForjAccount.ac_load()
 
       oConfig.set(:infra_repo,     options[:infra])
@@ -182,18 +166,18 @@ Maestro/infra bootstrap debugging:"
       oConfig.set(:branch ,        options[:branch])
       oConfig.set(:test_box, File.expand_path(options[:test_box])) if options[:test_box] and File.directory?(File.expand_path(options[:test_box]))
 
-      Logging.warning("test_box is currently disabled in this version. It will be re-activated in newer version.") if options[:test_box]
+      PrcLib.warning("test_box is currently disabled in this version. It will be re-activated in newer version.") if options[:test_box]
 
       if options[:key_path]
          mFound = options[:key_path].match(/^(.*)(\.pub)?$/)
          if mFound
             key_path = File.expand_path(mFound[1])
             if mFound[2] and not File.exists?(File.expand_path(mFound[1]+mFound[2]))
-               Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
+               PrcLib.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
             end
             oConfig.set(:keypair_path, key_path)
          else
-            Logging.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
+            PrcLib.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
          end
       end
       aProcesses = []
@@ -206,21 +190,21 @@ Maestro/infra bootstrap debugging:"
       # boot/down/ssh/...
       aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 
-      oCloud = ForjCloud.new(oForjAccount, oConfig[:account_name], aProcesses)
+      #oCloud = ForjCloud.new(oForjAccount, oConfig[:account_name], aProcesses)
+      oCloud = Lorj::CloudCore.new(oForjAccount, oConfig[:account_name], aProcesses)
 
       oConfig[:instance_name] = name
 
       if blueprint == 'maestro'
-         Logging.info("Starting boot process of '%s'. No blueprint requested." % oConfig[:instance_name])
+         PrcLib.info("Starting boot process of '%s'. No blueprint requested." % oConfig[:instance_name])
       else
          oConfig[:blueprint] = blueprint
-         Logging.info("Starting boot process of '%s' with blueprint '%s'." % [oConfig[:instance_name], oConfig[:blueprint]])
+         PrcLib.info("Starting boot process of '%s' with blueprint '%s'." % [oConfig[:instance_name], oConfig[:blueprint]])
       end
 
-      Logging.high_level_msg ("Preparing your forge '%s'. Please be patient. more output in '%s'\n" % [oConfig[:instance_name], File.join($FORJ_DATA_PATH, "forj.log")])
+      PrcLib.high_level_msg ("Preparing your forge '%s'. Please be patient. more output in '%s'\n" % [oConfig[:instance_name], File.join($FORJ_DATA_PATH, "forj.log")])
 
       oCloud.Create(:forge)
-      #Boot.boot(blueprint, name, options[:build], options[:boothook], options[:box_name], oForjAccount)
   end
 
 ################################# Show defaults
@@ -235,16 +219,18 @@ queriable Objects:
   LONGDESC
 
    def show(object, name = nil)
+      Settings.common_options(options)
+
       case object
          when 'defaults'
-            oConfig=ForjConfig.new()
+            oConfig=Lorj::Config.new()
 
             puts 'List of default values: (local refer to your config file. hash refer to your FORJ account data)'
             puts oConfig.default_dump().to_yaml
             puts '---'
-            puts "To change default values, update your ~/.forj/config.yaml and add the key/value entry under 'default' section."
+            puts "To change default values, use 'forj get' to check valid keys, and update with 'forj set'"
          when 'account'
-            oConfig=ForjConfig.new()
+            oConfig=Lorj::Config.new()
             if not name
                puts "List of FORJ accounts: Use 'forj account YourAccount' to see one account details."
                oAccounts = ForjAccounts.new()
@@ -261,27 +247,26 @@ queriable Objects:
             end
 
          else
-            Logging.error("object '%s' unknown." % name)
+            PrcLib.error("object '%s' unknown." % name)
       end
    end
 
 ################################# DESTROY
    desc 'destroy <InstanceName> [options]', 'delete the Maestro box and all systems installed by the blueprint'
    long_desc <<-LONGDESC
-This action destoy all the server found under the instance name and allow you to destroy all of them or just one of them.
+This action destroy all servers found under the instance name and allow you to destroy all of them or just one of them.
 
-Warning! This action don't removed any network/security groups cloud object.
+Warning! This action do not remove any network/security groups cloud object.
    LONGDESC
 
-  method_option :force_destroy, :aliases => "-f", :desc => "force deletion of all servers for the given InstanceName"
+  method_option :force, :aliases => "-f", :desc => "force deletion of all servers for the given InstanceName"
 
    def destroy(name)
-      Logging.set_level(Logger::INFO) if options[:verbose]
-      Logging.set_level(Logger::DEBUG) if options[:debug]
+      Forj::Settings.common_options(options)
 
-      oConfig = ForjConfig.new(options[:config])
+      oConfig = Lorj::Config.new(options[:config])
       oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
-      oForjAccount = ForjAccount.new(oConfig)
+      oForjAccount = Lorj::Account.new(oConfig)
       oForjAccount.ac_load()
 
       aProcesses = []
@@ -294,68 +279,51 @@ Warning! This action don't removed any network/security groups cloud object.
       # boot/down/ssh/...
       aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 
-      oCloud = ForjCloud.new(oForjAccount, oConfig[:account_name], aProcesses)
+      oCloud = Lorj::CloudCore.new(oForjAccount, oConfig[:account_name], aProcesses)
 
       oForge = oCloud.Get(:forge, name)
 
       if oForge[:servers].count > 0
 
-        if options[:force_destroy]
+        if options[:force]
           #Destroy all servers found
           oCloud.Delete(:forge)
         else
           #Ask the user to get server(s) to destroy
-          server_id_length = 0
-          server_name_length = 0
+          serverList = []
+          index = 0
 
           oForge[:servers].each{ |server|
-            if server[:id].length() >  server_id_length
-              server_id_length = server[:id].length()
-            end
-
-            if server[:name].length() >  server_name_length
-              server_name_length = server[:name].length()
-            end
+            serverList[index] = server[:name]
+            index = index + 1
           }
 
-          server_index = 1
-          #Display headers
-          puts "|%s |%s |%s |" % ["Index ".ljust(6), "Name".ljust(server_name_length), "ID".ljust(server_id_length) ]
-          #puts "|%s |%s |%s |" % ["0", "all".ljust(server_name_length), " ".ljust(server_id_length) ]
-          #Display Forge servers detail
-          oForge[:servers].each{ |server|
-            puts "|%s |%s |%s |" % [server_index.to_s().ljust(6), server[:name].to_s().ljust(server_name_length), server[:id].to_s().ljust(server_id_length) ]
-            server_index = server_index + 1
+          serverList << "all"
+          serverList << "esc"
+
+          say("Select the index of the server you want to destroy")
+          value = choose { | q |
+            q.choices(*serverList)
           }
-          #All option
-          puts "|%s |%s |%s |" % [server_index.to_s().ljust(6), "all".ljust(server_name_length), " ".ljust(server_id_length) ]
-          server_index = server_index + 1
-          #Esc option
-          puts "|%s |%s |%s |" % [server_index.to_s().ljust(6), "esc".ljust(server_name_length), " ".ljust(server_id_length) ]
 
-          oHighLine = HighLine.new()
+          oServerNumber = serverList.index(value)
 
-          index = oHighLine.ask("Select the index of the server that you want to destroy?", Integer)do |q|
-            q.below=oForge[:servers].count + 3
-            q.above=0
-          end
-
-          if index > 0 and index <= oForge[:servers].count
+          if oServerNumber >= 0 and oServerNumber < oForge[:servers].count
             #Destroy selected server
-            oConfig.set(:forge_server, oForge[:servers][index - 1][:id] )
+            oConfig.set(:forge_server, oForge[:servers][oServerNumber][:id] )
             oCloud.Delete(:forge)
-          elsif index ==  oForge[:servers].count + 1
+          elsif oServerNumber ==  serverList.index("all")
             #Destroy all servers found
             oCloud.Delete(:forge)
-          elsif index ==  oForge[:servers].count + 2
+          elsif oServerNumber ==  serverList.index("esc")
             #esc
-            Logger.high_level_msg("No server(s) found for instance name '%s' to be destroyed.\n" % name )
+            PrcLib.high_level_msg("No server destroyed on your demand.\n" % name )
           end
 
         end
 
       else
-        Logger.high_level_msg("No server(s) found for instance name '%s' to be destroyed.\n" % name )
+        PrcLib.high_level_msg("No server(s) found on forge instance '%s'.\n" % name )
       end
 
    end
@@ -394,7 +362,7 @@ Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. D
       Logging.set_level(Logger::INFO) if options[:verbose]
       Logging.set_level(Logger::DEBUG) if options[:debug]
 
-      oConfig=ForjConfig.new()
+      oConfig=Lorj::Config.new()
 
       if    p.length == 0 and not options[:account_name]
          Forj::Settings::config_show_all(oConfig)
@@ -411,8 +379,8 @@ Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. D
    end
 
 ################################# GET
-  desc 'get', 'Get data from defaults or account values.'
-  long_desc <<-LONGDESC
+   desc 'get', 'Get data from defaults or account values.'
+   long_desc <<-LONGDESC
 forj cli maintain a list of key/value at 3 Levels:
 \x5- Application defaults
 \x5- Local config defaults
@@ -429,15 +397,15 @@ Ex: To get the keypair_name defined from the account, or from your ~/.forj/confi
 `forj get keypair_name -a dev`
 
 
-  LONGDESC
+   LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
+   method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
 
    def get(key = nil)
-      Logging.set_level(Logger::INFO) if options[:verbose]
-      Logging.set_level(Logger::DEBUG) if options[:debug]
+      PrcLib.set_level(Logger::INFO) if options[:verbose]
+      PrcLib.set_level(Logger::DEBUG) if options[:debug]
 
-      oConfig = ForjConfig.new()
+      oConfig = Lorj::Config.new()
       if    not options[:account_name] and not key
          Forj::Settings::config_get_all(oConfig)
 
@@ -453,31 +421,26 @@ Ex: To get the keypair_name defined from the account, or from your ~/.forj/confi
    end
 
 ################################# SSH
-  desc 'ssh <instance_name> [options]', 'connect to your forge thru ssh'
-
-  long_desc <<-LONGDESC
+   desc 'ssh <Instance> [options]', 'connect to your forge thru ssh'
+   long_desc <<-LONGDESC
 Connect through ssh to a node attached to an instance
 
-List all the servers available using given instance name
+ex: forj ssh myforge -n review
+   LONGDESC
 
-  ex. ssh <instance_name>
+   method_option :box_name,       :aliases => '-n',   :desc => "box name to create ssh connection"
+   method_option :identity,       :aliases => '-i',   :desc => "Private key file name."
 
-Connect to a specific box
+   def ssh(oInstanceName)
+      Forj::Settings.common_options(options)
 
-  ex. ssh  <instance_name> -b [box_name]
-  LONGDESC
+      oConfig = Lorj::Config.new(options[:config])
 
-  method_option :box_ssh,        :aliases => '-b',   :desc => "box name to create ssh connection"
+      oConfig.set(:box_ssh,   options[:box_name])  if options[:box_name]
+      oConfig.set(:identity,  options[:identity]) if options[:identity]
 
-  def ssh(oInstanceName)
-    Logging.set_level(Logger::INFO) if options[:verbose]
-    Logging.set_level(Logger::DEBUG) if options[:debug]
-    oConfig = ForjConfig.new(options[:config])
-
-    oConfig.set(:box_ssh,   options[:box_ssh]) if options[:box_ssh]
-
-    Ssh.connect(oInstanceName, oConfig)
-  end
+      Forj::Ssh.connect(oInstanceName, oConfig)
+   end
 
 ################################# SETUP
 
@@ -499,15 +462,9 @@ Several data will be requested like:
 \x5- domain name to add to each boxes hostname
   LONGDESC
   def setup(sAccountName = 'hpcloud', sProvider = "hpcloud")
-      Logging.set_level(Logger::INFO)  if options[:verbose]
-      Logging.set_level(Logger::DEBUG) if options[:debug]
+      Forj::Settings.common_options(options)
 
-      unless options[:libforj_debug].nil?
-         $LIB_FORJ_DEBUG = options[:libforj_debug].to_i
-         Logging.set_level(Logger::DEBUG)
-      end
-
-      oConfig=ForjConfig.new(options[:config])
+      oConfig=Lorj::Config.new(options[:config])
       oConfig.set(:provider_name, sProvider)
       oConfig.set(:account_name, sAccountName)
 
@@ -521,7 +478,9 @@ Several data will be requested like:
       # boot/down/ssh/...
       aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
 
-      oCloud = ForjCloud.new(oConfig, sAccountName, aProcesses)
+      # Loading CloudCore embedding provider controller + its process.
+      oCloud = Lorj::CloudCore.new(oConfig, oConfig[:account_name], aProcesses)
+
 
       oCloud.Setup(:forge, sAccountName)
       oCloud.config.ac_save()
