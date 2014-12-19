@@ -23,8 +23,8 @@ require 'bundler/setup'
 require 'thor'
 require 'ansi'
 
-$APP_PATH = File.dirname(__FILE__)
-$LIB_PATH = File.expand_path(File.join(File.dirname($APP_PATH),'lib'))
+$APP_PATH = File.dirname(File.dirname(__FILE__))
+$LIB_PATH = File.expand_path(File.join($APP_PATH, 'lib'))
 
 require 'appinit.rb' # Load generic Application level function
 
@@ -34,7 +34,7 @@ AppInit::forj_initialize()
 require 'lorj' # Use lorj library for Cloud agnostics feature.
 
 PrcLib.app_name = 'forj'
-PrcLib.app_defaults = 'forj'
+PrcLib.app_defaults = File.join($APP_PATH, 'forj')
 
 require 'forj-settings.rb' # Settings features
 require 'ssh.rb'
