@@ -681,8 +681,8 @@ class ForjCoreProcess
             FileUtils.copy(private_key_file, forj_private_key_file)
             FileUtils.copy(public_key_file, forj_public_key_file)
             # Attaching this keypair to the account
-            rhSet(@hAccountData, key_name, :credentials, 'keypair_name')
-            rhSet(@hAccountData, forj_private_key_file, :credentials, 'keypair_path')
+            Lorj::rhSet(@hAccountData, key_name, :credentials, 'keypair_name')
+            Lorj::rhSet(@hAccountData, forj_private_key_file, :credentials, 'keypair_path')
             config.oConfig.LocalSet(key_name.to_s, private_key_file, :imported_keys)
          else
             # Checking source/dest files content
