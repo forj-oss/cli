@@ -15,26 +15,28 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-source 'https://rubygems.org'
+module Forj
+  # Provide cloud object
+  module CloudConnection
+    def self.connect(o_config)
+      a_processes = []
 
-gemspec
-# group(:development, :test) do
-#  gem 'rake'
-#  gem 'debugger'
-#  gem 'byebug'
-#  gem 'rspec', "~> 3.1.0", :require => false
-# end
+      # Defines how to manage Maestro and forges
+      # create a maestro box. Identify a forge instance, delete it,...
+      a_processes << File.join(LIB_PATH, 'forj', 'ForjCore.rb')
 
-# if updating here, update forj.gemspec as well, to be coherent.
-# gem 'mime-types','1.25.1'
-# gem 'excon','0.31.0'
-# gem 'json','1.7.5'
-# gem 'nokogiri','1.5.11'
-# gem 'fog', '1.19.0'
-# gem 'git', '>=1.2.7'
-# gem 'rainbow'
-# gem 'thor', '>=0.16.0'
-# gem 'highline','>=1.6.21'
-# gem 'ansi','>=1.4.3'
-# gem 'encryptor','>=1.3.0'
-# gem 'bundler', '1.7.3'
+      # Defines how cli will control FORJ features
+      # boot/down/ssh/...
+      a_processes << File.join(LIB_PATH, 'forj', 'ForjCli.rb')
+
+      # Loading CloudCore embedding provider controller + its process.
+      o_cloud = Lorj::CloudCore.new(
+          o_config,
+          o_config[:account_name],
+          a_processes
+      )
+
+      o_cloud
+    end
+  end
+end

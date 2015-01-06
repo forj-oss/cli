@@ -15,99 +15,92 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
+
+require File.join(FORJCORE_PATH, 'process', 'ForjProcess.rb')
+
 # Defines how to manage Maestro and forges
 # create a maestro box. Identify a forge instance, delete it,...
 
 # Define framework object on BaseDefinition
 # See lib/core/definition.rb for function details usage.
-
-$FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
-
-require File.join($FORJCORE_PATH, "process", "ForjProcess.rb")
-
 class Lorj::BaseDefinition
+  process_default :use_controller => false
 
-   process_default :use_controller => false
+  # ******************* Maestro Repository object
+  define_obj :maestro_repository,
 
-   # ******************* Maestro Repository object
-   define_obj  :maestro_repository,
-      {
-         :create_e => :clone_or_use_maestro_repo
-      }
+             :create_e => :clone_or_use_maestro_repo
 
-   obj_needs   :data,   :maestro_url
+  obj_needs :data,   :maestro_url
 
-   obj_needs_optional
-   obj_needs   :data,   :maestro_repo
+  obj_needs_optional
+  obj_needs :data,   :maestro_repo
 
-   # ******************* Infra Repository object
-   define_obj  :infra_repository,
-      {
-         :create_e => :create_or_use_infra
-      }
+  # ******************* Infra Repository object
+  define_obj :infra_repository,
 
-   obj_needs   :CloudObject,  :maestro_repository
-   obj_needs   :data,         :infra_repo
-   obj_needs   :data,         :branch
+             :create_e => :create_or_use_infra
 
-   # ******************* metadata object
-   define_obj  :metadata,
-      {
-         :create_e => :build_metadata
-      }
+  obj_needs :CloudObject,  :maestro_repository
+  obj_needs :data,         :infra_repo
+  obj_needs :data,         :branch
 
-   obj_needs   :data,   :instance_name
-   obj_needs   :data,   :network_name
-   obj_needs   :data,   :security_group
-   obj_needs   :data,   :keypair_name
-   obj_needs   :data,   :image_name
-   obj_needs   :data,   :bp_flavor
-   obj_needs   :data,   :compute
-   obj_needs   :data,   :branch
-   obj_needs   :data,   :domain_name
-   obj_needs   :data,   :tenant_name
-   # sent in base64
-   obj_needs   :data,   :os_user
-   obj_needs   :data,   :os_enckey
-   obj_needs   :data,   :account_id
-   obj_needs   :data,   :account_key
-   obj_needs_optional
+  # ******************* metadata object
+  define_obj :metadata,
 
-   # If requested by user, ask Maestro to manage the DNS.
-   obj_needs   :data,   :dns_service
-   obj_needs   :data,   :dns_tenant_id
+             :create_e => :build_metadata
 
-   # If requested by user, ask Maestro to instantiate a blueprint.
-   obj_needs   :data,   :blueprint
-   # Add init bootstrap additional steps
-   obj_needs   :data,   :bootstrap
-   # Add init additional git clone steps.
-   obj_needs   :data,   :repos
+  obj_needs :data,   :instance_name
+  obj_needs :data,   :network_name
+  obj_needs :data,   :security_group
+  obj_needs :data,   :keypair_name
+  obj_needs :data,   :image_name
+  obj_needs :data,   :bp_flavor
+  obj_needs :data,   :compute
+  obj_needs :data,   :branch
+  obj_needs :data,   :domain_name
+  obj_needs :data,   :tenant_name
+  # sent in base64
+  obj_needs :data,   :os_user
+  obj_needs :data,   :os_enckey
+  obj_needs :data,   :account_id
+  obj_needs :data,   :account_key
+  obj_needs_optional
 
-   # ******************* userdata object
-   define_obj  :userdata,
-      {
-         :create_e => :build_userdata
-      }
+  # If requested by user, ask Maestro to manage the DNS.
+  obj_needs :data,   :dns_service
+  obj_needs :data,   :dns_tenant_id
 
-   obj_needs   :CloudObject,  :maestro_repository
-   obj_needs   :CloudObject,  :metadata
-   obj_needs   :CloudObject,  :infra_repository
+  # If requested by user, ask Maestro to instantiate a blueprint.
+  obj_needs :data,   :blueprint
+  # Add init bootstrap additional steps
+  obj_needs :data,   :bootstrap
+  # Add init additional git clone steps.
+  obj_needs :data,   :repos
 
-   # ******************* forge object
-   define_obj  :forge,
-      {
-         :create_e => :build_forge,
-         :delete_e => :delete_forge,
-         :get_e    => :get_forge
-      }
-   obj_needs   :CloudObject,  :compute_connection
-   obj_needs   :CloudObject,  :metadata,        { :for => [:create_e] }
-   obj_needs   :CloudObject,  :userdata,        { :for => [:create_e] }
-   obj_needs   :data,         :instance_name,   { :for => [:create_e] }
+  # ******************* userdata object
+  define_obj :userdata,
 
-   obj_needs_optional
-   obj_needs   :CloudObject,  :server
-   obj_needs   :data,         :blueprint
+             :create_e => :build_userdata
 
+  obj_needs :CloudObject,  :maestro_repository
+  obj_needs :CloudObject,  :metadata
+  obj_needs :CloudObject,  :infra_repository
+
+  # ******************* forge object
+  define_obj :forge,
+
+             :create_e => :build_forge,
+             :delete_e => :delete_forge,
+             :get_e => :get_forge
+
+  obj_needs :CloudObject,  :compute_connection
+  obj_needs :CloudObject,  :metadata,         :for => [:create_e]
+  obj_needs :CloudObject,  :userdata,         :for => [:create_e]
+  obj_needs :data,         :instance_name,    :for => [:create_e]
+
+  obj_needs_optional
+  obj_needs :CloudObject,  :server
+  obj_needs :data,         :blueprint
 end

@@ -16,84 +16,93 @@
 #    limitations under the License.
 
 require 'rubygems'
-#require 'debugger' # Use to debug with Ruby < 2.0
-#require 'byebug'   # Use to debug with Ruby >= 2.0
+# require 'debugger' # Use to debug with Ruby < 2.0
+# require 'byebug'   # Use to debug with Ruby >= 2.0
 require 'bundler/setup'
-#require 'require_relative'
+# require 'require_relative'
 require 'thor'
 require 'ansi'
 
-$APP_PATH = File.dirname(File.dirname(__FILE__))
-$LIB_PATH = File.expand_path(File.join($APP_PATH, 'lib'))
+APP_PATH = File.dirname(File.dirname(__FILE__))
+LIB_PATH = File.expand_path(File.join(APP_PATH, 'lib'))
 
 require 'appinit.rb' # Load generic Application level function
 
 # Initialize forj paths
-AppInit::forj_initialize()
+AppInit.forj_initialize
 
 require 'lorj' # Use lorj library for Cloud agnostics feature.
 
 PrcLib.app_name = 'forj'
-PrcLib.app_defaults = File.join($APP_PATH, 'forj')
+PrcLib.app_defaults = File.join(APP_PATH, 'forj')
 
 require 'forj-settings.rb' # Settings features
 require 'ssh.rb'
+require 'destroy.rb'
+require 'get.rb'
+require 'boot.rb'
+require 'cloud_connection.rb'
 
+LIB_FORJ_DEBUG = 1
 
-$LIB_FORJ_DEBUG = 1 # less verbose
-
-
+# This is the main Forj class
+# it helps you to create and support your forge.
+# rubocop:disable ClassLength
 class ForjThor < Thor
-
   class_option :debug,   :aliases => '-d', :desc => 'Set debug mode'
   class_option :verbose, :aliases => '-v', :desc => 'Set verbose mode'
-  class_option :config,  :aliases => '-c', :desc => 'Path to a different forj config file. By default, use ~/.forj/config.yaml'
-  class_option :lorj_debug,                :desc => "Set lorj debug level verbosity. 1 to 5. Default is one."
-
-
-  desc "help [action]", "Describe available FORJ actions or one specific action"
+  class_option :config,  :aliases => '-c', :desc => 'Path to a different forj'\
+    ' config file. By default, use ~/.forj/config.yaml'
+  class_option :lorj_debug, :desc => 'Set lorj debug level verbosity. 1 to 5.'\
+    'Default is one.'
+  desc 'help [action]', 'Describe available FORJ actions or one specific action'
   def help(task = nil, subcommand = false)
     if task
-       self.class.task_help(shell, task)
+      self.class.task_help(shell, task)
     else
-       puts <<-LONGDESC
+      puts <<-LONGDESC
 Quick steps: How to create a forj?
 ----------------------------------
 
 To test a forj blueprint, you will need an account on a cloud solution.
-Currently forj cli supports only HPHelion (https://horizon.hp.com) but will be expanded to support most of known clouds supported by FOG. (http://fog.io)
+Currently forj cli supports only HPHelion (https://horizon.hp.com) but will
+  be expanded to support most of known clouds supported by FOG. (http://fog.io)
 
 1.  Setup your FORJ account.
     `$ forj setup [AccountName] [--provider Provider]`
 
-    Ex: `forj setup MyForjAccount`. In this example, you will setup 'MyForjAccount' with your HPHelion account. The first time, this account will become the default one.
+    Ex: `forj setup MyForjAccount`. In this example:
+      You will setup 'MyForjAccount' with your HPHelion account.
+      The first time, this account will become the default one.
 
-**IMPORTANT NOTE** By default, forj setup will propose you to create your forge on HPHelion (provider 'hpcloud').
-If AccountName is not set, the account name will be proposed to be name 'hpcloud' as well!
+**IMPORTANT NOTE** By default, forj setup will propose you to create your forge
+  on HPHelion (provider 'hpcloud').
+If AccountName is not set, the account name will be proposed to be name
+  'hpcloud' as well!
 
 2.  Create your forge on your default account
     `$ forj boot <blueprint> <InstanceName>`
 
-    Ex: `forj boot redstone MyForge`. In this example, forj will create a `redstone` blueprint forge named `MyForge`, using the default `MyForjAccount`
+    Ex: `forj boot redstone MyForge`. In this example:
+      Forj will create a `redstone` blueprint forge named `MyForge`,
+      using the default `MyForjAccount`.
 
 forj command line details:
 --------------------------
        LONGDESC
-       self.class.help(shell, subcommand)
+      self.class.help(shell, subcommand)
     end
   end
 
-   desc 'version', 'get GEM version of forj.'
+  desc 'version', 'get GEM version of forj.'
 
-   def version()
-      if Gem.loaded_specs['forj']
-         puts Gem.loaded_specs['forj'].version.to_s
-      end
-   end
+  def version
+    puts Gem.loaded_specs['forj'].version.to_s if Gem.loaded_specs['forj']
+  end
 
-
-################################# BOOT
-  desc 'boot <blueprint> <InstanceName> [options]', 'boot a Maestro box and instruct it to provision the blueprint'
+  ################################# BOOT
+  desc 'boot <blueprint> <InstanceName> [options]', 'boot a Maestro box and' \
+    ' instruct it to provision the blueprint'
 
   long_desc <<-LONGDESC
 This task boot a new forge with the following options
@@ -102,239 +111,143 @@ This task boot a new forge with the following options
 
     Ex: forj boot redstone maestro_test -a dev
 
-When `forj boot` starts, some variables are loaded. If you want to check/updated them, use `forj get [-a account]`
+When `forj boot` starts, some variables are loaded.
+If you want to check/updated them, use `forj get [-a account]`
 
   LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file.
+  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+     ' account name to use. By default, uses the default account set in'      \
+     ' your local config file.' + "\n\n" + 'Following options superseed your' \
+     ' Account, config file or forj defaults.'
+  method_option :maestro_repo,     :aliases => '-m',   :desc => 'config: '    \
+    ' maestro_repo  : To use a different Maestro repository already'    \
+    ' cloned.' + "\n" + 'By default, Maestro is systematically cloned ' \
+    ' to ~/.forj/maestro from github.'
+  method_option :infra,            :aliases => '-r',   :desc => 'config:' \
+    ' infra_repo    : Defines your Infra directory to use while'    \
+    ' booting. You can also set FORJ_INFRA_DIR.'
+  method_option :key_name,         :aliases => '-k',   :desc => 'config:' \
+    ' keypair_name  : Keypair name to use.'
+  method_option :key_path,         :aliases => '-p',   :desc => 'config:' \
+    ' keypair_path  : Private or Public key file to use.'
+  method_option :security_group,   :aliases => '-s',   :desc => 'config:' \
+    ' security_group: Security group name to use and configure.'
+  method_option :image_name,       :aliases => '-i',   :desc => 'config:' \
+    ' image_name    : Image name to use to build Maestro and blueprint nodes.'
+  method_option :maestro_flavor,   :aliases => '-f',   :desc => 'config:' \
+    ' flavor        : Maestro flavor to use.'
+  method_option :bp_flavor,        :aliases => '-b',   :desc => 'config:' \
+    ' bp_flavor     : Blueprint nodes default flavor to use.'       \
+    + "\n\n" + ' Build system options:'
+  method_option :boothook,         :aliases => '-H',   :desc => 'By default, ' \
+    ' boothook file used is build/bin/build-tools/boothook.sh. '         \
+    ' Use this option to set another one.'
+  method_option :build,            :aliases => '-B',   :desc => 'Replace' \
+    ' the default build.sh'
+  method_option :branch,           :aliases => '-R',   :desc => 'Branch' \
+    'name to clone for maestro.' \
+    + "\n\n" + 'Maestro/infra bootstrap debugging:'
+  method_option :test_box,         :aliases => '-T',   :desc => 'Identify a' \
+    ' path to become your test-box repository.' \
+    "\n                                            " \
+    'Ex: if your maestro is in ~/src/forj-oss, --test_box' \
+    ' ~/src/forj-oss/maestro build.sh and' \
+    "\n                                            " \
+    'test-box will send your local maestro repo to your box, for boot.'
 
-Following options superseed your Account, config file or forj defaults."
-  method_option :maestro_repo,     :aliases => '-m',   :desc => "config: maestro_repo  : To use a different Maestro repository already cloned.
-                                           By default, Maestro is systematically cloned to ~/.forj/maestro from github."
-  method_option :infra,            :aliases => '-r',   :desc => 'config: infra_repo    : Defines your Infra directory to use while booting. You can also set FORJ_INFRA_DIR.'
-  method_option :key_name,         :aliases => '-k',   :desc => "config: keypair_name  : Keypair name to use."
-  method_option :key_path,         :aliases => '-p',   :desc => "config: keypair_path  : Private or Public key file to use."
-  method_option :security_group,   :aliases => '-s',   :desc => "config: security_group: Security group name to use and configure."
-  method_option :image_name,       :aliases => '-i',   :desc => "config: image_name    : Image name to use to build Maestro and blueprint nodes."
-  method_option :maestro_flavor,   :aliases => '-f',   :desc => "config: flavor        : Maestro flavor to use."
-  method_option :bp_flavor,        :aliases => '-b',   :desc => "config: bp_flavor     : Blueprint nodes default flavor to use.
+  def boot(blueprint, on_or_name, old_accountname = nil, as = nil,
+           old_name = nil)
+    Forj::Settings.common_options(options)
 
-Build system options:"
-  method_option :boothook,         :aliases => '-H',   :desc => 'By default, boothook file used is build/bin/build-tools/boothook.sh. Use this option to set another one.'
-  method_option :build,            :aliases => '-B',   :desc => 'Replace the default build.sh'
-  method_option :branch,           :aliases => '-R',   :desc => "Branch name to clone for maestro.
+    deprecated_name = [old_accountname, as, old_name]
 
-Maestro/infra bootstrap debugging:"
-  method_option :test_box,         :aliases => '-T',   :desc => "Identify a path to become your test-box repository.
-                                           Ex: if your maestro is in ~/src/forj-oss, --test_box ~/src/forj-oss/maestro build.sh and
-                                               test-box will send your local maestro repo to your box, for boot."
-
-  def boot(blueprint, on_or_name, old_accountname = nil, as = nil, old_name = nil)
-      Forj::Settings.common_options(options)
-
-      oConfig = Lorj::Config.new(options[:config])
-
-      # depreciated: <BluePrint> on <AccountName> as <InstanceName>
-      if old_accountname and as and old_name
-         msg = "The syntax `forj boot '%s' on '%s' as '%s'` is depreciated.\nUse `forj boot '%s' '%s'" % [blueprint, old_accountname, old_name, blueprint, old_name]
-         if oConfig.get('account_name') == old_accountname
-            PrcLib.warning("%s` instead." % msg)
-         else
-            PrcLib.warning("%s -a '%s'` instead." % [msg, old_accountname])
-         end
-         name = old_name
-         oConfig.set(:account_name, old_accountname)
-      else
-         name = on_or_name
-      end
-
-      PrcLib.fatal( 1, "instance name '%s' not supported. Support only lower case, numeric and dash caracters." % [name]) if not (/^[\d[[:lower:]]-]+$/ =~ name)
-
-      # Options are added if they are set. Otherwise, get will retrieve the default value.
-      oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
-      oForjAccount = Lorj::Account.new(oConfig)
-      oForjAccount.ac_load()
-
-      oConfig.set(:infra_repo,     options[:infra])
-      oConfig.set(:keypair_name,   options[:key_name])
-      oConfig.set(:keypair_path,   options[:key_path])
-      oConfig.set(:security_group, options[:security_group])
-      oConfig.set(:image_name,     options[:image_name])
-      oConfig.set(:flavor,         options[:maestro_flavor])
-      oConfig.set(:bp_flavor,      options[:bp_flavor])
-      oConfig.set(:maestro_repo ,  options[:maestro_repo])
-      oConfig.set(:branch ,        options[:branch])
-      oConfig.set(:test_box, File.expand_path(options[:test_box])) if options[:test_box] and File.directory?(File.expand_path(options[:test_box]))
-
-      PrcLib.warning("test_box is currently disabled in this version. It will be re-activated in newer version.") if options[:test_box]
-
-      if options[:key_path]
-         mFound = options[:key_path].match(/^(.*)(\.pub)?$/)
-         if mFound
-            key_path = File.expand_path(mFound[1])
-            if mFound[2] and not File.exists?(File.expand_path(mFound[1]+mFound[2]))
-               PrcLib.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
-            end
-            oConfig.set(:keypair_path, key_path)
-         else
-            PrcLib.fatal(1, "'%s' is not a valid keypair files. At least the public key (.pub) is have to exist.")
-         end
-      end
-      aProcesses = []
-
-      # Defines how to manage Maestro and forges
-      # create a maestro box. Identify a forge instance, delete it,...
-      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
-
-      # Defines how cli will control FORJ features
-      # boot/down/ssh/...
-      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
-
-      #oCloud = ForjCloud.new(oForjAccount, oConfig[:account_name], aProcesses)
-      oCloud = Lorj::CloudCore.new(oForjAccount, oConfig[:account_name], aProcesses)
-
-      oConfig[:instance_name] = name
-
-      if blueprint == 'maestro'
-         PrcLib.info("Starting boot process of '%s'. No blueprint requested." % oConfig[:instance_name])
-      else
-         oConfig[:blueprint] = blueprint
-         PrcLib.info("Starting boot process of '%s' with blueprint '%s'." % [oConfig[:instance_name], oConfig[:blueprint]])
-      end
-
-      PrcLib.high_level_msg ("Preparing your forge '%s'. Please be patient. more output in '%s'\n" % [oConfig[:instance_name], File.join($FORJ_DATA_PATH, "forj.log")])
-
-      oCloud.Create(:forge)
+    Forj::Boot.boot(blueprint, on_or_name, deprecated_name, options)
   end
 
-################################# Show defaults
-   desc 'show <Object> [name]', 'Show Object (default valuesr, account data, etc...) values.'
+  ################################# Show defaults
   long_desc <<-LONGDESC
-This command helps to show values used by 'forj' to boot a blueprint (account data, default values, etc...)
+This command helps to show values used by 'forj' to boot a blueprint
+(account data, default values, etc...)
 
 queriable Objects:
 
-- defaults : Provide the list of predefined values, configured by forj, or by you in your ~/.forj/config.yaml (or another config file with -c)
-- account [name] : without name, forj will give you the list of account saved. Otherwise print 'name' account data.
+- defaults : Provide the list of predefined values, configured by forj,
+    or by you in your ~/.forj/config.yaml (or another config file with -c)
+- account [name] : without name, forj will give you the list of account saved.
+    Otherwise print 'name' account data.
   LONGDESC
+  desc 'show <Object> [name]', 'Show Object (default valuesr, account data,' \
+    ' etc...) values.'
+  def show(object, name = nil)
+    Forj::Settings.common_options(options)
 
-   def show(object, name = nil)
-      Settings.common_options(options)
+    case object
+    when 'defaults'
+      o_config = Lorj::Config.new
 
-      case object
-         when 'defaults'
-            oConfig=Lorj::Config.new()
+      puts 'List of default values: (local refer to your config file.' \
+        ' hash refer to your FORJ account data)'
+      puts o_config.default_dump.to_yaml
+      puts '---'
+      puts "To change default values, use 'forj get' to check valid keys," \
+        " and update with 'forj set'"
+    when 'account'
+      o_config = Lorj::Config.new
+      if !name
+        puts "List of FORJ accounts: Use 'forj account YourAccount' " \
+          ' to see one account details.'
+        o_accounts = Lorj::Accounts.new
+        puts o_accounts.dump.to_yaml
+      else
+        o_config.set(:account_name, name)
+        o_account = Lorj::Account.new(o_config)
+        o_account.ac_load
 
-            puts 'List of default values: (local refer to your config file. hash refer to your FORJ account data)'
-            puts oConfig.default_dump().to_yaml
-            puts '---'
-            puts "To change default values, use 'forj get' to check valid keys, and update with 'forj set'"
-         when 'account'
-            oConfig=Lorj::Config.new()
-            if not name
-               puts "List of FORJ accounts: Use 'forj account YourAccount' to see one account details."
-               oAccounts = ForjAccounts.new()
-               puts oAccounts.dump().to_yaml
-            else
-               oConfig.set(:account_name, name)
-               oAccount = ForjAccount.new(oConfig)
-               oAccount.ac_load()
-
-               puts "Account value for '%s':" % name
-               puts oAccount.dump().to_yaml
-               puts '---'
-               puts "To change those values, execute 'forj setup -a %s'." % options[:account_name]
-            end
-
-         else
-            PrcLib.error("object '%s' unknown." % name)
+        puts format("Account value for '%s':", name)
+        puts o_account.dump.to_yaml
+        puts '---'
+        puts format(
+                 "To change those values, execute 'forj setup -a %s'.",
+                 options[:account_name]
+             )
       end
-   end
 
-################################# DESTROY
-   desc 'destroy <InstanceName> [options]', 'delete the Maestro box and all systems installed by the blueprint'
-   long_desc <<-LONGDESC
-This action destroy all servers found under the instance name and allow you to destroy all of them or just one of them.
+    else
+      PrcLib.error(format("object '%s' unknown.", name))
+    end
+  end
+
+  ################################# DESTROY
+  desc 'destroy <InstanceName> [options]', 'delete the Maestro box and all' \
+    ' systems installed by the blueprint'
+  long_desc <<-LONGDESC
+This action destroy all servers found under the instance name and allow you
+to destroy all of them or just one of them.
 
 Warning! This action do not remove any network/security groups cloud object.
    LONGDESC
 
-  method_option :force, :aliases => "-f", :desc => "force deletion of all servers for the given InstanceName"
+  method_option :force, :aliases => '-f', :desc => 'force deletion of all' \
+    ' servers for the given InstanceName'
+  def destroy(name)
+    Forj::Settings.common_options(options)
+    Forj::Destroy.destroy(name, options)
+  end
 
-   def destroy(name)
-      Forj::Settings.common_options(options)
-
-      oConfig = Lorj::Config.new(options[:config])
-      oConfig.set(:account_name,   options[:account_name]) if options[:account_name]
-      oForjAccount = Lorj::Account.new(oConfig)
-      oForjAccount.ac_load()
-
-      aProcesses = []
-
-      # Defines how to manage Maestro and forges
-      # create a maestro box. Identify a forge instance, delete it,...
-      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
-
-      # Defines how cli will control FORJ features
-      # boot/down/ssh/...
-      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
-
-      oCloud = Lorj::CloudCore.new(oForjAccount, oConfig[:account_name], aProcesses)
-
-      oForge = oCloud.Get(:forge, name)
-
-      if oForge[:servers].count > 0
-
-        if options[:force]
-          #Destroy all servers found
-          oCloud.Delete(:forge)
-        else
-          #Ask the user to get server(s) to destroy
-          serverList = []
-          index = 0
-
-          oForge[:servers].each{ |server|
-            serverList[index] = server[:name]
-            index = index + 1
-          }
-
-          serverList << "all"
-          serverList << "esc"
-
-          say("Select the index of the server you want to destroy")
-          value = choose { | q |
-            q.choices(*serverList)
-          }
-
-          oServerNumber = serverList.index(value)
-
-          if oServerNumber >= 0 and oServerNumber < oForge[:servers].count
-            #Destroy selected server
-            oConfig.set(:forge_server, oForge[:servers][oServerNumber][:id] )
-            oCloud.Delete(:forge)
-          elsif oServerNumber ==  serverList.index("all")
-            #Destroy all servers found
-            oCloud.Delete(:forge)
-          elsif oServerNumber ==  serverList.index("esc")
-            #esc
-            PrcLib.high_level_msg("No server destroyed on your demand.\n" % name )
-          end
-
-        end
-
-      else
-        PrcLib.high_level_msg("No server(s) found on forge instance '%s'.\n" % name )
-      end
-
-   end
-
-################################# SET
-  desc 'set [key=value] [...] [options]', 'Set one or more variables in defaults or a forj account.'
+  ################################# SET
+  desc 'set [key=value] [...] [options]', 'Set one or more variables in' \
+    ' defaults or a forj account.'
   long_desc <<-LONGDESC
-You can set some variables to change 'forj' defaults or specifically some account data.
+You can set some variables to change 'forj' defaults
+or specifically some account data.
 
-Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. During setup, if this keypair doesn't exist, it proposes to create it for you, with ssh-keygen.
-    If you want to use a keypair that already exists, you can set it as your default, with:
+Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance.
+During setup, if this keypair doesn't exist, it proposes to create it for you,
+with ssh-keygen.
+
+If you want to use a keypair that already exists,
+you can set it as your default, with:
 
     `forj set keypair_name=~/.ssh/id_rsa`
 
@@ -346,112 +259,108 @@ Ex: By default, forj use ~/.ssh/forj-id_rsa as keypair for all forge instance. D
 
     `forj set`
 
-    If you want to remove the key from dev, and ask for to re-use defaults (from your config or application default)
+    If you want to remove the key from dev, and ask for to re-use defaults
+    (from your config or application default)
 
     `forj set keypair_name= -a dev`
 
-    If you want to remove the key from your default, and re-use application default
+    If you want to remove the key from your default,
+    and re-use application default
 
     `forj set keypair_name=`
 
   LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
+  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+    ' account name to use. By default, uses the default account set in your'   \
+    ' local config file.'
 
-   def set(*p)
-      Logging.set_level(Logger::INFO) if options[:verbose]
-      Logging.set_level(Logger::DEBUG) if options[:debug]
+  def set(*p)
+    Logging.set_level(Logger::INFO) if options[:verbose]
+    Logging.set_level(Logger::DEBUG) if options[:debug]
 
-      oConfig=Lorj::Config.new()
+    o_config = Lorj::Config.new
 
-      if    p.length == 0 and not options[:account_name]
-         Forj::Settings::config_show_all(oConfig)
+    if p.length == 0
+      Forj::Settings.show_settings(o_config, options)
+    else
+      Forj::Settings.set_settings(o_config, options, p)
+    end
+  end
 
-      elsif p.length == 0 and options[:account_name]
-         Forj::Settings::account_show_all(oConfig, options[:account_name])
-
-      elsif p.length != 0 and options[:account_name]
-         Forj::Settings::account_set(oConfig, options[:account_name], p)
-
-      else
-         Forj::Settings::config_set(oConfig, p)
-      end
-   end
-
-################################# GET
-   desc 'get', 'Get data from defaults or account values.'
-   long_desc <<-LONGDESC
+  ################################# GET
+  desc 'get', 'Get data from defaults or account values.'
+  long_desc <<-LONGDESC
 forj cli maintain a list of key/value at 3 Levels:
 \x5- Application defaults
 \x5- Local config defaults
 \x5- Account data
 
-This function will help you identify which value has been retrieved from which level.
+This function will help you identify which value has been retrieved from
+which level.
 
-Ex: To get the default keypair_name, from your ~/.forj/config.yaml, or if not found, from application defaults.
+Ex: To get the default keypair_name, from your ~/.forj/config.yaml,
+or if not found, from application defaults.
 
 `forj get keypair_name`
 
-Ex: To get the keypair_name defined from the account, or from your ~/.forj/config.yaml, or if not found, from application defaults.
+Ex: To get the keypair_name defined from the account,
+or from your ~/.forj/config.yaml, or if not found, from application defaults.
 
 `forj get keypair_name -a dev`
 
 
    LONGDESC
 
-   method_option :account_name,     :aliases => '-a',   :desc => "Set the forj account name to use. By default, uses the default account set in your local config file."
+  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+    ' account name to use. By default, uses the default account set in your'   \
+    ' local config file.'
 
-   def get(key = nil)
-      PrcLib.set_level(Logger::INFO) if options[:verbose]
-      PrcLib.set_level(Logger::DEBUG) if options[:debug]
+  def get(key = nil)
+    PrcLib.set_level(Logger::INFO) if options[:verbose]
+    PrcLib.set_level(Logger::DEBUG) if options[:debug]
 
-      oConfig = Lorj::Config.new()
-      if    not options[:account_name] and not key
-         Forj::Settings::config_get_all(oConfig)
+    o_config = Lorj::Config.new
+    Forj::Get.get(options, o_config, key)
+  end
 
-      elsif     options[:account_name] and     key
-         Forj::Settings::account_get(oConfig, options[:account_name], key)
-
-      elsif not options[:account_name] and     key
-         Forj::Settings::config_get(oConfig, key)
-
-      else
-         Forj::Settings::account_get_all(oConfig, options[:account_name])
-      end
-   end
-
-################################# SSH
-   desc 'ssh <Instance> [options]', 'connect to your forge thru ssh'
-   long_desc <<-LONGDESC
+  ################################# SSH
+  desc 'ssh <Instance> [options]', 'connect to your forge thru ssh'
+  long_desc <<-LONGDESC
 Connect through ssh to a node attached to an instance
 
 ex: forj ssh myforge -n review
    LONGDESC
 
-   method_option :box_name,       :aliases => '-n',   :desc => "box name to create ssh connection"
-   method_option :identity,       :aliases => '-i',   :desc => "Private key file name."
+  method_option :box_name,       :aliases => '-n',   :desc => 'box name to' \
+    ' create ssh connection'
+  method_option :identity,       :aliases => '-i',   :desc => 'Private key' \
+    ' file name.'
 
-   def ssh(oInstanceName)
-      Forj::Settings.common_options(options)
+  def ssh(oInstanceName)
+    Forj::Settings.common_options(options)
 
-      oConfig = Lorj::Config.new(options[:config])
+    o_config = Lorj::Config.new(options[:config])
 
-      oConfig.set(:box_ssh,   options[:box_name])  if options[:box_name]
-      oConfig.set(:identity,  options[:identity]) if options[:identity]
+    o_config.set(:box_ssh,   options[:box_name])  if options[:box_name]
+    o_config.set(:identity,  options[:identity]) if options[:identity]
 
-      Forj::Ssh.connect(oInstanceName, oConfig)
-   end
+    Forj::Ssh.connect(oInstanceName, o_config)
+  end
 
-################################# SETUP
+  ################################# SETUP
 
-  desc 'setup [AccountName [Provider]] [options]', "Setup FORJ cloud account credentials and information."
+  desc 'setup [AccountName [Provider]] [options]', 'Setup FORJ cloud account' \
+    ' credentials and information.'
 
   long_desc <<-LONGDESC
 This setup will configure a FORJ account used to connect to your cloud system.
 \x5It will ask for your cloud provider credentials and services.
 
-If AccountName is not set, 'hpcloud' will be used for AccountName and provider name, by default.
-\x5If AccountName is not set without provider, 'hpcloud' provider will be used, by default.
+If AccountName is not set, 'hpcloud' will be used for AccountName
+and provider name, by default.
+\x5If AccountName is not set without provider, 'hpcloud' provider
+will be used, by default.
 
 WARNING! Currently supports only hpcloud provider.
 
@@ -461,33 +370,17 @@ Several data will be requested like:
 \x5- DNS settings if you want Maestro to manage it.
 \x5- domain name to add to each boxes hostname
   LONGDESC
-  def setup(sAccountName = 'hpcloud', sProvider = "hpcloud")
-      Forj::Settings.common_options(options)
+  def setup(sAccountName = 'hpcloud', sProvider = 'hpcloud')
+    Forj::Settings.common_options(options)
 
-      oConfig=Lorj::Config.new(options[:config])
-      oConfig.set(:provider_name, sProvider)
-      oConfig.set(:account_name, sAccountName)
+    o_config = Lorj::Config.new(options[:config])
+    o_config.set(:provider_name, sProvider)
+    o_config.set(:account_name, sAccountName)
 
-      aProcesses = []
-
-      # Defines how to manage Maestro and forges
-      # create a maestro box. Identify a forge instance, delete it,...
-      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
-
-      # Defines how cli will control FORJ features
-      # boot/down/ssh/...
-      aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
-
-      # Loading CloudCore embedding provider controller + its process.
-      oCloud = Lorj::CloudCore.new(oConfig, oConfig[:account_name], aProcesses)
-
-
-      oCloud.Setup(:forge, sAccountName)
-      oCloud.config.ac_save()
-
+    o_cloud = Forj::CloudConnection.connect(o_config)
+    o_cloud.Setup(:forge, sAccountName)
+    o_cloud.config.ac_save
   end
-
 end
-
 
 ForjThor.start

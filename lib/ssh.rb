@@ -15,97 +15,112 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-#~ require 'rubygems'
-
+# ~ require 'rubygems'
+require 'lorj'
 require 'highline/import'
+require 'cloud_connection.rb'
 
-#~ require 'security.rb'
-#~ include SecurityGroup
+# ~ require 'security.rb'
+# ~ include SecurityGroup
 
 #
 # ssh module
 #
 module Forj
-   module Ssh
+  # This module provides the behavior to create a ssh connection
+  module Ssh
+    def self.connect(name, oConfig)
+      o_cloud = Forj::CloudConnection.connect(oConfig)
 
-      def Ssh.connect(name, oConfig)
-         oForjAccount = Lorj::Account.new(oConfig)
+      PrcLib.state(format("Getting information about forge '%s'", name))
 
-         oForjAccount.ac_load()
+      o_forge = o_cloud.Get(:forge, name)
 
-         aProcesses = []
+      if o_forge[:servers].count > 0
+        if oConfig[:box_ssh]
+          o_server = validate_server_name(name)
 
-         # Defines how to manage Maestro and forges
-         # create a maestro box. Identify a forge instance, delete it,...
-         aProcesses << File.join($LIB_PATH, 'forj', 'ForjCore.rb')
+          if !o_server.nil?
+            ssh_connection(oConfig, o_cloud, name, o_server[:id])
+          else
+            PrcLib.debug(
+                format("server '%s.%s' was not found", oConfig[:box_ssh], name)
+            )
+            PrcLib.high_level_msg(
+                format(
+                    "server '%s.%s' was not found.\n",
+                    oConfig[:box_ssh],
+                    name)
+            )
+          end
+        else
+          o_server_number = select_forge_server(o_forge)
 
-         # Defines how cli will control FORJ features
-         # boot/down/ssh/...
-         aProcesses << File.join($LIB_PATH, 'forj', 'ForjCli.rb')
-
-         oCloud = Lorj::CloudCore.new(oForjAccount, oConfig[:account_name], aProcesses)
-
-         PrcLib.state("Getting information about forge '%s'" % name)
-
-         oForge = oCloud.Get(:forge, name)
-
-         if oForge[:servers].count > 0
-            if oConfig[:box_ssh]
-               box_ssh = oConfig[:box_ssh]
-
-               oServer = nil
-               regex =  Regexp.new('%s\.%s$' % [box_ssh, name])
-
-               oForge[:servers].each { |server|
-                  oName = server[:name]
-                  next if (regex =~ oName) == nil
-                  oServer = server
-                  break
-               }
-
-               if oServer != nil
-                  #Property for :forge
-                  oConfig.set(:instance_name, name)
-                  #Property for :ssh
-                  oConfig.set(:forge_server, oServer[:id])
-
-                  oCloud.Create(:ssh)
-               else
-                  PrcLib.debug("server '%s.%s' was not found" % [oConfig[:box_ssh], name] )
-                  PrcLib.high_level_msg("server '%s.%s' was not found.\n" % [oConfig[:box_ssh], name] )
-               end
-
-           else
-               #Ask the user to get server(s) to create ssh connection
-               serverList = []
-               index = 0
-               sDefault = nil
-               oForge[:servers].each{ |server|
-                  serverList[index] = server[:name]
-                  sDefault = server[:name] if server[:name].include? "maestro"
-                  index = index + 1
-               }
-
-               say("Select box for ssh connection %s" % ((sDefault.nil?)? "" : "Default: " + "|%s|\n" % sDefault))
-               value = choose { | q |
-                  q.choices(*serverList)
-                  q.default = sDefault if not sDefault.nil?
-               }
-
-               oServerNumber = serverList.index(value)
-
-               #Property for :forge
-               oConfig.set(:instance_name, name)
-               #Property for :ssh
-               oConfig.set(:forge_server, oForge[:servers][oServerNumber][:id])
-
-               oCloud.Create(:ssh)
-
-            end
-         else
-            PrcLib.high_level_msg("No server(s) found for instance name '%s' \n" % name )
-         end
-
+          ssh_connection(
+              oConfig,
+              o_cloud,
+              name,
+              o_forge[:servers][o_server_number][:id]
+          )
+        end
+      else
+        PrcLib.high_level_msg(
+            format("No server(s) found for instance name '%s' \n", name)
+        )
       end
-   end
+    end
+
+    def self.select_forge_server(o_forge)
+      # Ask the user to get server(s) to create ssh connection
+      server_list = []
+      index = 0
+      s_default = nil
+      o_forge[:servers].each do |server|
+        server_list[index] = server[:name]
+        s_default = server[:name] if server[:name].include? 'maestro'
+        index += 1
+      end
+
+      say(
+          format(
+              'Select box for ssh connection %s',
+              ((s_default.nil?) ? '' : format(
+                  'Default: ' + "|%s|\n", s_default
+              ))
+          )
+      )
+      value = choose do | q |
+        q.choices(*server_list)
+        q.default = s_default unless s_default.nil?
+      end
+
+      o_server_number = server_list.index(value)
+      o_server_number
+    end
+
+    def self.ssh_connection(oConfig, o_cloud, name, server_id)
+      # Property for :forge
+      oConfig.set(:instance_name, name)
+      # Property for :ssh
+      oConfig.set(:forge_server, server_id)
+
+      o_cloud.Create(:ssh)
+    end
+
+    def self.validate_server_name(name)
+      box_ssh = oConfig[:box_ssh]
+
+      o_server = nil
+      regex =  Regexp.new(format('%s\.%s$', box_ssh, name))
+
+      o_forge[:servers].each do |server|
+        o_name = server[:name]
+        next if (regex =~ o_name).nil?
+        o_server = server
+        break
+      end
+
+      o_server
+    end
+  end
 end

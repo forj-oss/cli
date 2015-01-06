@@ -184,19 +184,19 @@
          :desc:               "Domain name added to each hosts."
          :account_exclusive:  true
          :account:            true
-         :post_step_function: :forj_DNS_settings
+         :post_step_function: :forj_dns_settings
          :ask_step:           3
       :dns_service:
          :desc:               "DNS service region name Maestro will use."
          :account_exclusive:  true
          :account:            true
-         :pre_step_function:  :forj_DNS_settings?
+         :pre_step_function:  :forj_dns_settings?
          :ask_step:           3
       :dns_tenant_id:
          :desc:               "DNS Tenant ID Maestro will use"
          :account_exclusive:  true
          :account:            true
-         :pre_step_function:  :forj_DNS_settings?
+         :pre_step_function:  :forj_dns_settings?
          :ask_step:           3
 
   :maestro:

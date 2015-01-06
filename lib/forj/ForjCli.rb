@@ -20,20 +20,18 @@
 
 # Define framework object on BaseDefinition
 # See lib/core/definition.rb for function details usage.
-
-
 class Lorj::BaseDefinition
-   # ************************************ SSH Object
-   define_obj(:ssh,
-      {
-         :create_e      => :ssh_connection
-      })
-   obj_needs   :CloudObject,  :forge
-   obj_needs   :data,         :instance_name
-   obj_needs   :data,         :keypair_name
-   obj_needs   :data,         :keypair_path
+  # ************************************ SSH Object
+  define_obj(:ssh,
 
-   obj_needs_optional
-   obj_needs    :data,         :forge_server
-   obj_needs    :data,         :ssh_user
+             :create_e => :ssh_connection
+             )
+  obj_needs :CloudObject,  :forge
+  obj_needs :data,         :instance_name
+  obj_needs :data,         :keypair_name
+  obj_needs :data,         :keypair_path
+
+  obj_needs_optional
+  obj_needs :data,         :forge_server
+  obj_needs :data,         :ssh_user
 end

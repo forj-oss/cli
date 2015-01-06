@@ -14,39 +14,37 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
 require 'lorj'
 
 # Module to initialize the application
 # TODO: Cleanup about Global variables used. Should be replaced by PrcLib
 #       or other kind of setting.
 module AppInit
+  def self.forj_initialize
+    # Function to create FORJ paths if missing.
 
-   def AppInit.forj_initialize()
-      # Function to create FORJ paths if missing.
+    # Defining Global variables
+    $FORJ_DATA_PATH = File.expand_path(File.join('~', '.forj'))
+    $FORJ_ACCOUNTS_PATH = File.join($FORJ_DATA_PATH, 'accounts')
+    $FORJ_KEYPAIRS_PATH = File.join($FORJ_DATA_PATH, 'keypairs')
+    $FORJ_BUILD_PATH = File.join($FORJ_DATA_PATH, '.build')
+    $FORJ_CREDS_PATH = File.expand_path(File.join('~', '.cache', 'forj'))
 
-      # Defining Global variables
-      $FORJ_DATA_PATH = File.expand_path(File.join('~', '.forj'))
-      $FORJ_ACCOUNTS_PATH = File.join($FORJ_DATA_PATH, 'accounts')
-      $FORJ_KEYPAIRS_PATH = File.join($FORJ_DATA_PATH, 'keypairs')
-      $FORJ_BUILD_PATH = File.join($FORJ_DATA_PATH, '.build')
-      $FORJ_CREDS_PATH = File.expand_path(File.join('~', '.cache', 'forj'))
+    # TODO: To move to an hpcloud object.
+    $HPC_KEYPAIRS = File.expand_path(File.join('~', '.hpcloud', 'keypairs'))
+    $HPC_ACCOUNTS = File.expand_path(File.join('~', '.hpcloud', 'accounts'))
 
-      # TODO: To move to an hpcloud object.
-      $HPC_KEYPAIRS = File.expand_path(File.join('~', '.hpcloud', 'keypairs'))
-      $HPC_ACCOUNTS = File.expand_path(File.join('~', '.hpcloud', 'accounts'))
+    AppInit.ensure_dir_exists($FORJ_DATA_PATH)
+    AppInit.ensure_dir_exists($FORJ_ACCOUNTS_PATH)
+    AppInit.ensure_dir_exists($FORJ_BUILD_PATH)
+    AppInit.ensure_dir_exists($FORJ_KEYPAIRS_PATH)
+    FileUtils.chmod(0700, $FORJ_KEYPAIRS_PATH)
+    AppInit.ensure_dir_exists($FORJ_CREDS_PATH)
+  end
 
-      AppInit.ensure_dir_exists($FORJ_DATA_PATH)
-      AppInit.ensure_dir_exists($FORJ_ACCOUNTS_PATH)
-      AppInit.ensure_dir_exists($FORJ_BUILD_PATH)
-      AppInit.ensure_dir_exists($FORJ_KEYPAIRS_PATH)
-      FileUtils.chmod(0700, $FORJ_KEYPAIRS_PATH)
-      AppInit.ensure_dir_exists($FORJ_CREDS_PATH)
-   end
-
-   def AppInit.ensure_dir_exists(path)
-      if not PrcLib.dir_exists?(path)
-       FileUtils.mkpath(path) if not File.directory?(path)
-      end
-   end
+  def self.ensure_dir_exists(path)
+    unless PrcLib.dir_exists?(path)
+      FileUtils.mkpath(path) unless File.directory?(path)
+    end
+  end
 end
