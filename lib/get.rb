@@ -23,27 +23,28 @@ require 'highline/import'
 module Forj
   # This module gets your account/default configuration
   module Get
-    def self.get(options, o_config, key)
+    def self.get(options, key)
+      @account = Lorj::Account.new
       if options[:account_name]
-        get_account(options, o_config, key)
+        get_account(options, key)
       else
-        get_default(o_config, key)
+        get_default(key)
       end
     end
 
-    def self.get_account(options, o_config, key)
+    def self.get_account(options, key)
       if key
-        Forj::Settings.account_get(o_config, options[:account_name], key)
+        Forj::Settings.account_get(@account, options[:account_name], key)
       else
-        Forj::Settings.account_get_all(o_config, options[:account_name])
+        Forj::Settings.account_get_all(@account, options[:account_name])
       end
     end
 
-    def self.get_default(o_config, key)
+    def self.get_default(key)
       if !key
-        Forj::Settings.config_get_all(o_config)
+        Forj::Settings.config_get_all(@account)
       else
-        Forj::Settings.config_get(o_config, key)
+        Forj::Settings.config_get(@account, key)
       end
     end
   end

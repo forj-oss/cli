@@ -24,10 +24,10 @@ module Forj
   #  This module provides the behavior to destroy your forge's server(s)
   module Destroy
     def self.destroy(name, options)
-      o_config = Lorj::Config.new(options[:config])
+      o_config = Lorj::Account.new(options[:config])
       o_config.set(
-          :account_name,
-          options[:account_name]
+        :account_name,
+        options[:account_name]
       ) if options[:account_name]
       o_cloud = Forj::CloudConnection.connect(o_config)
 
@@ -36,9 +36,8 @@ module Forj
       if o_forge[:servers].count > 0
         destroy_server(o_cloud, o_forge, options, o_config)
       else
-        PrcLib.high_level_msg(
-            format("No server(s) found on forge instance '%s'.\n", name)
-        )
+        PrcLib.high_level_msg("No server(s) found on forge instance '%s'.\n",
+                              name)
       end
     end
 
@@ -60,9 +59,9 @@ module Forj
         # Destroy all servers found
         o_cloud.Delete(:forge) if o_server_number ==  server_list.index('all')
         # esc
-        PrcLib.high_level_msg(
-            format("No server destroyed on your demand.\n", name)
-        ) if o_server_number ==  server_list.index('esc')
+        PrcLib.high_level_msg("No server destroyed on your demand.\n",
+                              name
+                             ) if o_server_number ==  server_list.index('esc')
       end
     end
 
@@ -84,7 +83,7 @@ module Forj
 
     def self.get_server_index(server_list)
       say('Select the index of the server you want to destroy')
-      value = choose do | q |
+      value = choose do |q|
         q.choices(*server_list)
       end
 

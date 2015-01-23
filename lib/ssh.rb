@@ -43,30 +43,24 @@ module Forj
           if !o_server.nil?
             ssh_connection(oConfig, o_cloud, name, o_server[:id])
           else
-            PrcLib.debug(
-                format("server '%s.%s' was not found", oConfig[:box_ssh], name)
-            )
-            PrcLib.high_level_msg(
-                format(
-                    "server '%s.%s' was not found.\n",
-                    oConfig[:box_ssh],
-                    name)
-            )
+            PrcLib.debug("server '%s.%s' was not found",
+                         oConfig[:box_ssh], name)
+            PrcLib.high_level_msg("server '%s.%s' was not found.\n",
+                                  oConfig[:box_ssh], name)
           end
         else
           o_server_number = select_forge_server(o_forge)
 
           ssh_connection(
-              oConfig,
-              o_cloud,
-              name,
-              o_forge[:servers][o_server_number][:id]
+            oConfig,
+            o_cloud,
+            name,
+            o_forge[:servers][o_server_number][:id]
           )
         end
       else
-        PrcLib.high_level_msg(
-            format("No server(s) found for instance name '%s' \n", name)
-        )
+        PrcLib.high_level_msg("No server(s) found for instance name '%s' \n",
+                              name)
       end
     end
 
@@ -81,15 +75,14 @@ module Forj
         index += 1
       end
 
-      say(
-          format(
-              'Select box for ssh connection %s',
-              ((s_default.nil?) ? '' : format(
-                  'Default: ' + "|%s|\n", s_default
-              ))
+      say(format(
+            'Select box for ssh connection %s',
+            ((s_default.nil?) ? '' : format(
+              'Default: ' + "|%s|\n", s_default
+            ))
           )
       )
-      value = choose do | q |
+      value = choose do |q|
         q.choices(*server_list)
         q.default = s_default unless s_default.nil?
       end

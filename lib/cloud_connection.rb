@@ -31,9 +31,9 @@ module Forj
 
       # Loading CloudCore embedding provider controller + its process.
       o_cloud = Lorj::CloudCore.new(
-          o_config,
-          o_config[:account_name],
-          a_processes
+        o_config,
+        o_config[:account_name],
+        a_processes
       )
 
       o_cloud

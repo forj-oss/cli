@@ -17,7 +17,7 @@
 
 require 'rubygems'
 # require 'debugger' # Use to debug with Ruby < 2.0
-# require 'byebug'   # Use to debug with Ruby >= 2.0
+require 'byebug'   # Use to debug with Ruby >= 2.0
 require 'bundler/setup'
 # require 'require_relative'
 require 'thor'
@@ -184,37 +184,39 @@ queriable Objects:
 
     case object
     when 'defaults'
-      o_config = Lorj::Config.new
+      o_config = Lorj::Account.new
 
       puts 'List of default values: (local refer to your config file.' \
         ' hash refer to your FORJ account data)'
-      puts o_config.default_dump.to_yaml
+
+      dump = o_config.config_dump(%w(account local))
+      dump[:application] = o_config.config_dump(%w(default))[:default]
+      puts dump.to_yaml
       puts '---'
       puts "To change default values, use 'forj get' to check valid keys," \
         " and update with 'forj set'"
     when 'account'
-      o_config = Lorj::Config.new
-      if !name
+      unless name
         puts "List of FORJ accounts: Use 'forj account YourAccount' " \
           ' to see one account details.'
         o_accounts = Lorj::Accounts.new
         puts o_accounts.dump.to_yaml
-      else
-        o_config.set(:account_name, name)
-        o_account = Lorj::Account.new(o_config)
-        o_account.ac_load
-
-        puts format("Account value for '%s':", name)
-        puts o_account.dump.to_yaml
-        puts '---'
-        puts format(
-                 "To change those values, execute 'forj setup -a %s'.",
-                 options[:account_name]
-             )
+        return
       end
+      o_config = Lorj::Account.new
+      o_config[:account_name] = name
+
+      PrcLib.fatal(1, "Unable to load the account '%s'",
+                   name) unless o_config.ac_load o_config[:account_name]
+
+      puts format("Account value for '%s':", name)
+      puts o_config.config_dump([%(account)]).to_yaml
+      puts '---'
+      puts format("To change those values, execute 'forj setup -a %s'.",
+                  options[:account_name])
 
     else
-      PrcLib.error(format("object '%s' unknown.", name))
+      PrcLib.error("object '%s' unknown.", name)
     end
   end
 
@@ -276,15 +278,13 @@ you can set it as your default, with:
     ' local config file.'
 
   def set(*p)
-    Logging.set_level(Logger::INFO) if options[:verbose]
-    Logging.set_level(Logger::DEBUG) if options[:debug]
-
-    o_config = Lorj::Config.new
+    PrcLib.level = Logger::INFO if options[:verbose]
+    PrcLib.level = Logger::DEBUG if options[:debug]
 
     if p.length == 0
-      Forj::Settings.show_settings(o_config, options)
+      Forj::Settings.show_settings(options)
     else
-      Forj::Settings.set_settings(o_config, options, p)
+      Forj::Settings.set_settings(options, p)
     end
   end
 
@@ -317,11 +317,10 @@ or from your ~/.forj/config.yaml, or if not found, from application defaults.
     ' local config file.'
 
   def get(key = nil)
-    PrcLib.set_level(Logger::INFO) if options[:verbose]
-    PrcLib.set_level(Logger::DEBUG) if options[:debug]
+    PrcLib.level = Logger::INFO if options[:verbose]
+    PrcLib.level = Logger::DEBUG if options[:debug]
 
-    o_config = Lorj::Config.new
-    Forj::Get.get(options, o_config, key)
+    Forj::Get.get(options, key)
   end
 
   ################################# SSH
@@ -340,7 +339,7 @@ ex: forj ssh myforge -n review
   def ssh(oInstanceName)
     Forj::Settings.common_options(options)
 
-    o_config = Lorj::Config.new(options[:config])
+    o_config = Lorj::Account.new(options[:config])
 
     o_config.set(:box_ssh,   options[:box_name])  if options[:box_name]
     o_config.set(:identity,  options[:identity]) if options[:identity]
@@ -373,7 +372,7 @@ Several data will be requested like:
   def setup(sAccountName = 'hpcloud', sProvider = 'hpcloud')
     Forj::Settings.common_options(options)
 
-    o_config = Lorj::Config.new(options[:config])
+    o_config = Lorj::Account.new(options[:config])
     o_config.set(:provider_name, sProvider)
     o_config.set(:account_name, sAccountName)
 

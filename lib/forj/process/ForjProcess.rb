@@ -33,25 +33,21 @@ class ForjCoreProcess
   def build_forge(sObjectType, hParams)
     forge_exist?(sObjectType)
 
-    o_server = DataObjects(:server, :ObjectData)
+    o_server = data_objects(:server, :ObjectData)
 
     boot_options = boot_keypairs(o_server)
 
     # Define the log lines to get and test.
     config.set(:log_lines, 5)
 
-    PrcLib.info(
-        format(
-            "Maestro server '%s' id is '%s'.",
-            o_server[:name],
-            o_server[:id]
-        )
-    )
+    PrcLib.info("Maestro server '%s' id is '%s'.",
+                o_server[:name], o_server[:id])
     # Waiting for server to come online before assigning a public IP.
 
     s_status = :checking
     maestro_create_status(s_status)
-    o_address = DataObjects(:public_ip, :ObjectData)
+
+    o_address = data_objects(:public_ip, :ObjectData)
 
     s_status = active_server?(o_server, o_address, boot_options[:keys],
                               boot_options[:coherent], s_status
@@ -66,29 +62,32 @@ class ForjCoreProcess
   end
 
   def forge_exist?(sObjectType)
-    o_forge = Get(sObjectType, config[:instance_name])
+    o_forge = process_get(sObjectType, config[:instance_name])
     if o_forge.empty? || o_forge[:servers].length == 0
       PrcLib.high_level_msg("\nBuilding your forge...\n")
-      Create(:internet_server)
+      process_create(:internet_server)
     else
       load_existing_forge(o_forge)
     end
   end
 
   def load_existing_forge(o_forge)
-    o_forge[:servers].each do | oServerToFind |
-      Get(:server, oServerToFind[:id]) if /^maestro\./ =~ oServerToFind[:name]
+    o_forge[:servers].each do |oServerToFind|
+      if /^maestro\./ =~ oServerToFind[:name]
+        process_get(:server, oServerToFind[:id])
+      end
     end
     PrcLib.high_level_msg("\nChecking your forge...\n")
-    o_server = DataObjects(:server, :ObjectData)
+
+    o_server = data_objects(:server, :ObjectData)
     if o_server
-      o_ip = Query(:public_ip, :server_id => o_server[:id])
+      o_ip = process_query(:public_ip, :server_id => o_server[:id])
       register o_ip[0] if o_ip.length > 0
-      Create(:keypairs)
+      process_create(:keypairs)
     else
       PrcLib.high_level_msg("\nYour forge exist, without maestro." \
         " Building Maestro...\n")
-      Create(:internet_server)
+      process_create(:internet_server)
 
       PrcLib.high_level_msg("\nBuilding your forge...\n")
     end
@@ -97,20 +96,20 @@ class ForjCoreProcess
   def boot_keypairs(o_server)
     # Get keypairs
     h_keys = keypair_detect(
-        o_server[:key_name],
-        File.join($FORJ_KEYPAIRS_PATH, o_server[:key_name])
+      o_server[:key_name],
+      File.join($FORJ_KEYPAIRS_PATH, o_server[:key_name])
     )
 
     private_key_file = File.join(
-        h_keys[:keypair_path],
-        h_keys[:private_key_name]
+      h_keys[:keypair_path],
+      h_keys[:private_key_name]
     )
     # public_key_file  = File.join(
     #     h_keys[:keypair_path],
     #     h_keys[:public_key_name]
     # )
 
-    o_server_key = Get(:keypairs, o_server[:key_name])
+    o_server_key = process_get(:keypairs, o_server[:key_name])
 
     keypair_coherent = coherent_keypair?(h_keys, o_server_key)
     boot_options = { :keys => private_key_file, :coherent => keypair_coherent }
@@ -134,20 +133,18 @@ ssh ubuntu@%s -o StrictHostKeyChecking=no -i %s
 
       unless keypair_coherent
         s_msg += "\n" + ANSI.bold(
-            'Unfortunatelly'
+          'Unfortunatelly'
         ) + ' your current keypair is not usable to connect to your server.' \
           "\n" + 'You need to fix this issue to gain access to your server.'
       end
       PrcLib.info(s_msg)
 
-      o_log = Get(:server_log, 25)[:attrs][:output]
+      o_log = process_get(:server_log, 25)[:attrs][:output]
       if /cloud-init boot finished/ =~ o_log
         s_status = :active
-        PrcLib.high_level_msg(format("\n%s\nThe forge is ready...\n", s_msg))
+        PrcLib.high_level_msg("\n%s\nThe forge is ready...\n", s_msg)
       else
-        PrcLib.high_level_msg(
-            format("\n%s\nThe forge is still building...\n", s_msg)
-        )
+        PrcLib.high_level_msg("\n%s\nThe forge is still building...\n", s_msg)
         s_status = :cloud_init
       end
     else
@@ -175,28 +172,14 @@ class ForjCoreProcess
     when :starting
       PrcLib.state('STARTING')
     when :assign_ip
-      PrcLib.state(
-          format(
-              '%s - %s - Assigning Public IP',
-              s_activity[iCurAct],
-              s_cur_act
-          )
-      )
+      PrcLib.state('%s - %s - Assigning Public IP',
+                   s_activity[iCurAct], s_cur_act)
     when :cloud_init
-      PrcLib.state(
-          format(
-              '%s - %s - Currently running cloud-init. Be patient.',
-              s_activity[iCurAct],
-              s_cur_act
-          )
-      )
+      PrcLib.state('%s - %s - Currently running cloud-init. Be patient.',
+                   s_activity[iCurAct], s_cur_act)
     when :nonet
-      PrcLib.state(
-          format(
-              '%s - %s - Currently running cloud-init. Be patient.',
-              s_activity[iCurAct],
-              s_cur_act)
-      )
+      PrcLib.state('%s - %s - Currently running cloud-init. Be patient.',
+                   s_activity[iCurAct], s_cur_act)
     when :restart
       PrcLib.state('RESTARTING - Currently restarting maestro box. Be patient.')
     when :active
@@ -234,13 +217,18 @@ class ForjCoreProcess
     end
   end
 
-  def load_server(o_server)
+  # Function to get the server, tracking errors
+  #
+  # *return*
+  # - Server found.
+  #
+  def load_server(server)
     begin
-      o_server = Get(:server, o_server[:attrs][:id])
+      found_server = process_get(:server, server[:attrs][:id])
     rescue => e
       PrcLib.error(e.message)
     end
-    o_server
+    (found_server.nil? ? server : found_server)
   end
 end
 
@@ -250,10 +238,10 @@ class ForjCoreProcess
     if o_address.empty?
       # To be able to ask for server IP assigned
       query_cache_cleanup(:public_ip)
-      o_addresses = Query(:public_ip, :server_id => o_server[:id])
+      o_addresses = process_query(:public_ip, :server_id => o_server[:id])
       if o_addresses.length == 0
         # Assigning Public IP.
-        o_address = Create(:public_ip)
+        o_address = process_create(:public_ip)
       else
         o_address = o_addresses[0]
       end
@@ -277,9 +265,7 @@ done
             ' this issue to gain access to your server."
     end
     PrcLib.info(s_msg)
-    PrcLib.high_level_msg(
-        format("\n%s\nThe forge is still building...\n", s_msg)
-    )
+    PrcLib.high_level_msg("\n%s\nThe forge is still building...\n", s_msg)
     s_status = :cloud_init
     s_status
   end
@@ -287,7 +273,7 @@ done
   def analyze_log_output(output_options, s_status)
     # m_cloud_init_error = []
     # o_old_log = ''
-    o_log = Get(:server_log, 25)[:attrs][:output]
+    o_log = process_get(:server_log, 25)[:attrs][:output]
     # i_cur_act = 4 if o_log == o_old_log
     output_options[:cur_act] = 4 if o_log == output_options[:old_log]
     # o_old_log = o_log
@@ -296,13 +282,13 @@ done
       # s_status = :active
       output_options[:status] = :active
       output_options[:error] = display_boot_moving_error(
-          output_options[:error]
+        output_options[:error]
       )
     elsif /\[CRITICAL\]/ =~ o_log
       m_critical = o_log.scan(/.*\[CRITICAL\].*\n/)
       output_options[:error] = display_boot_critical_error(
-          output_options[:error],
-          m_critical
+        output_options[:error],
+        m_critical
       )
     else
       # validate server status
@@ -316,14 +302,9 @@ done
     return if m_cloud_init_error == m_critical
     s_reported = o_log.clone
     s_reported['CRITICAL'] = ANSI.bold('CRITICAL')
-    PrcLib.error(
-        format(
-            "cloud-init error detected:\n-----\n%s\n-----\n" \
-                    'Please connect to the box to decide what you' \
-                     ' need to do.',
-            s_reported
-        )
-    )
+    PrcLib.error("cloud-init error detected:\n-----\n%s\n-----\n" \
+                 'Please connect to the box to decide what you' \
+                 ' need to do.', s_reported)
     m_cloud_init_error = m_critical
     m_cloud_init_error
     # end
@@ -332,7 +313,7 @@ done
   def display_boot_moving_error(m_cloud_init_error)
     if m_cloud_init_error != []
       PrcLib.high_level_msg(
-          'Critical error cleared. Cloud-init seems moving...'
+        'Critical error cleared. Cloud-init seems moving...'
       )
       PrcLib.info('Critical error cleared. Cloud-init seems moving...')
       m_cloud_init_error = []
@@ -348,20 +329,20 @@ class ForjCoreProcess
        /cloud-init-nonet gave up waiting for a network device/ =~ o_log
       # Valid for ubuntu image 12.04
       PrcLib.warning(
-          'Cloud-init has gave up to configure the network. waiting...'
+        'Cloud-init has gave up to configure the network. waiting...'
       )
       output_options[:status] = :nonet
     elsif s_status == :nonet &&
           /Booting system without full network configuration/ =~ o_log
       # Valid for ubuntu image 12.04
       PrcLib.warning(
-          'forj has detected an issue to bring up your maestro server.' \
-                  ' Removing it and re-creating a new one. please be patient...'
+        'forj has detected an issue to bring up your maestro server.' \
+                ' Removing it and re-creating a new one. please be patient...'
       )
       output_options[:status] = :restart
     elsif s_status == :restart
-      Delete(:server)
-      Create(:internet_server)
+      process_delete(:server)
+      process_create(:internet_server)
       output_options[:status] = :starting
     end
     output_options
@@ -369,17 +350,17 @@ class ForjCoreProcess
 
   def read_blueprint_implemented(o_forge, o_address)
     s_msg = format(
-        "Your Forge '%s' is ready and accessible from" \
-        " IP #{o_address[:public_ip]}.",
-        config[:instance_name]
+      "Your Forge '%s' is ready and accessible from" \
+      " IP #{o_address[:public_ip]}.",
+      config[:instance_name]
     )
     # TODO: read the blueprint/layout to identify which services
     # are implemented and can be accessible.
     if config[:blueprint]
       s_msg += format(
-          "\n" + 'Maestro has implemented the following server(s) for your' \
-            " blueprint '%s':",
-          config[:blueprint]
+        "\n" + 'Maestro has implemented the following server(s) for your' \
+          " blueprint '%s':",
+        config[:blueprint]
       )
       server_options = display_servers_with_ip(o_forge, s_msg)
       s_msg += server_options[:message]
@@ -389,11 +370,11 @@ class ForjCoreProcess
       else
         s_msg = 'No servers found except maestro'
         PrcLib.warning(
-            format(
-                'Something went wrong, while creating nodes for blueprint' \
-                  " '%s'. check maestro logs.",
-                config[:blueprint]
-            )
+          format(
+            'Something went wrong, while creating nodes for blueprint' \
+              " '%s'. check maestro logs.",
+            config[:blueprint]
+          )
         )
       end
     else
@@ -403,7 +384,7 @@ class ForjCoreProcess
         ' under development)'
     end
     PrcLib.info(s_msg)
-    PrcLib.high_level_msg(format("\n%s\nEnjoy!\n", s_msg))
+    PrcLib.high_level_msg("\n%s\nEnjoy!\n", s_msg)
   end
 
   def display_servers_with_ip(o_forge, s_msg)
@@ -411,7 +392,7 @@ class ForjCoreProcess
     o_forge[:servers].each do |server|
       next if /^maestro\./ =~ server[:name]
       register(server)
-      o_ip = Query(:public_ip, :server_id => server[:id])
+      o_ip = process_query(:public_ip, :server_id => server[:id])
       if o_ip.length == 0
         s_msg += format("\n- %s (No public IP)", server[:name])
       else
@@ -434,16 +415,16 @@ class ForjCoreProcess
         :key => rand(36**10).to_s(36),
         :salt => Time.now.to_i.to_s,
         :iv => Base64.strict_encode64(
-              OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv
+          OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv
           )
       }
 
-      PrcLib.debug(format("Writing '%s' key file", key_file))
+      PrcLib.debug("Writing '%s' key file", key_file)
       File.open(key_file, 'w') do |out|
         out.write(Base64.encode64(entr.to_yaml))
       end
     else
-      PrcLib.debug(format("Loading '%s' key file", key_file))
+      PrcLib.debug("Loading '%s' key file", key_file)
       encoded_key = IO.read(key_file)
       entr = YAML.load(Base64.decode64(encoded_key))
     end
@@ -453,10 +434,10 @@ class ForjCoreProcess
   def decrypt_key(os_enckey, entr)
     begin
       os_key = Encryptor.decrypt(
-          :value => Base64.strict_decode64(os_enckey),
-          :key => entr[:key],
-          :iv => Base64.strict_decode64(entr[:iv]),
-          :salt => entr[:salt]
+        :value => Base64.strict_decode64(os_enckey),
+        :key => entr[:key],
+        :iv => Base64.strict_decode64(entr[:iv]),
+        :salt => entr[:salt]
       )
     rescue
       raise 'Unable to decript your password. You need to re-execute setup.'
@@ -493,7 +474,7 @@ class ForjCoreProcess
       'image_name' => hParams[:image_name],
       'key_name' => hParams[:keypair_name],
       'hpcloud_priv' => Base64.strict_encode64(
-            hpcloud_priv
+        hpcloud_priv
         ).gsub('=', '') # Remove pad
     }
 
@@ -521,8 +502,8 @@ class ForjCoreProcess
     hpcloud_priv = load_hpcloud(hParams, os_key)
 
     config.set(
-        :server_name,
-        format('maestro.%s', hParams[:instance_name])
+      :server_name,
+      format('maestro.%s', hParams[:instance_name])
     ) # Used by :server object
 
     h_meta = load_h_meta(hParams, hpcloud_priv)
@@ -531,7 +512,7 @@ class ForjCoreProcess
 
     h_meta_printable = h_meta.clone
     h_meta_printable['hpcloud_priv'] = 'XXX - data hidden - XXX'
-    PrcLib.info(format("Metadata set:\n%s", h_meta_printable))
+    PrcLib.info("Metadata set:\n%s", h_meta_printable)
 
     o_meta_data = register(h_meta, sObjectType)
     o_meta_data[:meta_data] = h_meta
@@ -543,12 +524,8 @@ end
 # Functions for boot - clone_or_use_maestro_repo
 class ForjCoreProcess
   def clone_maestro_repo(maestro_url, path_maestro, config)
-    PrcLib.state(format(
-                     "Cloning maestro repo from '%s' to '%s'",
-                     maestro_url,
-                     File.join(path_maestro, 'maestro')
-                 )
-    )
+    PrcLib.state("Cloning maestro repo from '%s' to '%s'",
+                 maestro_url, File.join(path_maestro, 'maestro'))
     if File.directory?(path_maestro)
       if File.directory?(File.join(path_maestro, 'maestro'))
         FileUtils.rm_r File.join(path_maestro, 'maestro')
@@ -556,42 +533,31 @@ class ForjCoreProcess
     end
     git = Git.clone(maestro_url, 'maestro', :path => path_maestro)
     git.checkout(config[:branch]) if config[:branch] != 'master'
-    PrcLib.info(
-        format(
-            "Maestro repo '%s' cloned on branch '%s'",
-            File.join(path_maestro, 'maestro'),
-            config[:branch]
-        )
-    )
+    PrcLib.info("Maestro repo '%s' cloned on branch '%s'",
+                File.join(path_maestro, 'maestro'), config[:branch])
   end
 
   def clone_or_use_maestro_repo(sObjectType, hParams)
     maestro_url = hParams[:maestro_url]
     maestro_repo = File.expand_path(
-        hParams[:maestro_repo]
+      hParams[:maestro_repo]
     ) unless hParams[:maestro_repo].nil?
     path_maestro = File.expand_path('~/.forj/')
     h_result = {}
 
     begin
       if maestro_repo && File.directory?(maestro_repo)
-        PrcLib.info(format("Using maestro repo '%s'", maestro_repo))
+        PrcLib.info("Using maestro repo '%s'", maestro_repo)
         h_result[:maestro_repo] = maestro_repo
       else
         h_result[:maestro_repo] = File.join(path_maestro, 'maestro')
         clone_maestro_repo(maestro_url, path_maestro, config)
       end
    rescue => e
-     PrcLib.error(
-         format(
-             'Error while cloning the repo from %s\n%s\n%s',
-             maestro_url,
-             e.message,
-             e.backtrace.join("\n")
-         )
-     )
+     PrcLib.error('Error while cloning the repo from %s\n%s\n%s',
+                  maestro_url, e.message, e.backtrace.join("\n"))
      PrcLib.info(
-         'If this error persist you could clone the repo manually in ~/.forj/'
+       'If this error persist you could clone the repo manually in ~/.forj/'
      )
     end
     o_maestro = register(h_result, sObjectType)
@@ -617,24 +583,17 @@ class ForjCoreProcess
     b_rebuild_infra = infra_is_original?(infra, maestro_repo)
 
     if b_rebuild_infra
-      PrcLib.state(format("Building your infra workspace in '%s'", infra))
+      PrcLib.state("Building your infra workspace in '%s'", infra)
 
-      PrcLib.debug(
-          format("Copying recursively '%s' to '%s'", cloud_init, infra)
-      )
+      PrcLib.debug("Copying recursively '%s' to '%s'", cloud_init, infra)
       FileUtils.copy_entry(cloud_init, dest_cloud_init)
 
       file_ver = File.join(infra, 'forj-cli.ver')
       File.write(file_ver, INFRA_VERSION)
-      PrcLib.info(
-          format(
-              "The infra workspace '%s' has been built from maestro" \
-                ' predefined files.',
-              infra
-          )
-      )
+      PrcLib.info("The infra workspace '%s' has been built from maestro" \
+                  ' predefined files.', infra)
     else
-      PrcLib.info(format("Re-using your infra... in '%s'", infra))
+      PrcLib.info("Re-using your infra... in '%s'", infra)
     end
 
     o_infra = register(h_infra, sObjectType)
@@ -644,7 +603,7 @@ class ForjCoreProcess
 
   def load_infra(template, dest_cloud_init, h_result, b_result)
     # We are taking care on bootstrap files only.
-    Find.find(File.join(template, 'cloud-init')) do | path |
+    Find.find(File.join(template, 'cloud-init')) do |path|
       # unless File.directory?(path)
       next if File.directory?(path)
       s_maestro_rel_path = path.clone
@@ -655,20 +614,10 @@ class ForjCoreProcess
         if h_result.key?(s_maestro_rel_path) &&
            h_result[s_maestro_rel_path] != md5_file
           b_result = false
-          PrcLib.info(
-              format(
-                  "'%s' infra file has changed from original template" \
-                    ' in maestro.',
-                  s_infra_path
-              )
-          )
+          PrcLib.info("'%s' infra file has changed from original template" \
+                      ' in maestro.', s_infra_path)
         else
-          PrcLib.debug(
-              format(
-                  "'%s' infra file has not been updated.",
-                  s_infra_path
-              )
-          )
+          PrcLib.debug("'%s' infra file has not been updated.", s_infra_path)
         end
       end
       md5_file = Digest::MD5.file(path).hexdigest
@@ -684,7 +633,7 @@ class ForjCoreProcess
       YAML.dump(h_result, out)
     end
     rescue => e
-      PrcLib.error(format("%s\n%s", e.message, e.backtrace.join("\n")))
+      PrcLib.error("%s\n%s", e.message, e.backtrace.join("\n"))
     # end
   end
 end
@@ -702,13 +651,9 @@ class ForjCoreProcess
       begin
         h_result = YAML.load_file(s_md5_list)
      rescue
-       PrcLib.error(
-           format(
-               "Unable to load valid Original files list '%s'. " \
-                 "Your infra workspace won't be migrated, until fixed.",
-               s_md5_list
-           )
-       )
+       PrcLib.error("Unable to load valid Original files list '%s'. " \
+                    "Your infra workspace won't be migrated, until fixed.",
+                    s_md5_list)
        b_result = false
       end
       unless h_result
@@ -720,13 +665,13 @@ class ForjCoreProcess
     open_md5(s_md5_list, h_result)
     if b_result
       PrcLib.debug(
-          'No original files found has been updated. Infra workspace' \
-            ' can be updated/created if needed.'
+        'No original files found has been updated. Infra workspace' \
+          ' can be updated/created if needed.'
       )
     else
       PrcLib.warning(
-          'At least, one file has been updated. Infra workspace' \
-            " won't be updated by forj cli."
+        'At least, one file has been updated. Infra workspace' \
+          " won't be updated by forj cli."
       )
     end
     b_result
@@ -749,10 +694,8 @@ class ForjCoreProcess
 
   def update_build_env(b_update, tag, y_dns, m_obj)
     if !b_update.nil? && b_update
-      PrcLib.debug(
-          format("Saved: '%s' = '%s'", m_obj[1], m_obj[2])
-      )
-      rhSet(y_dns, m_obj[2], tag)
+      PrcLib.debug("Saved: '%s' = '%s'", m_obj[1], m_obj[2])
+      y_dns.rh_set(m_obj[2], tag)
     end
     b_update
   end
@@ -760,7 +703,7 @@ class ForjCoreProcess
   def update_build_env?(b_update, tag, y_dns, m_obj)
     if tag && m_obj[2]
       if b_update.nil? &&
-         rhGet(y_dns, tag) && rhGet(y_dns, tag) != m_obj[2]
+         y_dns.rh_get(tag) && y_dns.rh_get(tag) != m_obj[2]
         PrcLib.message('Your account setup is different than'\
                 ' build env.')
         PrcLib.message('We suggest you to update your account'\
@@ -782,33 +725,23 @@ class ForjCoreProcess
       # f.each_line do |line|
       m_obj = line.match(/^(SET_[A-Z_]+)=["'](.*)["'].*$/)
       # if m_obj
-      PrcLib.debug(format("Reviewing detected '%s' tag", m_obj[1]))
+      PrcLib.debug("Reviewing detected '%s' tag", m_obj[1])
       tag = (tags[m_obj[1]] ? tags[m_obj[1]] : nil)
       b_update = update_build_env(b_update, tag, y_dns, m_obj)
       # end
       # end
     end
   rescue => e
-    PrcLib.fatal(
-        1,
-        format(
-            "Failed to open the build environment file '%s'",
-            build_env
-        ),
-        e
-    )
+    PrcLib.fatal(1, "Failed to open the build environment file '%s'",
+                 build_env, e)
   end
 end
 
 # Functions for boot - create_or_use_infra
 class ForjCoreProcess
   def old_infra_data_update(oConfig, version, infra_dir)
-    PrcLib.info(
-        format(
-            'Migrating your local infra repo (%s) to the latest version.',
-            version
-        )
-    )
+    PrcLib.info('Migrating your local infra repo (%s) to the latest version.',
+                version)
     # Be default migration is successful. No need to rebuild it.
     b_rebuild = false
     case version
@@ -833,15 +766,15 @@ class ForjCoreProcess
 
       y_dns = {}
       y_dns = oConfig.oConfig.ExtraGet(
-          :forj_accounts,
-          s_account_name,
-          :dns
+        :forj_accounts,
+        s_account_name,
+        :dns
       ) if oConfig.oConfig.ExtraExist?(:forj_accounts, s_account_name, :dns)
 
       Dir.foreach(infra_dir) do |file|
         next unless /^maestro\.box\..*\.env$/ =~ file
         build_env = File.join(infra_dir, file)
-        PrcLib.debug(format("Reading data from '%s'", build_env))
+        PrcLib.debug("Reading data from '%s'", build_env)
         tags = { 'SET_DNS_TENANTID' => :tenant_id,
                  'SET_DNS_ZONE' => :service,
                  'SET_DOMAIN' => :domain_name
@@ -853,9 +786,9 @@ class ForjCoreProcess
       File.write(file_ver, INFRA_VERSION)
       oConfig.oConfig.ExtraSet(:forj_accounts, s_account_name, :dns, y_dns)
       oConfig.oConfig.ExtraSave(
-          File.join($FORJ_ACCOUNTS_PATH, s_account_name),
-          :forj_accounts,
-          s_account_name
+        File.join($FORJ_ACCOUNTS_PATH, s_account_name),
+        :forj_accounts,
+        s_account_name
       )
       return b_rebuild
     end
@@ -873,12 +806,12 @@ class ForjCoreProcess
     end
     fail ForjError.new, "#{bootstrap} script file is" \
       ' not found.' unless File.exist?(bootstrap)
-    PrcLib.debug(format("Running '%s'", cmd))
+    PrcLib.debug("Running '%s'", cmd)
     Kernel.system(cmd)
 
     fail ForjError.new, format(
-        "mime file '%s' not found.",
-        mime
+      "mime file '%s' not found.",
+      mime
     ) unless File.exist?(mime)
   end
 
@@ -893,30 +826,30 @@ class ForjCoreProcess
     # ~ cloud_config = File.join(maestro_path, 'build', 'maestro')
 
     mime = File.join(
-        $FORJ_BUILD_PATH,
-        format('userdata.mime.%s', rand(36**5).to_s(36))
+      $FORJ_BUILD_PATH,
+      format('userdata.mime.%s', rand(36**5).to_s(36))
     )
 
     meta_data = JSON.generate(hParams[:metadata, :meta_data])
 
     build_tmpl_dir = File.expand_path(File.join(LIB_PATH, 'build_tmpl'))
 
-    PrcLib.state(format("Preparing user_data - file '%s'", mime))
+    PrcLib.state("Preparing user_data - file '%s'", mime)
     # generate boot_*.sh
     mime_cmd = "#{build_tmpl_dir}/write-mime-multipart.py"
     bootstrap = "#{build_tmpl_dir}/bootstrap_build.sh"
 
     cmd = format(
-        "%s '%s' '%s' '%s' '%s' '%s' '%s' '%s'",
-        bootstrap, # script
-        $FORJ_DATA_PATH, # $1 = Forj data base dir
-        # $2 = Maestro repository dir
-        hParams[:maestro_repository, :maestro_repo],
-        config[:bootstrap_dirs], # $3 = Bootstrap directories
-        config[:bootstrap_extra_dir], # $4 = Bootstrap extra directory
-        meta_data,  # $5 = meta_data (string)
-        mime_cmd, # $6: mime script file to execute.
-        mime # $7: mime file generated.
+      "%s '%s' '%s' '%s' '%s' '%s' '%s' '%s'",
+      bootstrap, # script
+      $FORJ_DATA_PATH, # $1 = Forj data base dir
+      # $2 = Maestro repository dir
+      hParams[:maestro_repository, :maestro_repo],
+      config[:bootstrap_dirs], # $3 = Bootstrap directories
+      config[:bootstrap_extra_dir], # $4 = Bootstrap extra directory
+      meta_data,  # $5 = meta_data (string)
+      mime_cmd, # $6: mime script file to execute.
+      mime # $7: mime file generated.
     )
 
     run_userdata_cmd(cmd, bootstrap, mime)
@@ -929,7 +862,7 @@ class ForjCoreProcess
     if LIB_FORJ_DEBUG < 5
       File.delete(mime)
     else
-      ForjLib.debug(5, format("user_data temp file '%s' kept", mime))
+      ForjLib.debug(5, "user_data temp file '%s' kept", mime)
     end
 
     config[:user_data] = user_data
@@ -938,7 +871,7 @@ class ForjCoreProcess
     o_user_data[:user_data] = user_data
     o_user_data[:user_data_encoded] = Base64.strict_encode64(user_data)
     o_user_data[:mime] = mime
-    PrcLib.info(format("user_data prepared. File: '%s'", mime))
+    PrcLib.info("user_data prepared. File: '%s'", mime)
     o_user_data
   end
 end
@@ -949,7 +882,7 @@ class ForjCoreProcess
     # unless File.directory?(base_dir)
     return true if FIle.directory?(base_dir)
     if agree(
-        format("'%s' doesn't exist. Do you want to create it?", base_dir)
+      format("'%s' doesn't exist. Do you want to create it?", base_dir)
     )
       AppInit.ensure_dir_exists(base_dir)
       # true
@@ -978,19 +911,14 @@ class ForjCoreProcess
   def duplicate_keyname?(keys_imported, keys, key_name)
     if keys_imported && keys_imported[:key_basename] != keys[:key_basename] &&
        $FORJ_KEYPAIRS_PATH != keys[:keypair_path]
-      PrcLib.warning(
-          format(
-              "The private key '%s' was assigned to a different private key"  \
-                " file '%s'.\nTo not overwrite it, we recommend you to choose"\
-                ' a different keypair name.',
-              keys,
-              keys_imported[:key_basename]
-          )
-      )
+      PrcLib.warning("The private key '%s' was assigned to a different private"\
+                     " key file '%s'.\nTo not overwrite it, we recommend you"\
+                     ' to choose a different keypair name.',
+                     keys, keys_imported[:key_basename])
       new_key_name = key_name
       s_msg = 'Please, provide a different keypair name:'
       while key_name == new_key_name
-        new_key_name = ask(s_msg) do | q |
+        new_key_name = ask(s_msg) do |q|
           q.validate = /.+/
         end
         new_key_name = new_key_name.to_s
@@ -1007,16 +935,11 @@ class ForjCoreProcess
   end
 
   def create_keys_automatically(keys, private_key_file)
-    # unless keys[:private_key_exist?]
     return if keys[:private_key_exist?]
     # Need to create a key. ask if we need so.
-    PrcLib.message(
-        format(
-            "The private key file attached to keypair named '%s' is not" \
-              ' found. Running ssh-keygen to create it.',
-            keys[:keypair_name]
-        )
-    )
+    PrcLib.message("The private key file attached to keypair named '%s' is not"\
+                   ' found. Running ssh-keygen to create it.',
+                   keys[:keypair_name])
     unless File.exist?(private_key_file)
       AppInit.ensure_dir_exists(File.dirname(private_key_file))
       command = format('ssh-keygen -t rsa -f %s', private_key_file)
@@ -1024,22 +947,13 @@ class ForjCoreProcess
       system(command)
     end
     if !File.exist?(private_key_file)
-      PrcLib.fatal(
-          1,
-          format(
-              "'%s' not found. Unable to add your keypair to hpcloud. Create"\
-                ' it yourself and provide it with -p option. Then retry.',
-              [private_key_file]
-          )
-      )
+      PrcLib.fatal(1, "'%s' not found. Unable to add your keypair to hpcloud."\
+                   ' Create it yourself and provide it with -p option. '\
+                   'Then retry.', private_key_file)
     else
-      PrcLib.fatal(
-          1,
-          'ssh-keygen did not created your key pairs. Aborting. Please' \
-            ' review errors in ~/.forj/forj.log'
-      )
+      PrcLib.fatal(1, 'ssh-keygen did not created your key pairs. Aborting.'\
+                   ' Please review errors in ~/.forj/forj.log')
     end
-    # end
   end
 end
 
@@ -1048,19 +962,15 @@ class ForjCoreProcess
   def load_key_with_passphrase(keys, public_key_file, private_key_file)
     # unless keys[:public_key_exist?]
     return if keys[:private_key_exist?]
-    PrcLib.message(
-        format(
-            "Your public key '%s' was not found. Getting it from the" \
-              ' private one. It may require your passphrase.',
-            public_key_file
-        )
-    )
+    PrcLib.message("Your public key '%s' was not found. Getting it from the" \
+                   ' private one. It may require your passphrase.',
+                   public_key_file)
     command = format(
-        'ssh-keygen -y -f %s > %s',
-        private_key_file,
-        public_key_file
+      'ssh-keygen -y -f %s > %s',
+      private_key_file,
+      public_key_file
     )
-    PrcLib.debug(format("Executing '%s'", command))
+    PrcLib.debug("Executing '%s'", command)
     system(command)
     # end
   end
@@ -1072,18 +982,9 @@ class ForjCoreProcess
     FileUtils.copy(private_key_file, forj_private_key_file)
     FileUtils.copy(public_key_file, forj_public_key_file)
     # Attaching this keypair to the account
-    Lorj.rhSet(@hAccountData, key_name, :credentials, 'keypair_name')
-    Lorj.rhSet(
-        @hAccountData,
-        forj_private_key_file,
-        :credentials,
-        'keypair_path'
-    )
-    config.oConfig.LocalSet(
-        key_name.to_s,
-        private_key_file,
-        :imported_keys
-    )
+    @hAccountData.rh_set(key_name, :credentials, 'keypair_name')
+    @hAccountData.rh_set(forj_private_key_file, :credentials, 'keypair_path')
+    config.local_set(key_name.to_s, private_key_file, :imported_keys)
   end
 
   def save_md5(private_key_file, forj_private_key_file,
@@ -1093,7 +994,7 @@ class ForjCoreProcess
     if Digest::MD5.file(private_key_file).hexdigest !=
        Digest::MD5.file(forj_private_key_file).hexdigest
       PrcLib.info(
-          'Updating private key keypair piece to FORJ keypairs list.'
+        'Updating private key keypair piece to FORJ keypairs list.'
       )
       FileUtils.copy(private_key_file, forj_private_key_file)
     else
@@ -1102,7 +1003,7 @@ class ForjCoreProcess
     if Digest::MD5.file(public_key_file).hexdigest !=
        Digest::MD5.file(forj_public_key_file).hexdigest
       PrcLib.info(
-          'Updating public key keypair piece to FORJ keypairs list.'
+        'Updating public key keypair piece to FORJ keypairs list.'
       )
       FileUtils.copy(public_key_file, forj_public_key_file)
     else
@@ -1116,13 +1017,12 @@ class ForjCoreProcess
   def save_internal_key(forj_private_key_file, keys)
     # Saving internal copy of private key file for forj use.
     config.set(:keypair_path, forj_private_key_file)
-    PrcLib.info(format(
-                    "Configured forj keypair '%s' with '%s'",
-                    keys[:keypair_name],
-                    File.join(keys[:keypair_path], keys[:key_basename])
+    PrcLib.info("Configured forj keypair '%s' with '%s'",
+                keys[:keypair_name],
+                File.join(keys[:keypair_path], keys[:key_basename])
                 )
-    )
   end
+
   # keypair_files post setup
   def forj_setup_keypairs_files
     # Getting Account keypair information
@@ -1131,9 +1031,9 @@ class ForjCoreProcess
 
     keys_imported = nil
     keys_imported = keypair_detect(
-        key_name,
-        config.oConfig.localGet(key_name, :imported_keys)
-    ) if config.oConfig.localExist?(key_name, :imported_keys)
+      key_name,
+      config.local_get(key_name, :imported_keys)
+    ) if config.local_exist?(key_name, :imported_keys)
     keys = keypair_detect(key_name, key_path)
 
     keys = duplicate_keyname?(keys_imported, keys, key_name)
@@ -1194,23 +1094,17 @@ class ForjCoreProcess
      retry unless o_ssl_error.ErrorDetected(e.message, e.backtrace, e)
      PrcLib.fatal(1, 'Network: Unable to connect.')
     end
-    tenant_id = rhGet(
-        @oConfig.ExtraGet(:hpc_accounts, @sAccountName, :credentials),
-        :tenant_id
-    )
+    tenant_id = @oConfig.ExtraGet(:hpc_accounts, @sAccountName,
+                                  :credentials).rh_get(:tenant_id)
     tenant_name = nil
-    tenants.each do
-      |elem| tenant_name = elem['name'] if elem['id'] == tenant_id
+    tenants.each do |elem|
+      tenant_name = elem['name'] if elem['id'] == tenant_id
     end
     if tenant_name
-      PrcLib.debug(
-          format("Tenant ID '%s': '%s' found.", tenant_id, tenant_name)
-      )
-      rhSet(@hAccountData, tenant_name, :maestro, :tenant_name)
+      PrcLib.debug("Tenant ID '%s': '%s' found.", tenant_id, tenant_name)
+      @hAccountData.rh_set(tenant_name, :maestro, :tenant_name)
     else
-      PrcLib.error(
-          format("Unable to find the tenant Name for '%s' ID.", tenant_id)
-      )
+      PrcLib.error("Unable to find the tenant Name for '%s' ID.", tenant_id)
     end
     @oConfig.set('tenants', tenants)
   end
@@ -1223,7 +1117,7 @@ class ForjCoreProcess
     h_servers = []
     s_query[:name] = sForgeId
 
-    o_servers = Query(:server, s_query)
+    o_servers = process_query(:server, s_query)
 
     regex =  Regexp.new(format('\.%s$', sForgeId))
 
@@ -1231,12 +1125,8 @@ class ForjCoreProcess
       o_name = o_server[:name]
       h_servers << o_server if regex =~ o_name
     end
-    PrcLib.info(
-        format(
-            '%s server(s) were found under instance name %s ',
-            h_servers.count,
-            s_query[:name])
-    )
+    PrcLib.info('%s server(s) were found under instance name %s ',
+                h_servers.count, s_query[:name])
 
     o_forge = register(h_servers, sCloudObj)
     o_forge[:servers] = h_servers
@@ -1257,24 +1147,15 @@ class ForjCoreProcess
     o_forge[:servers].each do|server|
       next if forge_serverid && forge_serverid != server[:id]
       register(server)
-      PrcLib.state(format("Destroying server '%s'", server[:name]))
-      Delete(:server)
+      PrcLib.state("Destroying server '%s'", server[:name])
+      process_delete(:server)
     end
     if forge_serverid.nil?
-      PrcLib.high_level_msg(
-          format(
-              "The forge '%s' has been destroyed. (all servers linked" \
-                " to the forge)\n",
-              o_forge[:name]
-          )
-      )
+      PrcLib.high_level_msg("The forge '%s' has been destroyed. (all servers" \
+                            " linked to the forge)\n", o_forge[:name])
     else
-      PrcLib.high_level_msg(
-          format(
-              "Server(s) selected in the forge '%s' has been removed.\n",
-              o_forge[:name]
-          )
-      )
+      PrcLib.high_level_msg("Server(s) selected in the forge '%s' has been"\
+                            " removed.\n", o_forge[:name])
     end
   end
 end
@@ -1293,30 +1174,27 @@ class ForjCoreProcess
 
     # Get server information
     PrcLib.state('Getting server information')
-    o_server = Get(:server, o_server[:id])
+    o_server = process_get(:server, o_server[:id])
     register(o_server)
 
     public_ip = ssh_server_public_ip(o_server)
 
     ssh_options = ssh_keypair(o_server)
     # Get ssh user
-    image  = Get(:image, o_server[:image_id])
+    image  = process_get(:image, o_server[:image_id])
     user = hParams[:ssh_user]
 
     user = image[:ssh_user] if user.nil?
 
-    PrcLib.debug(format("Using account '%s'.", user))
+    PrcLib.debug("Using account '%s'.", user)
 
     begin
-      PrcLib.state(
-          format("creating ssh connection with '%s' box", o_server[:name])
-      )
+      PrcLib.state("creating ssh connection with '%s' box", o_server[:name])
       session = Net::SSH.start(public_ip, user, ssh_options) do |_ssh|
         ssh_login(ssh_options, user, public_ip)
       end
-      PrcLib.debug(
-          format('Error closing ssh connection, box %s ', o_server[:name])
-      ) unless session
+      PrcLib.debug('Error closing ssh connection, box %s ',
+                   o_server[:name]) unless session
    rescue => e
      PrcLib.fatal 1, <<-END
 #{e.message}
@@ -1332,37 +1210,30 @@ You have to check with the user who created that box.
   def ssh_keypair(o_server)
     if config[:identity].nil? || !config[:identity].is_a?(String)
       h_keys = keypair_detect(
-          o_server[:key_name],
-          File.join($FORJ_KEYPAIRS_PATH, o_server[:key_name])
+        o_server[:key_name],
+        File.join($FORJ_KEYPAIRS_PATH, o_server[:key_name])
       )
     else
       h_keys = keypair_detect(
-          o_server[:key_name],
-          File.expand_path(config[:identity])
+        o_server[:key_name],
+        File.expand_path(config[:identity])
       )
     end
 
     private_key_file = File.join(
-        h_keys[:keypair_path],
-        h_keys[:private_key_name]
+      h_keys[:keypair_path],
+      h_keys[:private_key_name]
     )
     public_key_file = File.join(h_keys[:keypair_path], h_keys[:public_key_name])
 
-    PrcLib.info(
-        format("Found openssh private key file '%s'.", private_key_file)
-    ) if h_keys[:private_key_exist?]
+    PrcLib.info("Found openssh private key file '%s'.",
+                Private_key_file) if h_keys[:private_key_exist?]
 
     if h_keys[:public_key_exist?]
-      PrcLib.info(
-          format("Found openssh public key file '%s'.", public_key_file)
-      )
+      PrcLib.info("Found openssh public key file '%s'.", public_key_file)
     else
-      PrcLib.warning(
-          format(
-              "Openssh public key file '%s' not found. Unable to verify keys" \
-                ' coherence with remote server.',
-              public_key_file)
-      )
+      PrcLib.warning("Openssh public key file '%s' not found. Unable to verify"\
+                     ' keys coherence with remote server.', public_key_file)
     end
     ssh_options = ssh_options(h_keys, private_key_file, o_server)
     ssh_options
@@ -1371,7 +1242,7 @@ You have to check with the user who created that box.
   def ssh_options(h_keys, private_key_file, o_server)
     if h_keys[:private_key_exist?]
       ssh_options = { :keys => private_key_file }
-      PrcLib.debug(format("Using private key '%s'.", private_key_file))
+      PrcLib.debug("Using private key '%s'.", private_key_file)
     else
       PrcLib.fatal 1, <<-END
 The server '#{o_server[:name]}' has been configured with a keypair
@@ -1387,13 +1258,10 @@ To connect to this box, you need to provide the appropriate private
 
   def ssh_server_public_ip(o_server)
     # Get Public IP of the server. Needs the server to be loaded.
-    o_address = Query(:public_ip, :server_id => o_server[:id])
+    o_address = process_query(:public_ip, :server_id => o_server[:id])
 
     if o_address.length == 0
-      PrcLib.fatal(
-          1,
-          format('ip address for %s server was not found', o_server[:name])
-      )
+      PrcLib.fatal(1, 'ip address for %s server was not found', o_server[:name])
     else
       public_ip = o_address[0][:public_ip]
     end
@@ -1404,7 +1272,7 @@ end
 # Functions for ssh
 class ForjCoreProcess
   def setup_ssh_user(_sCloudObj, hParams)
-    images  = Query(:image,  :name => hParams[:image_name])
+    images  = process_query(:image,  :name => hParams[:image_name])
     case images.length
     when 0
       s_default = hParams[:default_value]
@@ -1423,7 +1291,7 @@ class ForjCoreProcess
     s_opts += format(' -i %s', options[:keys]) if options[:keys]
 
     command = format('ssh %s %s@%s', s_opts, user, public_ip)
-    PrcLib.debug(format("Running '%s'", command))
+    PrcLib.debug("Running '%s'", command)
     system(command)
   end
 

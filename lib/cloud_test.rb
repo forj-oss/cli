@@ -58,8 +58,8 @@ Otherwise, we will build a new one with some predefined data,
    END
   )
   s_ask = format(
-      'Do you want to create a new one from Maestro (yes/no)?',
-      infra_dir
+    'Do you want to create a new one from Maestro (yes/no)?',
+    infra_dir
   )
   b_build_infra = agree(s_ask)
   unless b_build_infra
@@ -102,18 +102,18 @@ end
 server_index = 1
 # Display headers
 puts format(
-         '|%s |%s |%s |',
-         'Index '.ljust(6),
-         'Name'.ljust(server_name_length),
-         'ID'.ljust(server_id_length)
+  '|%s |%s |%s |',
+  'Index '.ljust(6),
+  'Name'.ljust(server_name_length),
+  'ID'.ljust(server_id_length)
      )
 # Display Forge servers detail
 o_forge[:server].each do |server|
   puts format(
-           '|%s |%s |%s |',
-           server_index.to_s.ljust(6),
-           server[:name].to_s.ljust(server_name_length),
-           server[:id].to_s.ljust(server_id_length)
+    '|%s |%s |%s |',
+    server_index.to_s.ljust(6),
+    server[:name].to_s.ljust(server_name_length),
+    server[:id].to_s.ljust(server_id_length)
        )
   server_index += 1
 end
@@ -121,8 +121,8 @@ end
 o_high_line = HighLine.new
 
 index = o_high_line.ask(
-    'Select the index of the server to create the ssh connection',
-    Integer
+  'Select the index of the server to create the ssh connection',
+  Integer
 ) do |q|
   q.below = o_forge[:server].count + 1
   q.above = 0
