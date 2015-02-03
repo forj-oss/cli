@@ -78,6 +78,8 @@ class Lorj::BaseDefinition
   obj_needs :data,   :bootstrap
   # Add init additional git clone steps.
   obj_needs :data,   :repos
+  # Add extra metadata
+  obj_needs :data,   :extra_metadata
 
   # ******************* userdata object
   define_obj :userdata,

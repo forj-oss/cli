@@ -489,6 +489,14 @@ class ForjCoreProcess
     h_meta['repos'] = hParams[:repos] if hParams[:repos]
     # Add init bootstrap additionnal steps
     h_meta['bootstrap'] = hParams[:bootstrap] if hParams[:bootstrap]
+
+    if hParams[:extra_metadata]
+      hParams[:extra_metadata].split(/,/).each do |kv|
+        k, v = kv.split(/=/)
+        h_meta[k] = v
+      end
+    end
+
     h_meta
   end
 

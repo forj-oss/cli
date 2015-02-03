@@ -122,7 +122,8 @@ module Forj
                       :security_group => :security_group,
                       :image_name => :image_name, :maestro_flavor => :flavor,
                       :bp_flavor => :bp_flavor, :maestro_repo => :maestro_repo,
-                      :branch => :branch, :test_box => :test_box }
+                      :branch => :branch, :test_box => :test_box,
+                      :extra_metadata => :extra_metadata }
 
       load_options(options, options_map) do |key, value|
         case key

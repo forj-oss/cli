@@ -146,6 +146,8 @@ If you want to check/updated them, use `forj get [-a account]`
     ' ~/src/forj-oss/maestro build.sh and' \
     "\n                                            " \
     'test-box will send your local maestro repo to your box, for boot.'
+  method_option :extra_metadata,   :aliases => '-e',   :desc => 'Custom' \
+    ' server metadata format key1=value1,key2=value2...,keyN=valueN'
 
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil,
            old_name = nil)
