@@ -24,27 +24,29 @@ module Forj
   #  This module provides the behavior to destroy your forge's server(s)
   module Destroy
     def self.destroy(name, options)
-      o_config = Lorj::Account.new(options[:config])
-      o_config.set(
-        :account_name,
-        options[:account_name]
-      ) if options[:account_name]
-      o_cloud = Forj::CloudConnection.connect(o_config)
+      account = Lorj::Account.new(options[:config])
 
-      o_forge = o_cloud.Get(:forge, name)
+      # Setting account at runtime layer
+      account[:account_name] = options[:account_name] if options[:account_name]
+      # Setting account at account layer
+      account.ac_load account[:account_name]
+
+      o_cloud = Forj::CloudConnection.connect(account)
+
+      o_forge = o_cloud.get(:forge, name)
 
       if o_forge[:servers].count > 0
-        destroy_server(o_cloud, o_forge, options, o_config)
+        destroy_server(o_cloud, o_forge, options, account)
       else
         PrcLib.high_level_msg("No server(s) found on forge instance '%s'.\n",
                               name)
       end
     end
 
-    def self.destroy_server(o_cloud, o_forge, options, o_config)
+    def self.destroy_server(o_cloud, o_forge, options, account)
       if options[:force]
         # Destroy all servers found
-        o_cloud.Delete(:forge)
+        o_cloud.delete(:forge)
       else
         server_list = get_server_list(o_forge)
 
@@ -52,12 +54,12 @@ module Forj
 
         if o_server_number >= 0 && o_server_number < o_forge[:servers].count
           # Destroy selected server
-          o_config.set(:forge_server, o_forge[:servers][o_server_number][:id])
-          o_cloud.Delete(:forge)
+          account.set(:forge_server, o_forge[:servers][o_server_number][:id])
+          o_cloud.delete(:forge)
         end
 
         # Destroy all servers found
-        o_cloud.Delete(:forge) if o_server_number ==  server_list.index('all')
+        o_cloud.delete(:forge) if o_server_number ==  server_list.index('all')
         # esc
         PrcLib.high_level_msg("No server destroyed on your demand.\n",
                               name

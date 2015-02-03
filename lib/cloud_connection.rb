@@ -18,7 +18,7 @@
 module Forj
   # Provide cloud object
   module CloudConnection
-    def self.connect(o_config)
+    def self.connect(account)
       a_processes = []
 
       # Defines how to manage Maestro and forges
@@ -31,8 +31,8 @@ module Forj
 
       # Loading CloudCore embedding provider controller + its process.
       o_cloud = Lorj::CloudCore.new(
-        o_config,
-        o_config[:account_name],
+        account,
+        account[:account_name],
         a_processes
       )
 

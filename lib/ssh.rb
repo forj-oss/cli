@@ -29,30 +29,30 @@ require 'cloud_connection.rb'
 module Forj
   # This module provides the behavior to create a ssh connection
   module Ssh
-    def self.connect(name, oConfig)
-      o_cloud = Forj::CloudConnection.connect(oConfig)
+    def self.connect(name, account)
+      o_cloud = Forj::CloudConnection.connect(account)
 
       PrcLib.state(format("Getting information about forge '%s'", name))
 
-      o_forge = o_cloud.Get(:forge, name)
+      o_forge = o_cloud.get(:forge, name)
 
       if o_forge[:servers].count > 0
-        if oConfig[:box_ssh]
-          o_server = validate_server_name(name)
+        if account[:box_ssh]
+          o_server = validate_server_name(name, account, o_forge)
 
           if !o_server.nil?
-            ssh_connection(oConfig, o_cloud, name, o_server[:id])
+            ssh_connection(account, o_cloud, name, o_server[:id])
           else
             PrcLib.debug("server '%s.%s' was not found",
-                         oConfig[:box_ssh], name)
+                         account[:box_ssh], name)
             PrcLib.high_level_msg("server '%s.%s' was not found.\n",
-                                  oConfig[:box_ssh], name)
+                                  account[:box_ssh], name)
           end
         else
           o_server_number = select_forge_server(o_forge)
 
           ssh_connection(
-            oConfig,
+            account,
             o_cloud,
             name,
             o_forge[:servers][o_server_number][:id]
@@ -91,17 +91,17 @@ module Forj
       o_server_number
     end
 
-    def self.ssh_connection(oConfig, o_cloud, name, server_id)
+    def self.ssh_connection(account, o_cloud, name, server_id)
       # Property for :forge
-      oConfig.set(:instance_name, name)
+      account.set(:instance_name, name)
       # Property for :ssh
-      oConfig.set(:forge_server, server_id)
+      account.set(:forge_server, server_id)
 
-      o_cloud.Create(:ssh)
+      o_cloud.create(:ssh)
     end
 
-    def self.validate_server_name(name)
-      box_ssh = oConfig[:box_ssh]
+    def self.validate_server_name(name, account, o_forge)
+      box_ssh = account[:box_ssh]
 
       o_server = nil
       regex =  Regexp.new(format('%s\.%s$', box_ssh, name))

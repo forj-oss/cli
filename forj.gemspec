@@ -19,8 +19,8 @@ Gem::Specification.new do |s|
   s.name        = 'forj'
   s.homepage = 'https://www.forj.io'
 
-  s.version     = '1.0.3'
-  s.date        = '2014-12-19'
+  s.version     = '1.0.4'
+  s.date        = '2015-02-10'
   s.summary     = 'forj command line'
   s.description = 'forj cli - See https://www.forj.io for documentation/information'
 
@@ -52,7 +52,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'json', '1.7.5'
   s.add_runtime_dependency 'bundler'
   s.add_runtime_dependency 'nokogiri','1.5.11'
-  s.add_runtime_dependency 'lorj', '~> 1.0.0'
+  s.add_runtime_dependency 'lorj', '~> 1.0.2'
 
   s.add_development_dependency "rake", "~> 10.0"
   s.add_development_dependency "rspec", "~> 3.1.0"

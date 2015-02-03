@@ -40,12 +40,12 @@ Metrics/AbcSize:
 # allow nested methods and classes definition
 ClassAndModuleChildren:
   # EnforcedStyle: compact
-  Enabled: false 
+  Enabled: false
 
 # some files names gets an exception
 Style/FileName:
   Exclude: ['Gemfile',
-            'lib/forj/process/ForjProcess.rb', 
+            'lib/forj/process/ForjProcess.rb',
             'lib/forj/ForjCore.rb',
             'lib/forj/ForjCli.rb',
             'lib/forj-settings.rb' ]
@@ -54,13 +54,6 @@ Style/FileName:
 Style/GlobalVars:
   AllowedVariables: ['$RT_GEM_BIN',
                      '$RT_VERSION_SPEC',
-                     '$FORJ_CREDS_PATH',
                      '$FORJ_TEMP',
-                     '$FORJ_DATA_PATH',
                      '$RT_VERSION',
-                     '$RT_GEM_HOME',
-                     '$FORJ_KEYPAIRS_PATH',
-		     '$FORJ_BUILD_PATH',
-                     '$FORJ_ACCOUNTS_PATH',
-                     '$HPC_KEYPAIRS',
-                     '$HPC_ACCOUNTS']
+                     '$RT_GEM_HOME']

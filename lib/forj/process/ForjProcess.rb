@@ -97,7 +97,7 @@ class ForjCoreProcess
     # Get keypairs
     h_keys = keypair_detect(
       o_server[:key_name],
-      File.join($FORJ_KEYPAIRS_PATH, o_server[:key_name])
+      File.join(Forj.keypairs_path, o_server[:key_name])
     )
 
     private_key_file = File.join(
@@ -408,7 +408,7 @@ end
 # Functions for boot - build_metadata
 class ForjCoreProcess
   def load_encoded_key
-    key_file = File.join($FORJ_CREDS_PATH, '.key')
+    key_file = File.join(PrcLib.pdata_path, '.key')
     if !File.exist?(key_file)
       # Need to create a random key.
       entr = {
@@ -578,7 +578,7 @@ class ForjCoreProcess
 
     h_infra = { :infra_repo => dest_cloud_init }
 
-    AppInit.ensure_dir_exists(dest_cloud_init)
+    PrcLib.ensure_dir_exists(dest_cloud_init)
 
     b_rebuild_infra = infra_is_original?(infra, maestro_repo)
 
@@ -762,14 +762,8 @@ class ForjCoreProcess
       # SET_DOMAIN="{SET_DOMAIN!}" => Setting for Maestro (required)
       # and DNS if enabled.
       # ==> :forj_accounts, s_account_name, :dns, :domain_name
-      s_account_name = oConfig.get(:account_name)
-
       y_dns = {}
-      y_dns = oConfig.oConfig.ExtraGet(
-        :forj_accounts,
-        s_account_name,
-        :dns
-      ) if oConfig.oConfig.ExtraExist?(:forj_accounts, s_account_name, :dns)
+      y_dns = oConfig[:dns] if oConfig.exist?(:dns)
 
       Dir.foreach(infra_dir) do |file|
         next unless /^maestro\.box\..*\.env$/ =~ file
@@ -784,12 +778,8 @@ class ForjCoreProcess
       end
       file_ver = File.join(infra_dir, 'forj-cli.ver')
       File.write(file_ver, INFRA_VERSION)
-      oConfig.oConfig.ExtraSet(:forj_accounts, s_account_name, :dns, y_dns)
-      oConfig.oConfig.ExtraSave(
-        File.join($FORJ_ACCOUNTS_PATH, s_account_name),
-        :forj_accounts,
-        s_account_name
-      )
+      oConfig[:dns] = y_dns
+      oConfig.ac_save
       return b_rebuild
     end
   end
@@ -799,10 +789,10 @@ end
 class ForjCoreProcess
   def run_userdata_cmd(cmd, bootstrap, mime)
     # TODO: Replace shell script call to ruby functions
-    if LIB_FORJ_DEBUG >= 1
-      cmd += " >> #{$FORJ_DATA_PATH}/forj.log"
+    if PrcLib.core_level >= 1
+      cmd += " >> #{PrcLib.log_file}"
     else
-      cmd += " | tee -a #{$FORJ_DATA_PATH}/forj.log"
+      cmd += " | tee -a #{PrcLib.log_file}"
     end
     fail ForjError.new, "#{bootstrap} script file is" \
       ' not found.' unless File.exist?(bootstrap)
@@ -826,7 +816,7 @@ class ForjCoreProcess
     # ~ cloud_config = File.join(maestro_path, 'build', 'maestro')
 
     mime = File.join(
-      $FORJ_BUILD_PATH,
+      Forj.build_path,
       format('userdata.mime.%s', rand(36**5).to_s(36))
     )
 
@@ -842,7 +832,7 @@ class ForjCoreProcess
     cmd = format(
       "%s '%s' '%s' '%s' '%s' '%s' '%s' '%s'",
       bootstrap, # script
-      $FORJ_DATA_PATH, # $1 = Forj data base dir
+      PrcLib.data_path, # $1 = Forj data base dir
       # $2 = Maestro repository dir
       hParams[:maestro_repository, :maestro_repo],
       config[:bootstrap_dirs], # $3 = Bootstrap directories
@@ -859,7 +849,7 @@ class ForjCoreProcess
     rescue => e
       PrcLib.fatal(1, e.message)
     end
-    if LIB_FORJ_DEBUG < 5
+    if PrcLib.core_level < 5
       File.delete(mime)
     else
       ForjLib.debug(5, "user_data temp file '%s' kept", mime)
@@ -884,7 +874,7 @@ class ForjCoreProcess
     if agree(
       format("'%s' doesn't exist. Do you want to create it?", base_dir)
     )
-      AppInit.ensure_dir_exists(base_dir)
+      PrcLib.ensure_dir_exists(base_dir)
       # true
     else
       return false
@@ -910,7 +900,7 @@ class ForjCoreProcess
 
   def duplicate_keyname?(keys_imported, keys, key_name)
     if keys_imported && keys_imported[:key_basename] != keys[:key_basename] &&
-       $FORJ_KEYPAIRS_PATH != keys[:keypair_path]
+       Forj.keypairs_path != keys[:keypair_path]
       PrcLib.warning("The private key '%s' was assigned to a different private"\
                      " key file '%s'.\nTo not overwrite it, we recommend you"\
                      ' to choose a different keypair name.',
@@ -941,7 +931,7 @@ class ForjCoreProcess
                    ' found. Running ssh-keygen to create it.',
                    keys[:keypair_name])
     unless File.exist?(private_key_file)
-      AppInit.ensure_dir_exists(File.dirname(private_key_file))
+      PrcLib.ensure_dir_exists(File.dirname(private_key_file))
       command = format('ssh-keygen -t rsa -f %s', private_key_file)
       PrcLib.debug(format("Executing '%s'", command))
       system(command)
@@ -1046,11 +1036,11 @@ class ForjCoreProcess
 
     load_key_with_passphrase(keys, public_key_file, private_key_file)
 
-    forj_private_key_file = File.join($FORJ_KEYPAIRS_PATH, key_name)
+    forj_private_key_file = File.join(Forj.keypairs_path, key_name)
     # forj_public_key_file = File.join($FORJ_KEYPAIRS_PATH, key_name + '.pub')
 
     # Saving sequences
-    if keys[:keypair_path] != $FORJ_KEYPAIRS_PATH
+    if keys[:keypair_path] != Forj.keypairs_path
       if !File.exist?(forj_private_key_file) ||
          !File.exist?(forj_public_key_file)
         save_sequences(private_key_file, forj_private_key_file,
@@ -1211,7 +1201,7 @@ You have to check with the user who created that box.
     if config[:identity].nil? || !config[:identity].is_a?(String)
       h_keys = keypair_detect(
         o_server[:key_name],
-        File.join($FORJ_KEYPAIRS_PATH, o_server[:key_name])
+        File.join(Forj.keypairs_path, o_server[:key_name])
       )
     else
       h_keys = keypair_detect(
@@ -1227,7 +1217,7 @@ You have to check with the user who created that box.
     public_key_file = File.join(h_keys[:keypair_path], h_keys[:public_key_name])
 
     PrcLib.info("Found openssh private key file '%s'.",
-                Private_key_file) if h_keys[:private_key_exist?]
+                private_key_file) if h_keys[:private_key_exist?]
 
     if h_keys[:public_key_exist?]
       PrcLib.info("Found openssh public key file '%s'.", public_key_file)

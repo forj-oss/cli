@@ -148,7 +148,7 @@ module Forj
       PrcLib.high_level_msg("Preparing your forge '%s'.Please be patient. "\
                             "more output in '%s'\n",
                             @account[:instance_name],
-                            File.join($FORJ_DATA_PATH, 'forj.log'))
+                            PrcLib.log_file)
 
       o_cloud.create(:forge)
     end

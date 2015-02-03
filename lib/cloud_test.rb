@@ -34,7 +34,7 @@ a_processes << File.join(LIB_PATH, 'forj', 'ForjCore.rb')
 # boot/down/ssh/...
 a_processes << File.join(LIB_PATH, 'forj', 'ForjCli.rb')
 
-# $LIB_FORJ_DEBUG = 3 # verbose
+# PrcLib.core_level = 3 # verbose
 
 infra_dir = File.expand_path(o_config.get(:infra_repo))
 

@@ -17,33 +17,24 @@
 
 require 'rubygems'
 # require 'debugger' # Use to debug with Ruby < 2.0
-require 'byebug'   # Use to debug with Ruby >= 2.0
+# require 'byebug'   # Use to debug with Ruby >= 2.0
 require 'bundler/setup'
-# require 'require_relative'
 require 'thor'
 require 'ansi'
 
 APP_PATH = File.dirname(File.dirname(__FILE__))
 LIB_PATH = File.expand_path(File.join(APP_PATH, 'lib'))
 
-require 'appinit.rb' # Load generic Application level function
-
-# Initialize forj paths
-AppInit.forj_initialize
-
-require 'lorj' # Use lorj library for Cloud agnostics feature.
-
+require 'lorj'
 PrcLib.app_name = 'forj'
 PrcLib.app_defaults = File.join(APP_PATH, 'forj')
 
-require 'forj-settings.rb' # Settings features
-require 'ssh.rb'
-require 'destroy.rb'
-require 'get.rb'
-require 'boot.rb'
-require 'cloud_connection.rb'
+# Initialize forj paths
+require 'appinit.rb' # Load Application settings features
+Forj.keypairs_path = File.join(PrcLib.data_path, 'keypairs')
+Forj.build_path = File.join(PrcLib.data_path, '.build')
 
-LIB_FORJ_DEBUG = 1
+require 'forj-settings.rb' # Settings features
 
 # This is the main Forj class
 # it helps you to create and support your forge.
@@ -159,6 +150,7 @@ If you want to check/updated them, use `forj get [-a account]`
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil,
            old_name = nil)
     Forj::Settings.common_options(options)
+    require 'boot.rb'
 
     deprecated_name = [old_accountname, as, old_name]
 
@@ -233,6 +225,7 @@ Warning! This action do not remove any network/security groups cloud object.
   method_option :force, :aliases => '-f', :desc => 'force deletion of all' \
     ' servers for the given InstanceName'
   def destroy(name)
+    require 'destroy.rb'
     Forj::Settings.common_options(options)
     Forj::Destroy.destroy(name, options)
   end
@@ -320,6 +313,7 @@ or from your ~/.forj/config.yaml, or if not found, from application defaults.
     PrcLib.level = Logger::INFO if options[:verbose]
     PrcLib.level = Logger::DEBUG if options[:debug]
 
+    require 'get.rb'
     Forj::Get.get(options, key)
   end
 
@@ -338,13 +332,19 @@ ex: forj ssh myforge -n review
 
   def ssh(oInstanceName)
     Forj::Settings.common_options(options)
+    require 'ssh.rb'
 
-    o_config = Lorj::Account.new(options[:config])
+    account = Lorj::Account.new(options[:config])
 
-    o_config.set(:box_ssh,   options[:box_name])  if options[:box_name]
-    o_config.set(:identity,  options[:identity]) if options[:identity]
+    # Setting account at runtime layer
+    account[:account_name] = options[:account_name] if options[:account_name]
+    # Setting account at account layer
+    account.ac_load account[:account_name]
 
-    Forj::Ssh.connect(oInstanceName, o_config)
+    account.set(:box_ssh,   options[:box_name])  if options[:box_name]
+    account.set(:identity,  options[:identity]) if options[:identity]
+
+    Forj::Ssh.connect(oInstanceName, account)
   end
 
   ################################# SETUP
@@ -371,13 +371,14 @@ Several data will be requested like:
   LONGDESC
   def setup(sAccountName = 'hpcloud', sProvider = 'hpcloud')
     Forj::Settings.common_options(options)
+    require 'cloud_connection.rb'
 
-    o_config = Lorj::Account.new(options[:config])
-    o_config.set(:provider_name, sProvider)
-    o_config.set(:account_name, sAccountName)
+    account = Lorj::Account.new(options[:config])
+    account.set(:provider_name, sProvider)
+    account.set(:account_name, sAccountName)
 
-    o_cloud = Forj::CloudConnection.connect(o_config)
-    o_cloud.Setup(:forge, sAccountName)
+    o_cloud = Forj::CloudConnection.connect(account)
+    o_cloud.setup(:forge, sAccountName)
     o_cloud.config.ac_save
   end
 end
