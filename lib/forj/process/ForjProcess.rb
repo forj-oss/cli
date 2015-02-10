@@ -1293,10 +1293,4 @@ class ForjCoreProcess
     PrcLib.debug("Running '%s'", command)
     system(command)
   end
-
-  def ssh_user(image_name)
-    return 'fedora' if image_name =~ /fedora/i
-    return 'centos' if image_name =~ /centos/i
-    'ubuntu'
-  end
 end
