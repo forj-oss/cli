@@ -644,6 +644,7 @@ class ForjCoreProcess
   def infra_is_original?(infra_dir, maestro_dir)
     dest_cloud_init = File.join(infra_dir, 'cloud-init')
     template = File.join(maestro_dir, 'templates', 'infra')
+    return false unless File.exist?(template)
     s_md5_list = File.join(infra_dir, '.maestro_original.yaml')
     b_result = true
     h_result = {}
