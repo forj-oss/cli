@@ -27,7 +27,8 @@ LIB_PATH = File.expand_path(File.join(APP_PATH, 'lib'))
 
 require 'lorj'
 PrcLib.app_name = 'forj'
-PrcLib.app_defaults = File.join(APP_PATH, 'forj')
+PrcLib.app_defaults = File.join(APP_PATH, PrcLib.app_name)
+PrcLib.pdata_path = File.expand_path(File.join('~', '.cache', PrcLib.app_name))
 
 # Initialize forj paths
 require 'appinit.rb' # Load Application settings features
