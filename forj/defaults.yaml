@@ -157,6 +157,7 @@
       :account_exclusive:  true
       :account:            true
       :required:           true
+      :encrypted:          true
     :tenant:
       :desc:               "Openstack Tenant ID"
       :account_exclusive:  true
