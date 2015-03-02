@@ -137,7 +137,7 @@
       :desc:               "Forj internal copy of private and public key pair files "
     :keypair_name:
       :desc:               "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
-      :validate:           !ruby/regexp /^\w?\w*$/
+      :required:           true
       :default_value:      "forj"
       :account:            true
       :ask_step:           2
@@ -211,7 +211,7 @@
       :desc:            "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
       :default:         network
       :account:         true
-      :validate:        !ruby/regexp /^\w?\w*$/
+      :required:        true
       :default_value:   "forj"
       :ask_step:        2
     :security_group:
