@@ -1068,7 +1068,7 @@ class ForjCoreProcess
 
   def forj_dns_settings
     s_ask = 'Optionally, you can ask Maestro to use/manage a domain name on' \
-      " your cloud. It requires your DNS cloud service to be enabled.\nDo " \
+      " your cloud. It requires your DNS cloud service to be enabled.\nDo" \
       ' you want to configure it?'
     config.set(:dns_settings, agree(s_ask))
     true
@@ -1077,7 +1077,8 @@ class ForjCoreProcess
   def forj_dns_settings?(sKey)
     # Return true to ask the question. false otherwise
     unless config.get(:dns_settings)
-      config.set(sKey, nil)
+      section = Lorj.data.first_section(sKey)
+      config.del(sKey, :name => 'account', :section => section)
       return false # Do not ask
     end
     true
