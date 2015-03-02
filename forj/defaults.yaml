@@ -229,7 +229,10 @@
     :build_config:
       :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
     :bp_flavor:
-      :desc:       "Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro."
+      :desc:       "Blueprint nodes default flavor"
+      :explanation: |- 
+        Blueprint usually defines the required flavor for their nodes. If not, it will use this flavor as default. 
+        Usually, blueprint nodes are smaller than Maestro.
       :account:    true
       :list_values:
          :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all.
@@ -238,7 +241,8 @@
          :validate:     :list_strict
       :ask_step:        2
     :flavor_name:
-      :desc:       "Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs."
+      :explanation: 'This flavor is for Maestro only.'
+      :desc:       "Maestro Flavor name"
       :default:    :flavor
       :account:    true
       :list_values:
@@ -248,7 +252,10 @@
          :validate:     :list_strict
       :ask_step:        2
     :image_name:
-      :desc:       "Ubuntu image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'"
+      :desc:       "Image name"
+      :explanation: |-
+        Ubuntu image used to create Maestro and all forge boxes. Originally, Maestro uses 'Ubuntu Precise 12.04.4 LTS Server 64-bit'. 
+        You need to choose the appropriate image to make Maestro & boxes to boot normally.
       :account:    true
       :ask_step:        2
       :list_values:
