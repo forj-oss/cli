@@ -93,19 +93,19 @@ module Forj
       s_bef = format(
         "'%s' (%s)",
         old_value,
-        account.exist?(key_to_set)
+        account.where?(key_to_set)[0]
       ) if account.exist?(key_to_set)
 
       s_bef
     end
 
-    def self.format_new_key(_o_forj_account, key_to_set)
+    def self.format_new_key(account, key_to_set)
       s_aft = 'unset'
 
       s_aft = format(
         "'%s' (%s)",
         account.get(key_to_set),
-        account.exist?(key_to_set)
+        account.where?(key_to_set)[0]
       ) if account.exist?(key_to_set)
 
       s_aft
@@ -131,7 +131,7 @@ module Forj
 
         full_key = format(
           '%s/%s',
-          Lorj::Default.get_meta_auto(key_to_set),
+          Lorj.data.first_section(key_to_set),
           key_to_set
         )
 
@@ -145,9 +145,9 @@ module Forj
         b_dirty = true
 
         if key_value == ''
-          config.del(key_to_set)
+          config.del(key_to_set, :name => 'account')
         else
-          config.set(key_to_set, key_value)
+          config.set(key_to_set, key_value, :name => 'account')
         end
 
         s_aft = format_new_key(config, key_to_set)
