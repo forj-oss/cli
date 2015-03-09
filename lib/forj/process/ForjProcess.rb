@@ -33,9 +33,9 @@ class ForjCoreProcess
   def build_forge(sObjectType, hParams)
     forge_exist?(sObjectType)
 
-    o_server = data_objects(:server, :ObjectData)
+    o_server = hParams.refresh[:server, :ObjectData]
 
-    boot_options = boot_keypairs(o_server)
+    boot_options = boot_keypairs(hParams)
 
     # Define the log lines to get and test.
     config.set(:log_lines, 5)
@@ -47,7 +47,7 @@ class ForjCoreProcess
     s_status = :checking
     maestro_create_status(s_status)
 
-    o_address = data_objects(:public_ip, :ObjectData)
+    o_address = hParams.refresh[:public_ip, :ObjectData]
 
     s_status = active_server?(o_server, o_address, boot_options[:keys],
                               boot_options[:coherent], s_status
@@ -57,7 +57,7 @@ class ForjCoreProcess
 
     o_forge = get_forge(sObjectType, config[:instance_name], hParams)
 
-    read_blueprint_implemented(o_forge, o_address)
+    read_blueprint_implemented(o_forge, hParams)
     o_forge
   end
 
@@ -93,27 +93,17 @@ class ForjCoreProcess
     end
   end
 
-  def boot_keypairs(o_server)
-    # Get keypairs
-    h_keys = keypair_detect(
-      o_server[:key_name],
-      File.join(Forj.keypairs_path, o_server[:key_name])
-    )
+  def boot_keypairs(params)
+    o_server = params[:server, :ObjectData]
+    h_keys = params[:keypairs]
 
-    private_key_file = File.join(
-      h_keys[:keypair_path],
-      h_keys[:private_key_name]
-    )
-    # public_key_file  = File.join(
-    #     h_keys[:keypair_path],
-    #     h_keys[:public_key_name]
-    # )
+    if h_keys.nil? || o_server[:key_name] != h_keys[:name]
+      h_keys = process_get(:keypairs, o_server[:key_name])
+    end
+    private_key_file = File.join(h_keys[:keypair_path],
+                                 h_keys[:private_key_name])
 
-    o_server_key = process_get(:keypairs, o_server[:key_name])
-
-    keypair_coherent = coherent_keypair?(h_keys, o_server_key)
-    boot_options = { :keys => private_key_file, :coherent => keypair_coherent }
-    boot_options
+    { :keys => private_key_file, :coherent => h_keys[:coherent] }
   end
 
   def active_server?(o_server, o_address, private_key_file,
@@ -348,19 +338,22 @@ class ForjCoreProcess
     output_options
   end
 
-  def read_blueprint_implemented(o_forge, o_address)
+  def read_blueprint_implemented(o_forge, params)
+    o_address = params[:public_ip, :ObjectData]
+    blueprint = params[:blueprint]
+    instance_name = params[:instance_name]
     s_msg = format(
       "Your Forge '%s' is ready and accessible from" \
       " IP #{o_address[:public_ip]}.",
-      config[:instance_name]
+      instance_name
     )
     # TODO: read the blueprint/layout to identify which services
     # are implemented and can be accessible.
-    if config[:blueprint]
+    if blueprint
       s_msg += format(
         "\n" + 'Maestro has implemented the following server(s) for your' \
           " blueprint '%s':",
-        config[:blueprint]
+        blueprint
       )
       server_options = display_servers_with_ip(o_forge, s_msg)
       s_msg += server_options[:message]
@@ -369,13 +362,8 @@ class ForjCoreProcess
         s_msg += format("\n%d server(s) identified.\n", i_count)
       else
         s_msg = 'No servers found except maestro'
-        PrcLib.warning(
-          format(
-            'Something went wrong, while creating nodes for blueprint' \
-              " '%s'. check maestro logs.",
-            config[:blueprint]
-          )
-        )
+        PrcLib.warning('Something went wrong, while creating nodes for '\
+                       "blueprint '%s'. check maestro logs.", blueprint)
       end
     else
       s_msg += "\nMaestro has NOT implemented any servers, because you did" \
@@ -981,8 +969,8 @@ class ForjCoreProcess
     FileUtils.copy(private_key_file, forj_private_key_file)
     FileUtils.copy(public_key_file, forj_public_key_file)
     # Attaching this keypair to the account
-    @hAccountData.rh_set(key_name, :credentials, 'keypair_name')
-    @hAccountData.rh_set(forj_private_key_file, :credentials, 'keypair_path')
+    config.set(key_name, :credentials, 'keypair_name')
+    config.set(forj_private_key_file, :credentials, 'keypair_path')
     config.local_set(key_name.to_s, private_key_file, :imported_keys)
   end
 
@@ -1015,7 +1003,7 @@ end
 class ForjCoreProcess
   def save_internal_key(forj_private_key_file, keys)
     # Saving internal copy of private key file for forj use.
-    config.set(:keypair_path, forj_private_key_file)
+    config.set(:keypair_path, forj_private_key_file, :name => 'account')
     PrcLib.info("Configured forj keypair '%s' with '%s'",
                 keys[:keypair_name],
                 File.join(keys[:keypair_path], keys[:key_basename])
@@ -1046,7 +1034,7 @@ class ForjCoreProcess
     load_key_with_passphrase(keys, public_key_file, private_key_file)
 
     forj_private_key_file = File.join(Forj.keypairs_path, key_name)
-    # forj_public_key_file = File.join($FORJ_KEYPAIRS_PATH, key_name + '.pub')
+    forj_public_key_file = File.join(Forj.keypairs_path, key_name + '.pub')
 
     # Saving sequences
     if keys[:keypair_path] != Forj.keypairs_path
