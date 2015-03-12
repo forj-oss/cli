@@ -923,45 +923,24 @@ class ForjCoreProcess
 
   def create_keys_automatically(keys, private_key_file)
     return if keys[:private_key_exist?]
-    # Need to create a key. ask if we need so.
-    PrcLib.message("The private key file attached to keypair named '%s' is not"\
-                   ' found. Running ssh-keygen to create it.',
-                   keys[:keypair_name])
     unless File.exist?(private_key_file)
+      # Need to create a key. ask if we need so.
+      PrcLib.message("The private key file attached to keypair named '%s' is "\
+                     'not found. Running ssh-keygen to create it.',
+                     keys[:keypair_name])
       PrcLib.ensure_dir_exists(File.dirname(private_key_file))
       command = format('ssh-keygen -t rsa -f %s', private_key_file)
       PrcLib.debug(format("Executing '%s'", command))
       system(command)
     end
-    if !File.exist?(private_key_file)
-      PrcLib.fatal(1, "'%s' not found. Unable to add your keypair to hpcloud."\
-                   ' Create it yourself and provide it with -p option. '\
-                   'Then retry.', private_key_file)
-    else
-      PrcLib.fatal(1, 'ssh-keygen did not created your key pairs. Aborting.'\
+    return if File.exist?(private_key_file)
+    PrcLib.fatal(1, 'ssh-keygen did not created your key pairs. Aborting.'\
                    ' Please review errors in ~/.forj/forj.log')
-    end
   end
 end
 
 # Functions for setup
 class ForjCoreProcess
-  def load_key_with_passphrase(keys, public_key_file, private_key_file)
-    # unless keys[:public_key_exist?]
-    return if keys[:private_key_exist?]
-    PrcLib.message("Your public key '%s' was not found. Getting it from the" \
-                   ' private one. It may require your passphrase.',
-                   public_key_file)
-    command = format(
-      'ssh-keygen -y -f %s > %s',
-      private_key_file,
-      public_key_file
-    )
-    PrcLib.debug("Executing '%s'", command)
-    system(command)
-    # end
-  end
-
   def save_sequences(private_key_file, forj_private_key_file,
                      public_key_file, forj_public_key_file, key_name
   )
@@ -969,8 +948,8 @@ class ForjCoreProcess
     FileUtils.copy(private_key_file, forj_private_key_file)
     FileUtils.copy(public_key_file, forj_public_key_file)
     # Attaching this keypair to the account
-    config.set(key_name, :credentials, 'keypair_name')
-    config.set(forj_private_key_file, :credentials, 'keypair_path')
+    config.set(:keypair_name, key_name, :name => 'account')
+    config.set(:keypair_path, forj_private_key_file, :name => 'account')
     config.local_set(key_name.to_s, private_key_file, :imported_keys)
   end
 
@@ -1030,8 +1009,6 @@ class ForjCoreProcess
 
     # Creation sequences
     create_keys_automatically(keys, private_key_file)
-
-    load_key_with_passphrase(keys, public_key_file, private_key_file)
 
     forj_private_key_file = File.join(Forj.keypairs_path, key_name)
     forj_public_key_file = File.join(Forj.keypairs_path, key_name + '.pub')
