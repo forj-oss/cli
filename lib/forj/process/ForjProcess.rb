@@ -861,7 +861,7 @@ class ForjCoreProcess
     if PrcLib.core_level < 5
       File.delete(mime)
     else
-      ForjLib.debug(5, "user_data temp file '%s' kept", mime)
+      Lorj.debug(5, "user_data temp file '%s' kept", mime)
     end
 
     config[:user_data] = user_data
