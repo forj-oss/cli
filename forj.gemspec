@@ -56,6 +56,7 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency "rake", "~> 10.0"
   s.add_development_dependency "rspec", "~> 3.1.0"
+  s.add_development_dependency "rubocop", ">=0.29.0"
   s.rdoc_options << '--title' << 'Lorj - The Process Controllers framework system' <<
   '--main' << 'README.md'
 end
