@@ -494,6 +494,7 @@ class ForjCoreProcess
 
   def load_h_meta(hParams, hpcloud_priv)
     h_meta = {
+      'flavor_name' => hParams[:bp_flavor],
       'cdksite' => config.get(:server_name),
       'cdkdomain' => hParams[:domain_name],
       'eroip' => '127.0.0.1',
