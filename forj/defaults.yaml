@@ -30,10 +30,6 @@
   :security_group: forj
   :ports: [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
 
-  # Private key file path. Those files (private/public key) will be added to ~/.forj/keypairs/ as respectively 'keypair_name' and 'keypair_name'.pub
-  :keypair_files: ~/.ssh/forj-id_rsa
-  :keypair_name: forj
-
   # Network: If network doesn't exist, forj cli will try to create it, and attach it a router.
   :network: forj
 
@@ -127,7 +123,7 @@
 
          If the keypair doesn't exist locally, it will be created for you.
       :desc:               "Base keypair file name"
-      :default_value:      "~/.ssh/id_rsa-forj"
+      :default_value:      "~/.ssh/<%= config[:keypair_name] %>-id_rsa"
       :validate_function:  :forj_check_keypairs_files
       :account:            true
       :ask_step:           2
@@ -171,6 +167,7 @@
       :required:           true
       :validate:           !ruby/regexp /\w+/
       :ask_step:           1
+      :default_value:      "<%= (config[:provider_name] == 'openstack')?config[:account_id]:nil %>"
     :os_enckey:
       :desc:               "Openstack compute cloud password"
       :account_exclusive:  true
@@ -178,6 +175,7 @@
       :account:            true
       :required:           true
       :ask_step:           1
+      :default_value:      "<%= (config[:provider_name] == 'openstack')?config[:account_key]:nil %>"
 
   # Defines DNS services for maestro
   :dns:
@@ -207,6 +205,7 @@
       :validate:        !ruby/regexp /^\w?[\w_-]*$/
       :ask_step:        1
       :ask_sort:        0
+      :default_value:   "<%= config[:tenant]%>"
     :network_name:
       :desc:            "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
       :default:         network
@@ -230,8 +229,8 @@
       :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
     :bp_flavor:
       :desc:       "Blueprint nodes default flavor"
-      :explanation: |- 
-        Blueprint usually defines the required flavor for their nodes. If not, it will use this flavor as default. 
+      :explanation: |-
+        Blueprint usually defines the required flavor for their nodes. If not, it will use this flavor as default.
         Usually, blueprint nodes are smaller than Maestro.
       :account:    true
       :list_values:
@@ -254,7 +253,7 @@
     :image_name:
       :desc:       "Image name"
       :explanation: |-
-        Ubuntu image used to create Maestro and all forge boxes. Originally, Maestro uses 'Ubuntu Precise 12.04.4 LTS Server 64-bit'. 
+        Ubuntu image used to create Maestro and all forge boxes. Originally, Maestro uses 'Ubuntu Precise 12.04.4 LTS Server 64-bit'.
         You need to choose the appropriate image to make Maestro & boxes to boot normally.
       :account:    true
       :ask_step:        2
@@ -275,11 +274,12 @@
         Checking image '<%= config[:image_name] %>'...
       :account:     true
       :ask_step:    2
+      :after:              :image_name
       :list_values:
         :query_type:  :process_call # Will execute a query on image and return the list of images.
         :query_call:  :setup_ssh_user
         :query_params:
-          :image_name: lorj::config[:image_name]
+          :image_name: '<%= config[:image_name] %>'
         :object:      :image
         :value:       :name
     :ports:
