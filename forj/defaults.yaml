@@ -155,7 +155,7 @@
       :required:           true
       :encrypted:          true
     :tenant:
-      :desc:               "Openstack Tenant ID"
+      :desc:               "Openstack Tenant Name (Project name)"
       :account_exclusive:  true
       :account:            true
       :required:           true
@@ -205,7 +205,7 @@
       :validate:        !ruby/regexp /^\w?[\w_-]*$/
       :ask_step:        1
       :ask_sort:        0
-      :default_value:   "<%= config[:tenant]%>"
+      :default_value:   "<%= (config[:provider_name] == 'openstack')?config[:tenant]:nil %>"
     :network_name:
       :desc:            "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
       :default:         network
