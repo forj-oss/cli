@@ -45,6 +45,14 @@ Perform one of the ruby installation steps without `gem install forj`.
     $ bundle install --gemfile Gemfile
     $ rake install
 
+**For all OS including Linux/windows/mac
+2 vagrant images has been written.
+Read [vagrant/README.md] for details.
+
+This solution helps to develop and test on forj and lorj
+
+For more information about lorj, a process/controller library, see https://github.com/forj-oss/lorj
+
 Quick steps: How to create a forj?
 ----------------------------------
 
@@ -52,11 +60,31 @@ Quick steps: How to create a forj?
 
 1.  Setup your first forj account.
 
-    `$ forj setup [AccountName]`
+    `$ forj setup [AccountName [provider]]`
 
     Ex: `forj setup MyAccount`. In this example, your account will be named 'MyAccount'.
          The first time you setup your account, it will become the default one.
-    **WARNING!!!** [Provider] is currently not supported. By default, it is using hpcloud as default provider.
+
+    Supported provider: **hpcloud**, **openstack**. hpcloud is the default.
+
+    If you uses hphelion as a provider, check the API authentication system to select hpcloud or openstack.
+
+    - *hpcloud* : Use this provider for http://www.hpcloud.com/, or hphelion.
+      Uses Access key and secret key authentication mechanism.
+
+        - [hp public cloud|http://www.hpcloud.com/] from HP. Tested successfully.
+
+    - *openstack*: Use this provider to access any openstack installation (public or private) or Hphelion (public or private)
+        Uses login and password authentication system
+
+        If you want to test against a new local openstack cloud, you can consider :
+
+        - [packstack|https://wiki.openstack.org/wiki/Packstack] from RedHat. Can be used for a notebook local installation. tested successfully.
+        - [hphelion|http://www8.hp.com/fr/fr/cloud/helion-overview.html] from HP. Tested successfully
+        - [Ubuntu OpenStack|http://www.ubuntu.com/cloud] from Canonical. Not tested.
+
+    For any other cloud, you need a provider in lorj library. Contribute to create a new provider!
+    See
 
 2.  Create your forge on your default account
 
