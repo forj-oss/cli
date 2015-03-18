@@ -64,6 +64,12 @@ Quick steps: How to create a forj?
 
     Ex: `forj boot redstone myforge` - This command will start a Redstone forge named 'myforge' with the default FORJ account. Previous, we set it to be MyAccount.
 
+NOTE: If you are creating a Forge in a corporate network, a proxy may be required for Maestro to access internet.
+You can ask `forj` cli to send the proxy to use with -e
+
+Ex: Thanks to a CorporateAccount setup with forj setup, the following will use it and set the webproxy metadata.
+
+    `forj boot redstone myforge -a CorporateAccount -e webproxy=$http_proxy`
 
 ###Forj options:
 
