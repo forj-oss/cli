@@ -276,12 +276,10 @@
       :ask_step:    2
       :after:              :image_name
       :list_values:
-        :query_type:  :process_call # Will execute a query on image and return the list of images.
-        :query_call:  :setup_ssh_user
-        :query_params:
+        :query_type:  :process_call # Will execute a process to query on image
+        :query_call:  :setup_ssh_user # and return the list of images and a default value.
+        :query_params: # Transmitted as hParams
           :image_name: '<%= config[:image_name] %>'
-        :object:      :image
-        :value:       :name
     :ports:
       :desc:            "List of security group rules (1 port or range of ports) to open to the external network."
     :branch:
