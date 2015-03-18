@@ -227,6 +227,10 @@ Warning! This action do not remove any network/security groups cloud object.
 
   method_option :force, :aliases => '-f', :desc => 'force deletion of all' \
     ' servers for the given InstanceName'
+  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+     ' account name to use. By default, uses the default account set in'      \
+     ' your local config file.' + "\n\n" + 'Following options superseed your' \
+     ' Account, config file or forj defaults.'
   def destroy(name)
     require 'destroy.rb'
     Forj::Settings.common_options(options)
