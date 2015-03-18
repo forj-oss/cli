@@ -148,12 +148,14 @@ end
 # Functions for boot - build_forge
 class ForjCoreProcess
   # rubocop:disable CyclomaticComplexity
-  def maestro_create_status(sStatus, iCurAct = 4)
+
+  def maestro_create_status(sStatus, iCurAct = 4, pending_count = 0)
     s_activity = '/-\\|?'
     if iCurAct < 4
       s_cur_act = 'ACTIVE'
     else
-      s_cur_act = ANSI.bold('PENDING')
+      s_cur_act = format('%s - %d s', ANSI.bold('PENDING'),
+                         (pending_count + 1) * 5)
     end
 
     case sStatus
@@ -176,15 +178,24 @@ class ForjCoreProcess
       PrcLib.info('Server is active')
     end
   end
-  # rubocop:enable CyclomaticComplexity
+
+  # TODO: Rewrite this function to break it for rubocop.
+  # rubocop: disable PerceivedComplexity
+  # rubocop: disable Metrics/MethodLength
 
   def till_server_active(s_status, o_server, o_address, boot_options)
     m_cloud_init_error = []
     i_cur_act = 0
     o_old_log = ''
+    pending_count = 0
 
     while s_status != :active
-      maestro_create_status(s_status, i_cur_act)
+      if i_cur_act == 4
+        pending_count += 1
+      else
+        pending_count = 0
+      end
+      maestro_create_status(s_status, i_cur_act, pending_count)
       i_cur_act += 1
       i_cur_act = i_cur_act % 4
       o_server = load_server(o_server)
@@ -202,10 +213,28 @@ class ForjCoreProcess
         m_cloud_init_error = output_options[:error]
         o_old_log = output_options[:old_log]
         i_cur_act = output_options[:cur_act]
+        if pending_count == 60
+          image = data_objects(:image, :ObjectData)
+          PrcLib.warning('No more server activity detected.'\
+                         "-------------------------------------------------\n"\
+                         "%s\n"\
+                         "-------------------------------------------------\n"\
+                         "The server '%s' is not providing any output log for"\
+                         " more than 5 minutes.\nPlease review the current "\
+                         "output to determine if this a normal situation.\n"\
+                         "You can connect to the server if you want to.\n"\
+                         "To connect, use:\n"\
+                         'ssh %s@%s -o StrictHostKeyChecking=no -i %s',
+                         o_old_log, o_server[:name], image[:user],
+                         o_address[:public_ip], boot_options[:keys])
+        end
       end
       sleep(5) if s_status != :active
     end
   end
+
+  # rubocop:enable CyclomaticComplexity
+  # rubocop:enable PerceivedComplexity
 
   # Function to get the server, tracking errors
   #
@@ -217,8 +246,10 @@ class ForjCoreProcess
       found_server = process_get(:server, server[:attrs][:id])
     rescue => e
       PrcLib.error(e.message)
+    else
+      return found_server
     end
-    (found_server.nil? ? server : found_server)
+    server
   end
 end
 
@@ -236,17 +267,19 @@ class ForjCoreProcess
         o_address = o_addresses[0]
       end
     end
+
+    image = data_objects[:image, :ObjectData]
     s_msg = <<-END
 Public IP for server '%s' is assigned.
 Now, as soon as the server respond to the ssh port,
 you will be able to get a tail of the build with:
 while [ 1 = 1 ]
 do
- ssh ubuntu@%s -o StrictHostKeyChecking=no -i %s tail -f /var/log/cloud-init.log
+ ssh %s@%s -o StrictHostKeyChecking=no -i %s tail -f /var/log/cloud-init.log
  sleep 5
 done
     END
-    s_msg = format(s_msg, o_server[:name],
+    s_msg = format(s_msg, o_server[:name], image[:user],
                    o_address[:public_ip], boot_options[:keys]
     )
     unless boot_options[:coherent]
@@ -261,28 +294,26 @@ done
   end
 
   def analyze_log_output(output_options, s_status)
-    # m_cloud_init_error = []
-    # o_old_log = ''
-    o_log = process_get(:server_log, 25)[:attrs][:output]
-    # i_cur_act = 4 if o_log == o_old_log
-    output_options[:cur_act] = 4 if o_log == output_options[:old_log]
-    # o_old_log = o_log
-    output_options[:old_log] = o_log
-    if /cloud-init boot finished/ =~ o_log
-      # s_status = :active
+    o_log = process_get(:server_log, 25)
+    return output_options if o_log.nil? || o_log.empty?
+
+    log = o_log[:attrs][:output]
+    output_options[:cur_act] = 4 if log == output_options[:old_log]
+    output_options[:old_log] = log
+    if /cloud-init boot finished/ =~ log
       output_options[:status] = :active
       output_options[:error] = display_boot_moving_error(
         output_options[:error]
       )
-    elsif /\[CRITICAL\]/ =~ o_log
-      m_critical = o_log.scan(/.*\[CRITICAL\].*\n/)
+    elsif /\[CRITICAL\]/ =~ log
+      m_critical = log.scan(/.*\[CRITICAL\].*\n/)
       output_options[:error] = display_boot_critical_error(
         output_options[:error],
         m_critical
       )
     else
       # validate server status
-      output_options = analyze_server_status(s_status, o_log, output_options)
+      output_options = analyze_server_status(s_status, log, output_options)
     end
     output_options
   end
