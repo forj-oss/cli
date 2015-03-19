@@ -214,23 +214,38 @@ class ForjCoreProcess
         o_old_log = output_options[:old_log]
         i_cur_act = output_options[:cur_act]
         if pending_count == 60
-          image = data_objects(:image, :ObjectData)
-          PrcLib.warning('No more server activity detected.'\
-                         "-------------------------------------------------\n"\
+          image = server_get_image o_server
+          highlight = ANSI.yellow('-' * 40)
+          PrcLib.warning("No more server activity detected.\n"\
+                         "#{highlight}\n"\
                          "%s\n"\
-                         "-------------------------------------------------\n"\
+                         "#{highlight}\n"\
                          "The server '%s' is not providing any output log for"\
-                         " more than 5 minutes.\nPlease review the current "\
-                         "output to determine if this a normal situation.\n"\
-                         "You can connect to the server if you want to.\n"\
-                         "To connect, use:\n"\
+                         " more than 5 minutes.\nPlease review the current"\
+                         'output show below to determine if this a normal '\
+                         "situation.\nYou can connect to the server if you "\
+                         "want to.\nTo connect, use:\n"\
                          'ssh %s@%s -o StrictHostKeyChecking=no -i %s',
-                         o_old_log, o_server[:name], image[:user],
+                         o_old_log, o_server[:name], image[:ssh_user],
                          o_address[:public_ip], boot_options[:keys])
         end
       end
       sleep(5) if s_status != :active
     end
+  end
+
+  # Function to get the image data from the server
+  #
+
+  def server_get_image(server)
+    image = data_objects(:image, :ObjectData)
+    return image unless image.nil?
+
+    image = process_get(:image, server[:image_id])
+
+    return Lorj::Data.new if image.nil?
+
+    register(image)
   end
 
   # rubocop:enable CyclomaticComplexity
@@ -1269,17 +1284,11 @@ end
 class ForjCoreProcess
   def setup_ssh_user(_sCloudObj, hParams)
     images  = process_query(:image,  :name => hParams[:image_name])
-    case images.length
-    when 0
-      s_default = hParams[:default_value]
-    else
-      if images[0, :ssh_user].nil?
-        s_default = hParams[:default_value]
-      else
-        s_default = images[0, :ssh_user]
-      end
+    result = { :list => config[:users] }
+    if images.length >= 1 && !images[0, :ssh_user].nil?
+      result[:default_value] = images[0, :ssh_user]
     end
-    { :default_value => s_default, :list => config[:users] }
+    result
   end
 
   def ssh_login(options, user, public_ip)
