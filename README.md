@@ -72,16 +72,17 @@ Quick steps: How to create a forj?
     - *hpcloud* : Use this provider for http://www.hpcloud.com/, or hphelion.
       Uses Access key and secret key authentication mechanism.
 
-        - [hp public cloud|http://www.hpcloud.com/] from HP. Tested successfully.
+        - [hp public cloud](http://www.hpcloud.com/) from HP. Tested successfully.
+        - [hphelion](http://www8.hp.com/us/en/cloud/helion-overview.html) from HP. Not tested with access keys.
 
     - *openstack*: Use this provider to access any openstack installation (public or private) or Hphelion (public or private)
         Uses login and password authentication system
 
         If you want to test against a new local openstack cloud, you can consider :
 
-        - [packstack|https://wiki.openstack.org/wiki/Packstack] from RedHat. Can be used for a notebook local installation. tested successfully.
-        - [hphelion|http://www8.hp.com/fr/fr/cloud/helion-overview.html] from HP. Tested successfully
-        - [Ubuntu OpenStack|http://www.ubuntu.com/cloud] from Canonical. Not tested.
+        - [packstack](https://wiki.openstack.org/wiki/Packstack) from RedHat. Can be used for a notebook local installation. tested successfully.
+        - [hphelion](http://www8.hp.com/us/en/cloud/helion-overview.html) from HP. Tested successfully with user/password.
+        - [Ubuntu OpenStack](http://www.ubuntu.com/cloud) from Canonical. Not tested.
 
     For any other cloud, you need a provider in lorj library. Contribute to create a new provider!
     See
