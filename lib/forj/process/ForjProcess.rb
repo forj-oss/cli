@@ -110,15 +110,17 @@ class ForjCoreProcess
                      keypair_coherent, s_status
   )
     if o_server[:attrs][:status] == :active
+      image = server_get_image o_server
+
       s_msg = <<-END
 Your forj Maestro server is up and running and is publically accessible
 through IP '%s'.
 
 You can connect to '%s' with:
-ssh ubuntu@%s -o StrictHostKeyChecking=no -i %s
+ssh %s@%s -o StrictHostKeyChecking=no -i %s
       END
       s_msg = format(s_msg, o_address[:public_ip], o_server[:name],
-                     o_address[:public_ip], private_key_file
+                     image[:ssh_user], o_address[:public_ip], private_key_file
       )
 
       unless keypair_coherent
@@ -283,7 +285,7 @@ class ForjCoreProcess
       end
     end
 
-    image = data_objects[:image, :ObjectData]
+    image = data_objects(:image, :ObjectData)
     s_msg = <<-END
 Public IP for server '%s' is assigned.
 Now, as soon as the server respond to the ssh port,
@@ -294,7 +296,7 @@ do
  sleep 5
 done
     END
-    s_msg = format(s_msg, o_server[:name], image[:user],
+    s_msg = format(s_msg, o_server[:name], image[:ssh_user],
                    o_address[:public_ip], boot_options[:keys]
     )
     unless boot_options[:coherent]
