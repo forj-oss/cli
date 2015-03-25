@@ -92,18 +92,60 @@ class ForjCoreProcess
       PrcLib.high_level_msg("\nBuilding your forge...\n")
     end
   end
+end
 
-  def boot_keypairs(params)
-    o_server = params[:server, :ObjectData]
-    h_keys = params[:keypairs]
+# Functions for boot - build_forge
+class ForjCoreProcess
+  def boot_keypairs(server)
+    h_keys = process_create(:keypairs)
+    keypair = process_get(:keypairs, server[:key_name])
 
-    if h_keys.nil? || o_server[:key_name] != h_keys[:name]
-      h_keys = process_get(:keypairs, o_server[:key_name])
+    h_keys = choose_best_kp(h_keys, keypair, server[:name])
+
+    h_keys[:keys] = File.join(h_keys[:keypair_path],
+                              h_keys[:private_key_name])
+
+    unless h_keys[:coherent]
+      PrcLib.warning("The local keypair '%s' public key and '%s' server's "\
+                     "public key are different.\n"\
+                     "You won't be able to access it until "\
+                     'you get a copy of the key used to create the server.'\
+                     "\nPublic key found in the cloud:\n%s",
+                     h_keys[:name], server[:name], keypair[:public_key])
+      return h_keys
     end
-    private_key_file = File.join(h_keys[:keypair_path],
-                                 h_keys[:private_key_name])
 
-    { :keys => private_key_file, :coherent => h_keys[:coherent] }
+    unless h_keys[:private_key_exist?]
+      PrcLib.warning("The local keypair '%s' private key '%s' is not found. "\
+                     "You won't be able to access '%s' until you get a copy"\
+                     'of the private key use to create the server.'\
+                     "\nPublic key found in the cloud:\n%s",
+                     h_keys[:keys], server[:name], keypair[:public_key])
+    end
+
+    h_keys
+  end
+
+  def choose_best_kp(predef_keypair, server_keypair, server_name)
+    if server_keypair[:name] != predef_keypair[:name]
+      if coherent_keypair?(predef_keypair, server_keypair)
+        PrcLib.warning("Server '%s' is using keypair name '%s' instead of the"\
+                       " your account keypair name '%s'.\n"\
+                       'Your predefined keypair name is compatible with '\
+                       'that server. (public key identical), so Forj will use'\
+                       " '%s' by default",
+                       server_name, server_keypair[:name],
+                       server_keypair[:name], server_keypair[:name])
+        return predef_keypair
+      end
+      PrcLib.warning("Server '%s' is using keypair name '%s' instead of the "\
+                     "your account keypair name '%s'.\n"\
+                     "Forj will try to find and use a local keypair name '%s'"\
+                     ' instead.', server_name, server_keypair[:name],
+                     predef_keypair[:name], server_keypair[:name])
+      return server_keypair
+    end
+    predef_keypair
   end
 
   def active_server?(o_server, o_address, private_key_file,
@@ -112,22 +154,20 @@ class ForjCoreProcess
     if o_server[:attrs][:status] == :active
       image = server_get_image o_server
 
-      s_msg = <<-END
-Your forj Maestro server is up and running and is publically accessible
-through IP '%s'.
+      s_msg = format('Your forj Maestro server is up and running and is '\
+                     "publically accessible through IP '%s'.\n\n"\
+                     "You can connect to '%s' with:\n"\
+                     'ssh %s@%s -o StrictHostKeyChecking=no -i ',
+                     o_address[:public_ip], o_server[:name],
+                     image[:ssh_user], o_address[:public_ip])
 
-You can connect to '%s' with:
-ssh %s@%s -o StrictHostKeyChecking=no -i %s
-      END
-      s_msg = format(s_msg, o_address[:public_ip], o_server[:name],
-                     image[:ssh_user], o_address[:public_ip], private_key_file
-      )
-
-      unless keypair_coherent
-        s_msg += "\n" + ANSI.bold(
-          'Unfortunatelly'
-        ) + ' your current keypair is not usable to connect to your server.' \
-          "\n" + 'You need to fix this issue to gain access to your server.'
+      if keypair_coherent
+        s_msg += private_key_file
+      else
+        s_msg += ANSI.red(ANSI.bold('<no valid private key found>')) + "\n\n" +
+                 ANSI.bold('Unfortunatelly') + ', Forj was not able to find a '\
+                 'valid keypair to connect to your server.' \
+                 "\nYou need to fix this issue to gain access to your server."
       end
       PrcLib.info(s_msg)
 
@@ -927,11 +967,15 @@ class ForjCoreProcess
     end
     # end
   end
+
   # Check files existence
-  def forj_check_keypairs_files(keypath)
+  def forj_check_keypairs_files(input_pathbase)
     key_name = config.get(:keypair_name)
 
-    keys_entered = keypair_detect(key_name, keypath)
+    keypair_path = File.expand_path(File.dirname(input_pathbase))
+    keypair_base = File.expand_path(File.basename(input_pathbase))
+    keys_entered = keypair_detect(key_name, keypair_path, keypair_base)
+
     if !keys_entered[:private_key_exist?] && !keys_entered[:public_key_exist?]
       if agree('The key you entered was not found. Do you want to create' \
         ' this one?')
@@ -944,30 +988,69 @@ class ForjCoreProcess
     true
   end
 
-  def duplicate_keyname?(keys_imported, keys, key_name)
-    if keys_imported && keys_imported[:key_basename] != keys[:key_basename] &&
-       Forj.keypairs_path != keys[:keypair_path]
-      PrcLib.warning("The private key '%s' was assigned to a different private"\
-                     " key file '%s'.\nTo not overwrite it, we recommend you"\
-                     ' to choose a different keypair name.',
-                     keys, keys_imported[:key_basename])
-      new_key_name = key_name
-      s_msg = 'Please, provide a different keypair name:'
-      while key_name == new_key_name
-        new_key_name = ask(s_msg) do |q|
-          q.validate = /.+/
-        end
-        new_key_name = new_key_name.to_s
-        s_msg = 'Incorrect. You have to choose a keypair name different' \
-          " than '#{key_name}'. If you want to interrupt, press Ctrl-C and" \
-          ' retry later.\nSo, please, provide a different keypair' \
-          ' name:' if key_name == new_key_name
+  # Function to identify if the keypair name has already been imported.
+  # If so, we can't change the original files used to import it.
+  # The script will ask for another keypair_name.
+  #
+  # It will loop until keyname is new or until files originally used
+  # is identical.
+  def check_about_imported_key(setup_keys, key_name)
+    loop do
+      keys_imported = nil
+      if config.local_exist?(key_name.to_sym, :imported_keys)
+        keys_imported = keypair_detect(key_name,
+                                       config.local_get(key_name.to_sym,
+                                                        :imported_keys))
       end
-      key_name = new_key_name
+
+      return setup_keys if keys_imported.nil?
+
+      unless keys_imported[:private_key_exist?] ||
+             keys_imported[:public_key_exist?]
+        PrcLib.warning("The local keypair '%s' imported files do not exist "\
+                       'anymore. Removed from imported_keys.', key_name)
+        local_del(key_name.to_sym, :imported_keys)
+        break
+      end
+
+      setup_keybase = File.join(setup_keys[:keypair_path],
+                                setup_keys[:key_basename])
+      imported_keybase = File.join(keys_imported[:keypair_path],
+                                   keys_imported[:key_basename])
+
+      break if setup_keybase == imported_keybase
+
+      PrcLib.warning("You entered a keypair base file '%s' for keypair name "\
+                     "'%s'. Originally, this keypair name was created from "\
+                     "'%s' instead.\n"\
+                     'To not overwrite it, we recommend you'\
+                     ' to choose a different keypair name.',
+                     setup_keybase, key_name, imported_keybase)
+      key_name = _keypair_files_ask(key_name)
       config.set(:key_name, key_name)
-      keys = keypair_detect(key_name, key_path)
+
+      setup_keys = keypair_detect(key_name,
+                                  setup_keys[:keypair_path],
+                                  setup_keys[:key_basename])
     end
-    keys
+    setup_keys
+  end
+
+  # Function to change the keypair name, as already used.
+  def _keypair_files_ask(key_name)
+    new_key_name = key_name
+    s_msg = 'Please, provide a different keypair base file:'
+    while key_name == new_key_name
+      new_key_name = ask(s_msg) do |q|
+        q.validate = /.+/
+      end
+      new_key_name = new_key_name.to_s
+      s_msg = 'Incorrect. You have to choose a keypair base file different'\
+              " than '#{key_name}'. If you want to interrupt, press Ctrl-C."\
+              "\nSo, please, provide a different keypair"\
+              ' name:' if key_name == new_key_name
+    end
+    new_key_name
   end
 
   def create_keys_automatically(keys, private_key_file)
@@ -990,18 +1073,26 @@ end
 
 # Functions for setup
 class ForjCoreProcess
+  # Import the keypair base files setup by user in forj keypair files.
+  #
+  # This function is can be executed only if we copy files to internal
+  # forj keypair storage. Otherwise this update is ignored.
   def save_sequences(private_key_file, forj_private_key_file,
                      public_key_file, forj_public_key_file, key_name
   )
     PrcLib.info('Importing key pair to FORJ keypairs list.')
+
     FileUtils.copy(private_key_file, forj_private_key_file)
     FileUtils.copy(public_key_file, forj_public_key_file)
     # Attaching this keypair to the account
     config.set(:keypair_name, key_name, :name => 'account')
-    config.set(:keypair_path, forj_private_key_file, :name => 'account')
-    config.local_set(key_name.to_s, private_key_file, :imported_keys)
+    config.local_set(key_name.to_sym, private_key_file, :imported_keys)
   end
 
+  # Update the forj keypair base files copy from the original base files.
+  #
+  # This function is can be executed only if we copy files to internal
+  # forj keypair storage. Otherwise this update is ignored.
   def save_md5(private_key_file, forj_private_key_file,
                public_key_file, forj_public_key_file
   )
@@ -1029,9 +1120,9 @@ end
 
 # Functions for setup
 class ForjCoreProcess
-  def save_internal_key(forj_private_key_file, keys)
+  def save_internal_key(keys)
     # Saving internal copy of private key file for forj use.
-    config.set(:keypair_path, forj_private_key_file, :name => 'account')
+    config.set(:keypair_base, keys[:keypair_name], :name => 'account')
     PrcLib.info("Configured forj keypair '%s' with '%s'",
                 keys[:keypair_name],
                 File.join(keys[:keypair_path], keys[:key_basename])
@@ -1039,19 +1130,23 @@ class ForjCoreProcess
   end
 
   # keypair_files post setup
+  #
+  # This function will get the keypair_files setup by user and it will:
+  #
+  # * split it in path and base.
+  # * Fix existing config about path&base (update_keypair_config)
+  # * save it in account file respectively as :keypair_path and :keypair_base
+  # * In case keypair already exist, check if imported files is identical.
+  # * Create SSH keys if missing (ssh-keygen - create_keys_automatically)
+  # * exit if :keypair_change is not set to the internal forj dir.
+  # * For new keys, copy new files and keep the original files import place.
+  # * For existing keys, update them from their original places (imported from)
+  # * done
   def forj_setup_keypairs_files
-    # Getting Account keypair information
-    key_name = config[:keypair_name]
-    key_path = File.expand_path(config[:keypair_files])
+    # Update config with keypair_base and keypair_path - forj 1.0.8
+    update_keypair_config
 
-    keys_imported = nil
-    keys_imported = keypair_detect(
-      key_name,
-      config.local_get(key_name, :imported_keys)
-    ) if config.local_exist?(key_name, :imported_keys)
-    keys = keypair_detect(key_name, key_path)
-
-    keys = duplicate_keyname?(keys_imported, keys, key_name)
+    keys = check_setup_keypair
 
     private_key_file = File.join(keys[:keypair_path], keys[:private_key_name])
     public_key_file = File.join(keys[:keypair_path], keys[:public_key_name])
@@ -1059,25 +1154,57 @@ class ForjCoreProcess
     # Creation sequences
     create_keys_automatically(keys, private_key_file)
 
+    if Forj.keypairs_path != config[:keypair_path]
+      # Do not save in a config keypair_path not managed by forj.
+      save_internal_key(keys)
+      return true
+    end
+
     forj_private_key_file = File.join(Forj.keypairs_path, key_name)
     forj_public_key_file = File.join(Forj.keypairs_path, key_name + '.pub')
 
     # Saving sequences
-    if keys[:keypair_path] != Forj.keypairs_path
-      if !File.exist?(forj_private_key_file) ||
-         !File.exist?(forj_public_key_file)
-        save_sequences(private_key_file, forj_private_key_file,
-                       public_key_file, forj_public_key_file, key_name
-        )
-      else
-        save_md5(private_key_file, forj_private_key_file,
-                 public_key_file, forj_public_key_file
-        )
-      end
+    if !File.exist?(forj_private_key_file) || !File.exist?(forj_public_key_file)
+      save_sequences(private_key_file, forj_private_key_file,
+                     public_key_file, forj_public_key_file, key_name)
+    else
+      save_md5(private_key_file, forj_private_key_file,
+               public_key_file, forj_public_key_file)
     end
 
-    save_internal_key(forj_private_key_file, keys)
-    true # forj_setup_keypairs_files successfull
+    save_internal_key(keys)
+    true # forj_setup_keypairs_files successful
+  end
+
+  def check_setup_keypair
+    key_name = config[:keypair_name]
+    setup_keypair_path = File.expand_path(File.dirname(config[:keypair_files]))
+    setup_keypair_base = File.basename(config[:keypair_files])
+
+    setup_keys = keypair_detect(key_name, setup_keypair_path,
+                                setup_keypair_base)
+
+    # Request different keypair_name, if exist and already imported from another
+    # :keypair_files
+    if config[:keypair_path] == Forj.keypairs_path
+      check_about_imported_key(setup_keys, key_name)
+    else
+      setup_keys
+    end
+  end
+
+  def update_keypair_config
+    %w(local account).each do |config_name|
+      next if config.exist?(:keypair_base, :names => [config_name])
+
+      keypair_path = config.get(:keypair_path, nil, :name => config_name)
+
+      options = { :name => config_name }
+      options.merge!(:section => :default) if config_name == 'local'
+
+      config.set(:keypair_base, File.basename(keypair_path), options)
+      config.set(:keypair_path, File.dirname(keypair_path), options)
+    end
   end
 
   def forj_dns_settings

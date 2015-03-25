@@ -130,7 +130,10 @@
       :after:              :keypair_name
       :post_step_function: :forj_setup_keypairs_files
     :keypair_path:
-      :desc:               "Forj internal copy of private and public key pair files "
+      :desc:               "Contains the full path to the :keypair_base."
+      :default_value:      "<%= Forj.keypairs_path %>"
+    :keypair_base:
+      :desc:               "Contains the key file base name without .pem/.pub."
     :keypair_name:
       :desc:               "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
       :required:           true
