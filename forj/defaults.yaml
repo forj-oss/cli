@@ -128,6 +128,7 @@
       :account:            true
       :ask_step:           2
       :after:              :keypair_name
+      :pre_step_function:  :forj_cloud_keypair_coherent?
       :post_step_function: :forj_setup_keypairs_files
     :keypair_path:
       :desc:               "Contains the full path to the :keypair_base."
@@ -140,6 +141,7 @@
       :default_value:      "forj"
       :account:            true
       :ask_step:           2
+      :post_step_function: :forj_check_cloud_keypair
     :auth_uri:
       :desc:               "Generic service auth url"
       :account_exclusive:  true

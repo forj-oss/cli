@@ -1210,7 +1210,6 @@ class ForjCoreProcess
 
       options = { :name => config_name }
       options.merge!(:section => :default) if config_name == 'local'
-
       config.set(:keypair_base, File.basename(keypair_path), options)
       config.set(:keypair_path, File.dirname(keypair_path), options)
     end
@@ -1238,7 +1237,7 @@ class ForjCoreProcess
     # Return true to ask the question. false otherwise
     unless config.get(:provider) == 'hpcloud'
       PrcLib.high_level_msg("maestro running under '%s' provider currently do "\
-                            "support DNS setting.\n")
+                            "support DNS setting.\n", config.get(:provider))
       config[:dns_settings] = false
       return false # Do not ask
     end
@@ -1268,6 +1267,45 @@ class ForjCoreProcess
       PrcLib.error("Unable to find the tenant Name for '%s' ID.", tenant_id)
     end
     @oConfig.set('tenants', tenants)
+  end
+end
+
+# Functions for setup
+class ForjCoreProcess
+  # post process after asking keypair name
+  # return true    go to next step
+  # return false   go back to ask keypair name again
+  def forj_check_cloud_keypair
+    key_name = config[:keypair_name]
+    return true if key_name.nil?
+    config[:key_cloud_coherence] = false
+    cloud_key = process_get(:keypairs, key_name)
+    if !cloud_key.empty?
+      if cloud_key[:coherent]
+        config[:key_cloud_coherence] = true
+        return true
+      end
+    else
+      return true
+    end
+    keypair_display(cloud_key)
+    s_ask = 'Do you still want to create new key?'
+    PrcLib.fatal(1, 'This keypair name cannot be used. ' \
+                    'You may check keypair_path setting ' \
+                    'in your account.') unless agree(s_ask)
+    false
+  end
+
+  # pre process before asking keypair files
+  # return true  continue to ask keypair files
+  # return false skip asking keypair files
+  def forj_cloud_keypair_coherent?(_keypair_files)
+    if config[:key_cloud_coherence]
+      PrcLib.message('Your local ssh keypair is detected ' \
+                     'and valid to access the box.')
+      return false
+    end
+    true
   end
 end
 
