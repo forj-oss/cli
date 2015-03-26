@@ -107,4 +107,5 @@ class Lorj::BaseDefinition
   obj_needs :CloudObject,  :public_ip,        :for => [:create_e]
   obj_needs :CloudObject,  :keypairs,         :for => [:create_e]
   obj_needs :data,         :blueprint
+  obj_needs :data,         :forge_server,     :for => [:delete_e]
 end

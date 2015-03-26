@@ -33,6 +33,7 @@ class ForjCoreProcess
   def build_forge(sObjectType, hParams)
     o_forge = forge_get_or_create(sObjectType, hParams)
 
+    # Refresh full data on the server found or created.
     server = controller_get(:server, o_forge[:servers, 'maestro'][:id])
     o_forge[:servers, 'maestro'] = server
 
@@ -65,7 +66,8 @@ class ForjCoreProcess
     o_forge = process_get(sObjectType, config[:instance_name])
     if o_forge.empty? || o_forge[:servers].length == 0
       PrcLib.high_level_msg("\nBuilding your forge...\n")
-      o_forge[:servers, 'maestro'] = process_create(:internet_server)
+      process_create(:internet_server)
+      o_forge[:servers, 'maestro'] = hParams.refresh[:server]
     else
       o_forge = load_existing_forge(o_forge, hParams)
     end
@@ -86,7 +88,6 @@ class ForjCoreProcess
         " Building Maestro...\n")
       process_create(:internet_server)
       o_forge[:servers, 'maestro'] = hParams.refresh[:server]
-      o_forge[:public_ips, 'maestro'] = hParams[:public_ip]
 
       PrcLib.high_level_msg("\nBuilding your forge...\n")
     end
@@ -1285,14 +1286,14 @@ class ForjCoreProcess
   def delete_forge(_sCloudObj, hParams)
     PrcLib.state('Destroying server(s) of your forge')
 
-    forge_serverid = config.get(:forge_server)
+    forge_serverid = hParams[:forge_server]
 
     o_forge = hParams[:forge]
 
     o_forge[:servers].each do|_type, server|
       next if forge_serverid && forge_serverid != server[:id]
       register(server)
-      PrcLib.state("Destroying server '%s'", server[:name])
+      PrcLib.state("Destroying server '%s - %s'", server[:name], server[:id])
       process_delete(:server)
     end
     if forge_serverid.nil?
