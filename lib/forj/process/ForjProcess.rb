@@ -31,17 +31,18 @@ INFRA_VERSION = '0.0.37'
 # Functions for boot - build_forge
 class ForjCoreProcess
   def build_forge(sObjectType, hParams)
-    forge_exist?(sObjectType)
+    o_forge = forge_get_or_create(sObjectType, hParams)
 
-    o_server = hParams.refresh[:server, :ObjectData]
+    server = controller_get(:server, o_forge[:servers, 'maestro'][:id])
+    o_forge[:servers, 'maestro'] = server
 
-    boot_options = boot_keypairs(hParams)
+    boot_options = boot_keypairs(server)
 
     # Define the log lines to get and test.
     config.set(:log_lines, 5)
 
     PrcLib.info("Maestro server '%s' id is '%s'.",
-                o_server[:name], o_server[:id])
+                server[:name], server[:id])
     # Waiting for server to come online before assigning a public IP.
 
     s_status = :checking
@@ -49,11 +50,10 @@ class ForjCoreProcess
 
     o_address = hParams.refresh[:public_ip, :ObjectData]
 
-    s_status = active_server?(o_server, o_address, boot_options[:keys],
-                              boot_options[:coherent], s_status
-    )
+    s_status = active_server?(server, o_address, boot_options[:keys],
+                              boot_options[:coherent], s_status)
 
-    till_server_active(s_status, o_server, o_address, boot_options)
+    till_server_active(s_status, server, o_address, boot_options)
 
     o_forge = get_forge(sObjectType, config[:instance_name], hParams)
 
@@ -61,36 +61,36 @@ class ForjCoreProcess
     o_forge
   end
 
-  def forge_exist?(sObjectType)
+  def forge_get_or_create(sObjectType, hParams)
     o_forge = process_get(sObjectType, config[:instance_name])
     if o_forge.empty? || o_forge[:servers].length == 0
       PrcLib.high_level_msg("\nBuilding your forge...\n")
-      process_create(:internet_server)
+      o_forge[:servers, 'maestro'] = process_create(:internet_server)
     else
-      load_existing_forge(o_forge)
+      o_forge = load_existing_forge(o_forge, hParams)
     end
+    o_forge
   end
 
-  def load_existing_forge(o_forge)
-    o_forge[:servers].each do |oServerToFind|
-      if /^maestro\./ =~ oServerToFind[:name]
-        process_get(:server, oServerToFind[:id])
-      end
-    end
+  def load_existing_forge(o_forge, hParams)
     PrcLib.high_level_msg("\nChecking your forge...\n")
 
-    o_server = data_objects(:server, :ObjectData)
+    o_server = o_forge[:servers, 'maestro']
     if o_server
-      o_ip = process_query(:public_ip, :server_id => o_server[:id])
-      register o_ip[0] if o_ip.length > 0
-      process_create(:keypairs)
+      query = { :server_id => o_server[:id] }
+      register(o_server)
+      o_ip = process_query(:public_ip, query)
+      register(o_ip[0]) if o_ip.length > 0
     else
       PrcLib.high_level_msg("\nYour forge exist, without maestro." \
         " Building Maestro...\n")
       process_create(:internet_server)
+      o_forge[:servers, 'maestro'] = hParams.refresh[:server]
+      o_forge[:public_ips, 'maestro'] = hParams[:public_ip]
 
       PrcLib.high_level_msg("\nBuilding your forge...\n")
     end
+    o_forge
   end
 end
 
@@ -1255,7 +1255,7 @@ end
 class ForjCoreProcess
   def get_forge(sCloudObj, sForgeId, _hParams)
     s_query = {}
-    h_servers = []
+    servers = {}
     s_query[:name] = sForgeId
 
     o_servers = process_query(:server, s_query)
@@ -1263,14 +1263,18 @@ class ForjCoreProcess
     regex =  Regexp.new(format('\.%s$', sForgeId))
 
     o_servers.each do |o_server|
-      o_name = o_server[:name]
-      h_servers << o_server if regex =~ o_name
+      name = o_server[:name]
+      next unless regex =~ name
+
+      type = name.clone
+      type['.' + sForgeId] = ''
+      servers[type] = o_server
     end
     PrcLib.info('%s server(s) were found under instance name %s ',
-                h_servers.count, s_query[:name])
+                servers.count, s_query[:name])
 
-    o_forge = register(h_servers, sCloudObj)
-    o_forge[:servers] = h_servers
+    o_forge = register({}, sCloudObj)
+    o_forge[:servers] = servers
     o_forge[:name] = sForgeId
     o_forge
   end
@@ -1285,7 +1289,7 @@ class ForjCoreProcess
 
     o_forge = hParams[:forge]
 
-    o_forge[:servers].each do|server|
+    o_forge[:servers].each do|_type, server|
       next if forge_serverid && forge_serverid != server[:id]
       register(server)
       PrcLib.state("Destroying server '%s'", server[:name])
@@ -1305,17 +1309,10 @@ end
 class ForjCoreProcess
   def ssh_connection(sObjectType, hParams)
     o_forge = hParams[:forge]
-    o_server = nil
-
-    o_forge[:servers].each do|server|
-      next if hParams[:forge_server] != server[:id]
-      o_server = server
-      break
-    end
 
     # Get server information
     PrcLib.state('Getting server information')
-    o_server = process_get(:server, o_server[:id])
+    o_server = o_forge[:servers, hParams[:forge_server]]
     register(o_server)
 
     public_ip = ssh_server_public_ip(o_server)
