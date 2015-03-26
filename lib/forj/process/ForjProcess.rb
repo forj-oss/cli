@@ -551,14 +551,15 @@ class ForjCoreProcess
       'PUPPET_DEBUG' => 'True',
       'image_name' => hParams[:image_name],
       'key_name' => hParams[:keypair_name],
-      'hpcloud_priv' => Base64.strict_encode64(
-        hpcloud_priv
-        ).gsub('=', '') # Remove pad
+      # Remove pad
+      'hpcloud_priv' => Base64.strict_encode64(hpcloud_priv).gsub('=', ''),
+      'compute_os_auth_url' => hParams[:auth_uri]
     }
 
     if hParams[:dns_service]
       h_meta['dns_zone'] = hParams[:dns_service]
       h_meta['dns_tenantid'] = hParams[:dns_tenant_id]
+      h_meta['dns_auth_url'] = hParams[:auth_uri]
     end
     # If requested by user, ask Maestro to instantiate a blueprint.
     h_meta['blueprint'] = hParams[:blueprint] if hParams[:blueprint]
@@ -919,14 +920,21 @@ class ForjCoreProcess
     cmd = format(
       "%s '%s' '%s' '%s' '%s' '%s' '%s' '%s'",
       bootstrap, # script
-      PrcLib.data_path, # $1 = Forj data base dir
+      # $1 = Forj data base dir
+      PrcLib.data_path,
       # $2 = Maestro repository dir
       hParams[:maestro_repository, :maestro_repo],
-      config[:bootstrap_dirs], # $3 = Bootstrap directories
-      config[:bootstrap_extra_dir], # $4 = Bootstrap extra directory
-      meta_data,  # $5 = meta_data (string)
-      mime_cmd, # $6: mime script file to execute.
-      mime # $7: mime file generated.
+      # $3 = Bootstrap directories
+      hParams[:infra_repository, :infra_repo] + ' ' +
+      config.get(:bootstrap_dirs, ''),
+      # $4 = Bootstrap extra directory
+      config[:bootstrap_extra_dir],
+      # $5 = meta_data (string)
+      meta_data,
+      # $6: mime script file to execute.
+      mime_cmd,
+      # $7: mime file generated.
+      mime
     )
 
     run_userdata_cmd(cmd, bootstrap, mime)
@@ -1218,9 +1226,20 @@ class ForjCoreProcess
 
   def forj_dns_settings?(sKey)
     # Return true to ask the question. false otherwise
-    unless config.get(:dns_settings)
+    unless config[:dns_settings]
       section = Lorj.data.first_section(sKey)
       config.del(sKey, :name => 'account', :section => section)
+      return false # Do not ask
+    end
+    true
+  end
+
+  def forj_dns_supported?(_sKey)
+    # Return true to ask the question. false otherwise
+    unless config.get(:provider) == 'hpcloud'
+      PrcLib.high_level_msg("maestro running under '%s' provider currently do "\
+                            "support DNS setting.\n")
+      config[:dns_settings] = false
       return false # Do not ask
     end
     true

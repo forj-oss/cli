@@ -66,6 +66,7 @@ class Lorj::BaseDefinition
   obj_needs :data,   :os_enckey
   obj_needs :data,   :account_id
   obj_needs :data,   :account_key
+  obj_needs :data,   :auth_uri
   obj_needs_optional
 
   # If requested by user, ask Maestro to manage the DNS.
