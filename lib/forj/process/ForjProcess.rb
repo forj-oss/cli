@@ -264,8 +264,8 @@ class ForjCoreProcess
                          "%s\n"\
                          "#{highlight}\n"\
                          "The server '%s' is not providing any output log for"\
-                         " more than 5 minutes.\nPlease review the current"\
-                         'output show below to determine if this a normal '\
+                         " more than 5 minutes.\nPlease review the current "\
+                         'output shown below to determine if this is a normal '\
                          "situation.\nYou can connect to the server if you "\
                          "want to.\nTo connect, use:\n"\
                          'ssh %s@%s -o StrictHostKeyChecking=no -i %s',
