@@ -469,7 +469,7 @@ class ForjCoreProcess
 
   def display_servers_with_ip(o_forge, s_msg)
     i_count = 0
-    o_forge[:servers].each do |server|
+    o_forge[:servers].each do |_type, server|
       next if /^maestro\./ =~ server[:name]
       register(server)
       o_ip = process_query(:public_ip, :server_id => server[:id])
