@@ -189,7 +189,6 @@
          :desc:               "Domain name added to each hosts."
          :account_exclusive:  true
          :account:            true
-         :pre_step_function:  :forj_dns_supported?
          :post_step_function: :forj_dns_settings
          :ask_step:           3
       :dns_service:

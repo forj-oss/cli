@@ -1227,10 +1227,14 @@ class ForjCoreProcess
   end
 
   def forj_dns_settings
+    config[:dns_settings] = false
+
+    return true unless forj_dns_supported?
+
     s_ask = 'Optionally, you can ask Maestro to use/manage a domain name on' \
       " your cloud. It requires your DNS cloud service to be enabled.\nDo" \
       ' you want to configure it?'
-    config.set(:dns_settings, agree(s_ask))
+    config[:dns_settings] = agree(s_ask)
     true
   end
 
@@ -1244,17 +1248,19 @@ class ForjCoreProcess
     true
   end
 
-  def forj_dns_supported?(_sKey)
-    # Return true to ask the question. false otherwise
-    unless config.get(:provider) == 'hpcloud'
-      PrcLib.high_level_msg("maestro running under '%s' provider currently do "\
-                            "support DNS setting.\n", config.get(:provider))
+  def forj_dns_supported?
+    unless config[:provider] == 'hpcloud'
+      PrcLib.message("maestro running under '%s' provider currently do "\
+                     "support DNS setting.\n", config.get(:provider))
       config[:dns_settings] = false
       return false # Do not ask
     end
     true
   end
+end
 
+# Functions for setup
+class ForjCoreProcess
   def setup_tenant_name
     # TODO: To re-introduce with a Controller call instead.
     o_ssl_error = SSLErrorMgt.new # Retry object
@@ -1279,10 +1285,7 @@ class ForjCoreProcess
     end
     @oConfig.set('tenants', tenants)
   end
-end
 
-# Functions for setup
-class ForjCoreProcess
   # post process after asking keypair name
   # return true    go to next step
   # return false   go back to ask keypair name again
