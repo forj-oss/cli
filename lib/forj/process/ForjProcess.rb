@@ -1218,6 +1218,8 @@ class ForjCoreProcess
 
       keypair_path = config.get(:keypair_path, nil, :name => config_name)
 
+      next if keypair_path.nil?
+
       options = { :name => config_name }
       options.merge!(:section => :default) if config_name == 'local'
       config.set(:keypair_base, File.basename(keypair_path), options)
