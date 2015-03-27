@@ -387,6 +387,7 @@ Several data will be requested like:
     o_cloud = Forj::CloudConnection.connect(account)
     o_cloud.setup(:forge, sAccountName)
     o_cloud.config.ac_save
+    PrcLib.high_level_msg("\nAccount %s '%s' saved.\n", sProvider, sAccountName)
   end
 end
 
