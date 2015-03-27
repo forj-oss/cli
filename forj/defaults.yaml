@@ -141,6 +141,7 @@
       :default_value:      "forj"
       :account:            true
       :ask_step:           2
+      :pre_step_function:  :update_keypair_config
       :post_step_function: :forj_check_cloud_keypair
     :auth_uri:
       :desc:               "Generic service auth url"

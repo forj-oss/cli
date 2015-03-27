@@ -31,6 +31,9 @@ INFRA_VERSION = '0.0.37'
 # Functions for boot - build_forge
 class ForjCoreProcess
   def build_forge(sObjectType, hParams)
+    # TODO: To be replaced by a migration task at install phase.
+    update_keypair_config
+
     o_forge = forge_get_or_create(sObjectType, hParams)
 
     # Refresh full data on the server found or created.
@@ -1142,9 +1145,6 @@ class ForjCoreProcess
   #
   # This function will get the keypair_files setup by user and it will:
   #
-  # * split it in path and base.
-  # * Fix existing config about path&base (update_keypair_config)
-  # * save it in account file respectively as :keypair_path and :keypair_base
   # * In case keypair already exist, check if imported files is identical.
   # * Create SSH keys if missing (ssh-keygen - create_keys_automatically)
   # * exit if :keypair_change is not set to the internal forj dir.
@@ -1152,9 +1152,6 @@ class ForjCoreProcess
   # * For existing keys, update them from their original places (imported from)
   # * done
   def forj_setup_keypairs_files
-    # Update config with keypair_base and keypair_path - forj 1.0.8
-    update_keypair_config
-
     keys = check_setup_keypair
 
     private_key_file = File.join(keys[:keypair_path], keys[:private_key_name])
@@ -1169,13 +1166,14 @@ class ForjCoreProcess
       return true
     end
 
-    forj_private_key_file = File.join(Forj.keypairs_path, key_name)
-    forj_public_key_file = File.join(Forj.keypairs_path, key_name + '.pub')
+    forj_private_key_file = File.join(Forj.keypairs_path, keys[:keypair_name])
+    forj_public_key_file = File.join(Forj.keypairs_path,
+                                     keys[:keypair_name] + '.pub')
 
     # Saving sequences
     if !File.exist?(forj_private_key_file) || !File.exist?(forj_public_key_file)
       save_sequences(private_key_file, forj_private_key_file,
-                     public_key_file, forj_public_key_file, key_name)
+                     public_key_file, forj_public_key_file, keys[:keypair_name])
     else
       save_md5(private_key_file, forj_private_key_file,
                public_key_file, forj_public_key_file)
@@ -1202,7 +1200,19 @@ class ForjCoreProcess
     end
   end
 
-  def update_keypair_config
+  # TODO: Change this by a migration function called at install time.
+
+  # Function to convert unclear data structure keypair_path, splitted.
+  # Update config with keypair_base and keypair_path - forj 1.0.8
+  #
+  # * split it in path and base.
+  # * Fix existing config about path&base (update_keypair_config)
+  # * save it in account file respectively as :keypair_path and :keypair_base
+  #
+  # Used in keypair_name pre-step at setup time.
+  # return true to not skip the data.
+  #
+  def update_keypair_config(_ = nil)
     %w(local account).each do |config_name|
       next if config.exist?(:keypair_base, :names => [config_name])
 
@@ -1213,6 +1223,7 @@ class ForjCoreProcess
       config.set(:keypair_base, File.basename(keypair_path), options)
       config.set(:keypair_path, File.dirname(keypair_path), options)
     end
+    true
   end
 
   def forj_dns_settings
