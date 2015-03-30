@@ -80,8 +80,8 @@ module Forj
             ((s_default.nil?) ? '' : format(
               'Default: ' + "|%s|\n", s_default
             ))
-          )
       )
+         )
       value = choose do |q|
         q.choices(*server_list)
         q.default = s_default unless s_default.nil?

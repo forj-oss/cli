@@ -25,7 +25,7 @@ class Lorj::BaseDefinition
   define_obj(:ssh,
 
              :create_e => :ssh_connection
-             )
+            )
   obj_needs :CloudObject,  :forge
   obj_needs :data,         :instance_name
   obj_needs :data,         :keypair_name

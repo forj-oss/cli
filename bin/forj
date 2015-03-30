@@ -131,16 +131,15 @@ If you want to check/updated them, use `forj get [-a account]`
   method_option :maestro_flavor,   :aliases => '-f',   :desc => 'config:' \
     ' flavor        : Maestro flavor to use.'
   method_option :bp_flavor,        :aliases => '-b',   :desc => 'config:' \
-    ' bp_flavor     : Blueprint nodes default flavor to use.'       \
-    + "\n\n" + ' Build system options:'
+    ' bp_flavor     : Blueprint nodes default flavor to use.'\
+    "\n\n Build system options:"
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, ' \
     ' boothook file used is build/bin/build-tools/boothook.sh. '         \
     ' Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace' \
     ' the default build.sh'
   method_option :branch,           :aliases => '-R',   :desc => 'Branch' \
-    'name to clone for maestro.' \
-    + "\n\n" + 'Maestro/infra bootstrap debugging:'
+    "name to clone for maestro.\n\nMaestro/infra bootstrap debugging:"
   method_option :test_box,         :aliases => '-T',   :desc => 'Identify a' \
     ' path to become your test-box repository.' \
     "\n                                            " \
@@ -397,6 +396,7 @@ Several data will be requested like:
     o_cloud = Forj::CloudConnection.connect(account)
     o_cloud.setup(:forge, sAccountName)
     o_cloud.config.ac_save
+    o_cloud.config.save_local_config
     PrcLib.high_level_msg("\nAccount %s '%s' saved.\n", sProvider, sAccountName)
   end
 end

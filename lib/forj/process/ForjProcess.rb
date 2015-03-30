@@ -154,7 +154,7 @@ class ForjCoreProcess
 
   def active_server?(o_server, o_address, private_key_file,
                      keypair_coherent, s_status
-  )
+                    )
     if o_server[:attrs][:status] == :active
       image = server_get_image o_server
 
@@ -342,7 +342,7 @@ done
     END
     s_msg = format(s_msg, o_server[:name], image[:ssh_user],
                    o_address[:public_ip], boot_options[:keys]
-    )
+                  )
     unless boot_options[:coherent]
       s_msg += ANSI.bold("\nUnfortunatelly") + " your current keypair' \
             ' is not usable to connect to your server.\nYou need to fix'   \
@@ -496,7 +496,7 @@ class ForjCoreProcess
         :salt => Time.now.to_i.to_s,
         :iv => Base64.strict_encode64(
           OpenSSL::Cipher::Cipher.new('aes-256-cbc').random_iv
-          )
+        )
       }
 
       PrcLib.debug("Writing '%s' key file", key_file)
@@ -1091,7 +1091,7 @@ class ForjCoreProcess
   # forj keypair storage. Otherwise this update is ignored.
   def save_sequences(private_key_file, forj_private_key_file,
                      public_key_file, forj_public_key_file, key_name
-  )
+                    )
     PrcLib.info('Importing key pair to FORJ keypairs list.')
 
     FileUtils.copy(private_key_file, forj_private_key_file)
@@ -1107,7 +1107,7 @@ class ForjCoreProcess
   # forj keypair storage. Otherwise this update is ignored.
   def save_md5(private_key_file, forj_private_key_file,
                public_key_file, forj_public_key_file
-  )
+              )
     # Checking source/dest files content
     if Digest::MD5.file(private_key_file).hexdigest !=
        Digest::MD5.file(forj_private_key_file).hexdigest
@@ -1138,7 +1138,7 @@ class ForjCoreProcess
     PrcLib.info("Configured forj keypair '%s' with '%s'",
                 keys[:keypair_name],
                 File.join(keys[:keypair_path], keys[:key_basename])
-                )
+               )
   end
 
   # keypair_files post setup
@@ -1296,6 +1296,7 @@ class ForjCoreProcess
     return true if key_name.nil?
     config[:key_cloud_coherence] = false
     cloud_key = process_get(:keypairs, key_name)
+    register(cloud_key)
     if !cloud_key.empty?
       if cloud_key[:coherent]
         config[:key_cloud_coherence] = true
@@ -1305,10 +1306,15 @@ class ForjCoreProcess
       return true
     end
     keypair_display(cloud_key)
-    s_ask = 'Do you still want to create new key?'
-    PrcLib.fatal(1, 'This keypair name cannot be used. ' \
-                    'You may check keypair_path setting ' \
-                    'in your account.') unless agree(s_ask)
+
+    return true unless cloud_key[:public_key_exist?]
+
+    PrcLib.message("You need to create a new keypair instead of '%s'"\
+                   'or quit the setup to get the original key and retry.',
+                   key_name)
+    s_ask = 'Do you want to create new keypair?'
+
+    PrcLib.fatal(1, 'Quitting setup per your request.') unless agree(s_ask)
     false
   end
 
@@ -1316,11 +1322,24 @@ class ForjCoreProcess
   # return true  continue to ask keypair files
   # return false skip asking keypair files
   def forj_cloud_keypair_coherent?(_keypair_files)
+    return true unless config.exist?(:key_cloud_coherence)
+
+    keypair = data_objects(:keypairs)
+
+    return true unless keypair.nil? || keypair[:private_key_exist?]
+
     if config[:key_cloud_coherence]
       PrcLib.message('Your local ssh keypair is detected ' \
                      'and valid to access the box.')
       return false
     end
+    match = ANSI.bold(format('matching %s keypair name previously set',
+                             ANSI.red(config[:keypair_name])))
+    desc = 'the base keypair file name (with absolute path) ' + match
+
+    Lorj.data.set(:sections, :credentials, :keypair_files,
+                  { :desc => desc }, 'setup')
+
     true
   end
 end

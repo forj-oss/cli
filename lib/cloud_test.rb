@@ -56,7 +56,7 @@ If you already have an existing infra workspace,
 Otherwise, we will build a new one with some predefined data,
  you can review and update later.
    END
-  )
+                 )
   s_ask = format(
     'Do you want to create a new one from Maestro (yes/no)?',
     infra_dir
@@ -90,11 +90,9 @@ server_id_length = 0
 server_name_length = 0
 
 o_forge[:server].each do |server|
-  if server[:id].length >  server_id_length
-    server_id_length = server[:id].length
-  end
+  server_id_length = server[:id].length if server[:id].length > server_id_length
 
-  if server[:name].length >  server_name_length
+  if server[:name].length > server_name_length
     server_name_length = server[:name].length
   end
 end
@@ -106,7 +104,7 @@ puts format(
   'Index '.ljust(6),
   'Name'.ljust(server_name_length),
   'ID'.ljust(server_id_length)
-     )
+)
 # Display Forge servers detail
 o_forge[:server].each do |server|
   puts format(
@@ -114,7 +112,7 @@ o_forge[:server].each do |server|
     server_index.to_s.ljust(6),
     server[:name].to_s.ljust(server_name_length),
     server[:id].to_s.ljust(server_id_length)
-       )
+  )
   server_index += 1
 end
 

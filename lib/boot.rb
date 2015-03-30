@@ -29,7 +29,7 @@ module Forj
     def self.deprecated_name?(blueprint, on_or_name,
         old_accountname, as,
         old_name
-    )
+                             )
       # depreciated: <BluePrint> on <AccountName> as <InstanceName>
       if old_accountname && as && old_name
         msg = format(

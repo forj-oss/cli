@@ -135,6 +135,7 @@
       :default_value:      "<%= Forj.keypairs_path %>"
     :keypair_base:
       :desc:               "Contains the key file base name without .pem/.pub."
+      :default_value:      "<%= config[:keypair_name] %>"
     :keypair_name:
       :desc:               "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
       :required:           true

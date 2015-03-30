@@ -48,12 +48,12 @@ module Forj
       puts format(
         "List of account settings for provider '%s': ",
         config.get(:provider)
-           )
+      )
       puts format(
         "%-15s %-12s :\n------------------------------",
         'key',
         'section name'
-           )
+      )
 
       config.meta_each do |section, found_key, hValue|
         next if hValue.rh_get(:readonly)
@@ -63,11 +63,11 @@ module Forj
       puts format(
         "\nUse `forj set KeyName=Value -a %s` to set one.",
         [account_name]
-           )
+      )
       puts format(
         'Use `forj get -a %s`               to check current values.',
         account_name
-           )
+      )
     end
 
     def self.config_show_all
@@ -77,7 +77,7 @@ module Forj
         "%-15s %-12s :\n------------------------------",
         'key',
         'section name'
-           )
+      )
       config.meta_each do |section, found_key, hValue|
         next if hValue.rh_get(:readonly)
         s_desc = hValue.rh_get(:desc)
@@ -170,7 +170,7 @@ module Forj
           full_key,
           s_bef,
           ANSI.bold + s_aft + ANSI.clear
-             )
+        )
       end
       config.ac_save if b_dirty
     end
@@ -284,7 +284,7 @@ module Forj
             s_upd_msg,
             mykey,
             section
-               )
+          )
         end
       end
     end
@@ -306,7 +306,7 @@ module Forj
           '--------------', 'U',
         'key', 'origin',
         'section name'
-           )
+      )
 
       get_account_values(oConfig, account_name)
 
@@ -315,12 +315,12 @@ module Forj
       puts format(
         'Use `forj set <key>=<value> -a %s` to update account data.',
         account_name
-           )
+      )
       puts format(
         'Or  `forj set <key>= -a %s`        '\
           'to restore key default value.',
         account_name
-           )
+      )
     end
 
     def self.config_get_all(oConfig)
@@ -331,7 +331,7 @@ module Forj
           '-----', 'U',
         '''key', 'origin',
         'section name'
-           )
+      )
 
       oConfig.meta_each do |section, found_key, hValue|
         s_upd_msg = '+'
@@ -352,14 +352,14 @@ module Forj
             ANSI.clear,
             section,
             oConfig.get(found_key)
-               )
+          )
         else
           puts format(
             '%s %-19s(       ) %-12s: unset',
             s_upd_msg,
             found_key,
             section
-               )
+          )
         end
       end
       puts "\nUse 'forj set <key>=<value>' to update defaults on values" \
@@ -377,14 +377,14 @@ module Forj
           "%s: '%s'",
           oConfig.where?(key)[0],
           oConfig.get(key)
-             )
+        )
       elsif oConfig.where?(key.parameterize.underscore.to_sym)
         key_symb = key.parameterize.underscore.to_sym
         puts format(
           "%s: '%s'",
           oConfig.where?(key_symb)[0],
           oConfig.get(key_symb)
-             )
+        )
       else
         PrcLib.message("key '%s' not found", key)
       end
