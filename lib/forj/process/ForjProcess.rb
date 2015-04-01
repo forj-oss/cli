@@ -1214,8 +1214,7 @@ class ForjCoreProcess
   #
   def update_keypair_config(_ = nil)
     %w(local account).each do |config_name|
-      next if config.exist?(:keypair_base, :names => [config_name])
-
+      next if config.version(config_name) == Forj.file_version
       keypair_path = config.get(:keypair_path, nil, :name => config_name)
 
       next if keypair_path.nil?
@@ -1224,6 +1223,7 @@ class ForjCoreProcess
       options.merge!(:section => :default) if config_name == 'local'
       config.set(:keypair_base, File.basename(keypair_path), options)
       config.set(:keypair_path, File.dirname(keypair_path), options)
+      config.version_set(config_name, Forj.file_version)
     end
     true
   end

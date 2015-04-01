@@ -34,6 +34,7 @@ PrcLib.pdata_path = File.expand_path(File.join('~', '.cache', PrcLib.app_name))
 require 'appinit.rb' # Load Application settings features
 Forj.keypairs_path = File.join(PrcLib.data_path, 'keypairs')
 Forj.build_path = File.join(PrcLib.data_path, '.build')
+Forj.file_version = '1.0.0'
 
 require 'forj-settings.rb' # Settings features
 
@@ -342,6 +343,9 @@ ex: forj ssh myforge -n review
     ' create ssh connection'
   method_option :identity,       :aliases => '-i',   :desc => 'Private key' \
     ' file name.'
+  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+    ' account name to use. By default, uses the default account set in your'   \
+    ' local config file.'
 
   def ssh(oInstanceName)
     Forj::Settings.common_options(options)

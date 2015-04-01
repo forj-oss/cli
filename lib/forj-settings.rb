@@ -24,6 +24,19 @@ module Forj
         PrcLib.core_level = options[:lorj_debug].to_i
         PrcLib.level = Logger::DEBUG
       end
+      latest_version?(options[:account_name]) if options[:account_name]
+    end
+
+    def self.latest_version?(account_name)
+      config = Lorj::Account.new
+
+      config.ac_load account_name
+
+      PrcLib.fatal(1,
+                   "Your account '%s' is obsolete, use `forj setup`," \
+                   ' to update it.',
+                   account_name) \
+                   unless config.version('account') == Forj.file_version
     end
 
     def self.account_show_all(account_name)

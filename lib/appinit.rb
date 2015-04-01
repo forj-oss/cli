@@ -19,7 +19,7 @@
 #       or other kind of setting.
 module Forj
   class << self
-    attr_accessor :build_path, :keypairs_path
+    attr_accessor :build_path, :keypairs_path, :file_version
   end
 
   module_function
@@ -37,5 +37,9 @@ module Forj
   def build_path=(v)
     @build_path = File.expand_path(v) unless @build_path
     PrcLib.ensure_dir_exists(@build_path)
+  end
+
+  def file_version=(v)
+    @file_version = v unless @file_version
   end
 end
