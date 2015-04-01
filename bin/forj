@@ -192,10 +192,16 @@ queriable Objects:
         " and update with 'forj set'"
     when 'account'
       unless name
-        puts "List of FORJ accounts: Use 'forj account YourAccount' " \
-          ' to see one account details.'
         o_accounts = Lorj::Accounts.new
-        puts o_accounts.dump.to_yaml
+        accounts = o_accounts.dump
+        if accounts.length == 0
+          PrcLib.message 'No accounts found. Use forj setup [Account '\
+          '[provider]] to create your first account.'
+          return
+        end
+        PrcLib.message "List of FORJ accounts: Use 'forj account YourAccount'" \
+          ' to see one account details.'
+        puts accounts.to_yaml
         return
       end
       o_config = Lorj::Account.new
