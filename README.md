@@ -176,6 +176,23 @@ To ssh into a server
     forj ssh <name> <node>
     e.g. forj ssh maestro_01 [maestro, ci, util, review] # the nodes from your blueprint
 
+Excon and SSL Issue
+===================
+
+If you are connecting to a private cloud, you may need to provide some additional certificate data:
+
+Excon env variables:
+* SSL_CERT_DIR : path_to_certs
+* SSL_CERT_FILE: path_to_file
+
+Ex: 
+
+    export SSL_CERT_FILE=~/ca.crt
+    forj setup myAccount openstack
+
+or 
+
+    SSL_CERT_FILE=~/ca.crt forj setup myAccount openstack
 
 Contributing to Forj
 =====================
