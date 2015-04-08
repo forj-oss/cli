@@ -100,6 +100,10 @@ module Forj
       end
     end
 
+    # rubocop: disable Metrics/CyclomaticComplexity
+    # rubocop: disable Metrics/MethodLength
+
+    # Boot process
     def self.boot(blueprint, on_or_name, deprecated_name, options)
       @account = Lorj::Account.new(options[:config])
 
@@ -115,14 +119,22 @@ module Forj
 
       @account[:account_name] = options[:account_name] if options[:account_name]
 
-      @account.ac_load @account[:account_name]
+      unless @account.ac_load @account[:account_name]
+        PrcLib.fatal(1, "Account '%s' not loaded. You need to call "\
+                     '`forj setup %s [provider]` to use this account.',
+                     @account[:account_name], @account[:account_name])
+      end
 
-      options_map = { :infra => :infra_repo, :key_name => :keypair_name,
-                      :key_path => :keypair_path,
+      options_map = { :infra          => :infra_repo,
+                      :key_name       => :keypair_name,
+                      :key_path       => :keypair_path,
                       :security_group => :security_group,
-                      :image_name => :image_name, :maestro_flavor => :flavor,
-                      :bp_flavor => :bp_flavor, :maestro_repo => :maestro_repo,
-                      :branch => :branch, :test_box => :test_box,
+                      :image_name     => :image_name,
+                      :maestro_flavor => :flavor,
+                      :bp_flavor      => :bp_flavor,
+                      :maestro_repo   => :maestro_repo,
+                      :branch         => :branch,
+                      :test_box       => :test_box,
                       :extra_metadata => :extra_metadata }
 
       load_options(options, options_map) do |key, value|
