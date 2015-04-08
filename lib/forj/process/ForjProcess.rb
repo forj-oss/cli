@@ -644,14 +644,15 @@ class ForjCoreProcess
         clone_maestro_repo(maestro_url, path_maestro, config)
       end
    rescue => e
-     PrcLib.error('Error while cloning the repo from %s\n%s\n%s',
-                  maestro_url, e.message, e.backtrace.join("\n"))
-     PrcLib.info(
-       'If this error persist you could clone the repo manually in ~/.forj/'
-     )
+     PrcLib.error("Error while cloning the repo from %s\n%s\n%s"\
+                  "\nIf this error persist you could clone the repo manually"\
+                  " in '%s'",
+                  maestro_url, e.message, e.backtrace.join("\n"),
+                  h_result[:maestro_repo])
     end
     o_maestro = register(h_result, sObjectType)
     o_maestro[:maestro_repo] = h_result[:maestro_repo]
+    o_maestro[:maestro_repo_exist?] = File.directory?(h_result[:maestro_repo])
     o_maestro
   end
 end
@@ -896,7 +897,7 @@ class ForjCoreProcess
     ) unless File.exist?(mime)
   end
 
-  def build_userdata(sObjectType, hParams)
+  def build_userdata(sObjectType, hParams) # rubocop: disable Metrics/AbcSize
     # get the paths for maestro and infra repositories
     # maestro_path = hParams[:maestro_repository].values
     # infra_path = hParams[:infra_repository].values
@@ -910,6 +911,13 @@ class ForjCoreProcess
       Forj.build_path,
       format('userdata.mime.%s', rand(36**5).to_s(36))
     )
+
+    unless hParams[:maestro_repository, :maestro_repo_exist?]
+      PrcLib.fatal(1, "Maestro repository doesn't exist. This is required for "\
+                      "cloud_init user_data build. Check why '%s' "\
+                      "doesn't exist.",
+                   hParams[:maestro_repository, :maestro_repo])
+    end
 
     meta_data = JSON.generate(hParams[:metadata, :meta_data])
 
