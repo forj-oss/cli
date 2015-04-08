@@ -389,7 +389,7 @@ Several data will be requested like:
     Forj::Settings.common_options(options)
     require 'cloud_connection.rb'
 
-    account = Lorj::Account.new(options[:config])
+    account = Lorj::Account.new(options[:config], Forj.file_version)
     account.set(:provider_name, sProvider)
     account.set(:account_name, sAccountName)
 

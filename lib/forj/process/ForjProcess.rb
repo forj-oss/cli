@@ -1222,7 +1222,7 @@ class ForjCoreProcess
   #
   def update_keypair_config(_ = nil)
     %w(local account).each do |config_name|
-      next if config.version(config_name) == Forj.file_version
+      next if config.latest_version?(config_name)
       keypair_path = config.get(:keypair_path, nil, :name => config_name)
 
       next if keypair_path.nil?

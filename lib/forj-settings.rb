@@ -28,7 +28,7 @@ module Forj
     end
 
     def self.latest_version?(account_name)
-      config = Lorj::Account.new
+      config = Lorj::Account.new(nil, Forj.file_version)
 
       config.ac_load account_name
 
@@ -36,7 +36,7 @@ module Forj
                    "Your account '%s' is obsolete, use `forj setup`," \
                    ' to update it.',
                    account_name) \
-                   unless config.version('account') == Forj.file_version
+                   unless config.latest_version?('account')
     end
 
     def self.account_show_all(account_name)
