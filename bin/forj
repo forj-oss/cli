@@ -396,6 +396,11 @@ Several data will be requested like:
     o_cloud = Forj::CloudConnection.connect(account)
     o_cloud.setup(:forge, sAccountName)
     o_cloud.config.ac_save
+    unless o_cloud.config.local_exist?(:account_name)
+      PrcLib.info("Setting account '%s' as default. You can change it with "\
+                  '`forj set account_name=<new account>`', sAccountName)
+      o_cloud.config.local_set(:account_name, sAccountName)
+    end
     o_cloud.config.save_local_config
     PrcLib.high_level_msg("\nAccount %s '%s' saved.\n", sProvider, sAccountName)
   end
