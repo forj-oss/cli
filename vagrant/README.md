@@ -49,3 +49,43 @@ Example use cases:
     1. update your code under your host, on in vagrant, /srv/forj/...
     2. update the installation with sources. This will execute rubocop and rspec, before any install.
     sudo /srv/forj/vagrant/configure/install.sh
+
+# fog openstack V3 auth
+
+To use the latest openstack authentication v3 (including domain), you need to get fog 1.30 or get it from source. hphelion 1.1 uses openstack authentication V3.
+
+Currently, gem fog 1.30 doesn't exist. So, this section will explain what needs to be done to get the latest patch from github
+
+We assume vagrant is installed and working perfectly.
+
+1. clone fog, cli and lorj patches from source.
+
+    $ mkdir -p ~/tmp/src
+    $ cd ~/tmp/src
+    $ git clone https://github.com/clarsonneur/fog.git
+    $ cd fog
+    $ sed -i 's/1.29/1.30/g' fog.gemspec
+    $ cd -
+    $ git clone https://github.com/forj-oss/lorj.git
+    $ cd lorj
+    $ git fetch https://review.forj.io/forj-oss/lorj refs/changes/55/2555/4 && git cherry-pick FETCH_HEAD
+    $ cd -
+    $ git clone https://github.com/forj-oss/cli.git
+    $ cd cli
+    $ git fetch https://review.forj.io/forj-oss/cli refs/changes/47/2547/6 && git cherry-pick FETCH_HEAD
+    $ cd -
+
+2. set some tasks to execute before install forj cli
+
+    $ src="~/tmp/src/fog:bundler install ;gem build fog.gemspec ;gem install fog-1.30.0.gem"
+    $ src="$src;|~/src/cdk/forj/lorj/:bundler install ;rake install"
+    $ export src
+    $ cd ~/tmp/src/cli/vagrant/fedora # You can try ubuntu as well in ../ubuntu
+    $ vagrant up  # The box is going to be created and provisionned.
+    $ vagrant ssh # You are in!
+
+3. if needed, you can set the SSL_CERT_FILE, or SSL_CERT_PATH if you having trouble with https certificates.
+  We assume you are still in your vagrant box.
+    $ export
+
+4. Do any forj task, like forj setup, boot or destroy...
