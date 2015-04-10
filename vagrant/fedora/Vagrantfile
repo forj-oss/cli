@@ -52,6 +52,17 @@ Vagrant.configure(2) do |config|
     end
   end
 
+  src_data = {}
+  if ENV.key?('src')
+    # Support '<path1>:cmd1[;cmd2[;...]];|[path2:cmd3...]'
+    src_list = ENV['src'].split(';|')
+    src_list.each do |src|
+      src_name, cmd = src.split(':')
+      src_data[src_name] = cmd
+      config.vm.synced_folder src_name, File.join('/srv', File.basename(src_name))
+    end
+  end
+
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
   # Example for VirtualBox:
@@ -86,10 +97,15 @@ Vagrant.configure(2) do |config|
     config.proxy.no_proxy = ENV['no_proxy'] if ENV.key?('no_proxy')
   end
   priv = { privileged: true }
-  config.vm.provision "shell", priv.merge(inline: "yum install ruby-devel libxml2-devel libxslt-devel python-yaml gcc git -y")
+  config.vm.provision "shell", priv.merge(inline: "yum install ruby-devel libxml2-devel libxslt-devel python-yaml gcc git tar patch g++ -y")
   config.vm.provision "shell", inline: "gem install bundler --no-rdoc --no-ri"
   config.vm.provision "shell", inline: "gem install rake --no-rdoc --no-ri"
   config.vm.provision "shell", inline: "echo 'PATH=$PATH:/usr/local/bin' >> /etc/profile.d/local.sh"
+  src_data.each do |key, value|
+    path = File.join('/srv', File.basename(key))
+    value = "echo 'Nothing more to do in #{path}'" if value.nil?
+    config.vm.provision "shell", inline: "cd #{path} ; #{value}"
+  end
   config.vm.provision "shell", inline: "/srv/forj/vagrant/configure/install.sh"
   config.vm.provision "shell", inline: "echo \"echo 'Call sudo /srv/forj/vagrant/configure/install.sh to reinstall forj/lorj from source'\" >> ~vagrant/.bash_profile"
 end
