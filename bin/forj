@@ -58,27 +58,43 @@ Quick steps: How to create a forj?
 ----------------------------------
 
 To test a forj blueprint, you will need an account on a cloud solution.
-Currently forj cli supports only HPHelion (https://horizon.hp.com) but will
-  be expanded to support most of known clouds supported by FOG. (http://fog.io)
+Currently forj cli supports folowing providers:
+
+- openstack: openstack cloud and hp helion cloud (Fog)
+- hpcloud  : HP Public cloud (Fog)
+
+This list can be expanded to more clouds.
+
+If you want to contribute to support your cloud, check out:
+http://github.com/forj-oss/lorj_cloud
 
 1.  Setup your FORJ account.
-    `$ forj setup [AccountName] [--provider Provider]`
 
-    Ex: `forj setup MyForjAccount`. In this example:
-      You will setup 'MyForjAccount' with your HPHelion account.
-      The first time, this account will become the default one.
+    `$ forj setup`
 
-**IMPORTANT NOTE** By default, forj setup will propose you to create your forge
-  on HPHelion (provider 'hpcloud').
-If AccountName is not set, the account name will be proposed to be name
-  'hpcloud' as well!
+  This will create an account 'hpcloud' configured with 'hpcloud' provider
+
+  If you want another provider:
+
+    `$ forj setup MyAccountName openstack`
+
+  The first time you setup an account, it will become the default one.
 
 2.  Create your forge on your default account
     `$ forj boot <blueprint> <InstanceName>`
 
     Ex: `forj boot redstone MyForge`. In this example:
       Forj will create a `redstone` blueprint forge named `MyForge`,
-      using the default `MyForjAccount`.
+      using the default account.
+
+  If you want to create your forge on another cloud account, do the following:
+
+    `$ forj boot <blueprint> <InstanceName> [-a account]`
+
+    Ex: `forj boot redstone MyForge -a MyAccountName`. In this example:
+      Forj will create a `redstone` blueprint forge named `MyForge`,
+      using the 'MyAccountName' account.
+
 
 forj command line details:
 --------------------------
@@ -354,8 +370,13 @@ ex: forj ssh myforge -n review
 
     # Setting account at runtime layer
     account[:account_name] = options[:account_name] if options[:account_name]
+
     # Setting account at account layer
-    account.ac_load account[:account_name]
+    unless account.ac_load account[:account_name]
+      PrcLib.fatal(1, "Invalid account '%s'. Use `forj show account` "\
+                      'to get the list of valid accounts.',
+                   account[:account_name])
+    end
 
     account.set(:box_ssh,   options[:box_name])  if options[:box_name]
     account.set(:identity,  options[:identity]) if options[:identity]
@@ -390,11 +411,15 @@ Several data will be requested like:
     require 'cloud_connection.rb'
 
     account = Lorj::Account.new(options[:config], Forj.file_version)
-    account.set(:provider_name, sProvider)
-    account.set(:account_name, sAccountName)
+    account.ac_new(sAccountName, sProvider) unless account.ac_load(sAccountName)
 
     o_cloud = Forj::CloudConnection.connect(account)
-    o_cloud.setup(:forge, sAccountName)
+
+    PrcLib.high_level_msg("Setting up '%s' with provider '%s'\n",
+                          sAccountName, account[:provider])
+
+    o_cloud.setup(:forge)
+
     o_cloud.config.ac_save
     unless o_cloud.config.local_exist?(:account_name)
       PrcLib.info("Setting account '%s' as default. You can change it with "\

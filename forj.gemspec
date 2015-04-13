@@ -44,7 +44,6 @@ Gem::Specification.new do |s|
   s.require_paths = %w[lib]
 
   s.add_runtime_dependency 'thor', '>=0.16.0'
-  s.add_runtime_dependency 'fog', '~>1.26.0'
   s.add_runtime_dependency 'git', '>=1.2.7'
   s.add_runtime_dependency 'highline', '>= 1.6.21'
   s.add_runtime_dependency 'ansi', '>= 1.4.3'
@@ -52,11 +51,11 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'json', '1.7.5'
   s.add_runtime_dependency 'bundler'
   s.add_runtime_dependency 'nokogiri','1.5.11'
-  s.add_runtime_dependency 'lorj', '~> 1.0.9'
+  s.add_runtime_dependency 'lorj_cloud', '~> 0.1.0'
 
   s.add_development_dependency "rake", "~> 10.0"
   s.add_development_dependency "rspec", "~> 3.1.0"
-  s.add_development_dependency "rubocop", ">=0.29.0"
+  s.add_development_dependency "rubocop", ">=0.30.0"
   s.rdoc_options << '--title' << 'Lorj - The Process Controllers framework system' <<
   '--main' << 'README.md'
 end

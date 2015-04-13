@@ -15,26 +15,32 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+require 'lorj_cloud'
+
 module Forj
   # Provide cloud object
   module CloudConnection
     def self.connect(account)
       a_processes = []
 
+      provider = account[:provider]
+
       # Defines how to manage Maestro and forges
+      # Uses 'cloud' module process provided by 'lorj_cloud'
+      a_processes << { :process_module => :cloud,
+                       :controller_name => provider }
+
       # create a maestro box. Identify a forge instance, delete it,...
-      a_processes << File.join(LIB_PATH, 'forj', 'ForjCore.rb')
+      a_processes << { :process_path => File.join(LIB_PATH, 'forj',
+                                                  'ForjCore.rb') }
 
       # Defines how cli will control FORJ features
       # boot/down/ssh/...
-      a_processes << File.join(LIB_PATH, 'forj', 'ForjCli.rb')
+      a_processes << { :process_path => File.join(LIB_PATH, 'forj',
+                                                  'ForjCli.rb') }
 
       # Loading CloudCore embedding provider controller + its process.
-      o_cloud = Lorj::CloudCore.new(
-        account,
-        account[:account_name],
-        a_processes
-      )
+      o_cloud = Lorj::Core.new(account, a_processes)
 
       o_cloud
     end

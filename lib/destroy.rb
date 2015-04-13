@@ -28,8 +28,13 @@ module Forj
 
       # Setting account at runtime layer
       account[:account_name] = options[:account_name] if options[:account_name]
-      # Setting account at account layer
-      account.ac_load account[:account_name]
+
+      # Loading account at account layer
+      unless account.ac_load account[:account_name]
+        PrcLib.fatal(1, "Invalid account '%s'. Use `forj show account` "\
+                        'to get the list of valid accounts.',
+                     account[:account_name])
+      end
 
       o_cloud = Forj::CloudConnection.connect(account)
 
