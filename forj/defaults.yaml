@@ -209,7 +209,7 @@
     :tenant_name:
       :desc:            "Tenant name required by fog/openstack on gardener"
       :account:         true
-      :validate:        !ruby/regexp /^\w?[\w_-]*$/
+      :validate:        !ruby/regexp /^\w?[\w_:-]*$/
       :ask_step:        1
       :ask_sort:        0
       :default_value:   "<%= (config[:provider_name] == 'openstack')?config[:tenant]:nil %>"
