@@ -97,7 +97,7 @@ Vagrant.configure(2) do |config|
     config.proxy.no_proxy = ENV['no_proxy'] if ENV.key?('no_proxy')
   end
   priv = { privileged: true }
-  config.vm.provision "shell", priv.merge(inline: "yum install ruby-devel libxml2-devel libxslt-devel python-yaml gcc git tar patch g++ -y")
+  config.vm.provision "shell", priv.merge(inline: "yum install ruby-devel libxml2-devel libxslt-devel python-yaml gcc git tar patch gcc-c++ -y")
   config.vm.provision "shell", inline: "gem install bundler --no-rdoc --no-ri"
   config.vm.provision "shell", inline: "gem install rake --no-rdoc --no-ri"
   config.vm.provision "shell", inline: "echo 'PATH=$PATH:/usr/local/bin' >> /etc/profile.d/local.sh"
