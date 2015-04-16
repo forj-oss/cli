@@ -78,7 +78,7 @@ We assume vagrant is installed and working perfectly.
 2. set some tasks to execute before install forj cli
 
     $ src="~/tmp/src/fog:bundler install ;gem build fog.gemspec ;gem install fog-1.30.0.gem"
-    $ src="$src;|~/src/cdk/forj/lorj/:bundler install ;rake install"
+    $ src="$src;|~/tmp/src/lorj/:bundler install ;rake install"
     $ export src
     $ cd ~/tmp/src/cli/vagrant/fedora # You can try ubuntu as well in ../ubuntu
     $ vagrant up  # The box is going to be created and provisionned.
