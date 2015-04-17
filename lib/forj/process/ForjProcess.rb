@@ -57,7 +57,7 @@ class ForjCoreProcess
     s_status = active_server?(server, o_address, boot_options[:keys],
                               boot_options[:coherent], s_status)
 
-    till_server_active(s_status, server, o_address, boot_options)
+    till_server_active(s_status, hParams, o_address, boot_options)
 
     o_forge = get_forge(sObjectType, config[:instance_name], hParams)
 
@@ -191,10 +191,14 @@ class ForjCoreProcess
   end
 end
 
+# rubocop:disable Metrics/ClassLength
+
 # Functions for boot - build_forge
 class ForjCoreProcess
+  # TODO: Rewrite this function to break it for rubocop.
   # rubocop:disable CyclomaticComplexity
 
+  # Function displaying the server status
   def maestro_create_status(sStatus, iCurAct = 4, pending_count = 0)
     s_activity = '/-\\|?'
     if iCurAct < 4
@@ -228,12 +232,16 @@ class ForjCoreProcess
   # TODO: Rewrite this function to break it for rubocop.
   # rubocop: disable PerceivedComplexity
   # rubocop: disable Metrics/MethodLength
+  # rubocop: disable Metrics/AbcSize
 
-  def till_server_active(s_status, o_server, o_address, boot_options)
+  # Loop until server is active
+  def till_server_active(s_status, hParams, o_address, boot_options)
     m_cloud_init_error = []
     i_cur_act = 0
     o_old_log = ''
     pending_count = 0
+    server_error = 0
+    o_server = hParams.refresh[:server, :ObjectData]
 
     while s_status != :active
       if i_cur_act == 4
@@ -244,10 +252,34 @@ class ForjCoreProcess
       maestro_create_status(s_status, i_cur_act, pending_count)
       i_cur_act += 1
       i_cur_act = i_cur_act % 4
+
+      if s_status == :restart
+        process_delete(:server)
+        PrcLib.message("Bad server '%s' removed. Creating a new one...",
+                       o_server[:name])
+        sleep(5)
+        process_create(:internet_server)
+        s_status = :starting
+        o_server = hParams.refresh[:server, :ObjectData]
+        next
+      end
+
       o_server = load_server(o_server)
-      # s_status = o_server[:attrs][:status]
+
+      if o_server[:status] == :error
+        if server_error == 1
+          PrcLib.fatal(1, 'Server tried to be rebuilt but failed again.')
+        end
+        server_error = 1
+        PrcLib.warning("The creation of server '%s' has currently failed. "\
+                       'Trying to rebuild it, once before give up.',
+                       o_server[:name])
+        s_status = :restart
+        next
+      end
+
       if s_status == :starting
-        s_status = :assign_ip if o_server[:attrs][:status] == :active
+        s_status = :assign_ip if o_server[:status] == :active
       elsif s_status == :assign_ip
         s_status = assign_ip_boot(o_address, boot_options, s_status, o_server)
       else # analyze the log output
