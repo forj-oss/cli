@@ -14,6 +14,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+require 'cloud_connection.rb'
+
 module Forj
   # This module helps you to setup your forge's account
   module Settings
@@ -42,9 +44,9 @@ module Forj
     def self.account_show_all(account_name)
       config = Lorj::Account.new
 
-      config[:account_name] = account_name
+      config.ac_load account_name
+      Forj::CloudConnection.connect(config)
 
-      config.ac_load config[:account_name]
       puts format(
         "List of account settings for provider '%s': ",
         config.get(:provider)
@@ -56,7 +58,7 @@ module Forj
       )
 
       config.meta_each do |section, found_key, hValue|
-        next if hValue.rh_get(:readonly)
+        next if hValue.rh_get(:readonly) || hValue.rh_get(:get) == false
         s_desc = hValue.rh_get(:desc)
         puts format('%-15s %-12s : %s', found_key, section, s_desc)
       end
@@ -79,7 +81,7 @@ module Forj
         'section name'
       )
       config.meta_each do |section, found_key, hValue|
-        next if hValue.rh_get(:readonly)
+        next if hValue.rh_get(:readonly) || hValue.rh_get(:get) == fals
         s_desc = hValue.rh_get(:desc)
         puts format('%-15s %-12s : %s', found_key, section, s_desc)
       end
@@ -99,7 +101,10 @@ module Forj
                      account_key, account_key, account_name)
       end
     end
+  end
 
+  # This module helps you to setup your forge's account
+  module Settings
     def self.format_old_key(account, old_value, key_to_set)
       s_bef = 'unset'
 
@@ -129,9 +134,8 @@ module Forj
 
       b_dirty = false
 
-      config[:account_name] = account_name
-
-      config.ac_load config[:account_name]
+      config.ac_load account_name
+      Forj::CloudConnection.connect(config)
 
       p.flatten!
       p.each do |key_val|
@@ -142,11 +146,8 @@ module Forj
 
         validate_account_set(config, account_name, key_to_set)
 
-        full_key = format(
-          '%s/%s',
-          Lorj.data.first_section(key_to_set),
-          key_to_set
-        )
+        section, key_to_set = Lorj.data.first_section(key_to_set)
+        full_key = format('%s/%s', section, key_to_set)
 
         old_value = config.get(key_to_set)
         s_bef = format_old_key(config, old_value, key_to_set)
@@ -198,7 +199,10 @@ module Forj
 
       key
     end
+  end
 
+  # This module helps you to setup your forge's account
+  module Settings
     def self.config_set(*p)
       config = Lorj::Account.new
       b_dirty = false
@@ -260,16 +264,18 @@ module Forj
     end
 
     def self.get_account_values(account, account_name)
-      Lorj.defaults.meta_each do |section, mykey, hValue|
-        config_where = account.where?(mykey,
-                                      :names => %w(account local default))
+      Lorj.data.meta_each do |section, mykey, hValue|
+        next if hValue.rh_get(:get) == false
+        config_where = account.where?(mykey, :section => section,
+                                             :names => account.layers -
+                                                       %w(runtime))
 
         s_upd_msg = '+'
         s_upd_msg = ' ' if hValue.rh_get(:readonly)
 
         if config_where
           where_highlight = format_highlight(account_name,
-                                             config_where[0], '%-7s')
+                                             config_where[0], '%-9s')
           default_key = nil
           if hValue.rh_exist?(:default) && config_where[0] != 'account'
             default_key = format(" (from default key '%s')",
@@ -277,10 +283,10 @@ module Forj
           end
           puts format("%s %-15s(%s) %-12s: '%s'%s",
                       s_upd_msg, mykey, where_highlight, section,
-                      account.get(mykey), default_key)
+                      account.get(mykey, nil, :section => section), default_key)
         else
           puts format(
-            '%s %-15s(       ) %-12s: unset',
+            '%s %-15s(         ) %-12s: unset',
             s_upd_msg,
             mykey,
             section
@@ -290,10 +296,10 @@ module Forj
     end
 
     def self.account_get_all(oConfig, account_name)
-      oConfig[:account_name] = account_name
-
+      #  byebug
       PrcLib.fatal(1, "Unable to load account '%s'. Not found.",
-                   account_name) unless oConfig.ac_load oConfig[:account_name]
+                   account_name) unless oConfig.ac_load account_name
+      Forj::CloudConnection.connect(oConfig)
 
       puts format(
         'legend: default = Application defaults, local = Local' \
@@ -322,23 +328,30 @@ module Forj
         account_name
       )
     end
+  end
 
+  # This module helps you to setup your forge's account
+  module Settings
     def self.config_get_all(oConfig)
       puts 'legend: default = Application defaults, local = Local default' \
            " config\n\n"
-      puts format(
-        "%s %-19s(%-7s) %-12s:\n-----------------------------------" \
-          '-----', 'U',
-        '''key', 'origin',
-        'section name'
-      )
+      puts format("%s %-19s(%-7s) %-12s:\n"\
+                  '----------------------------------------',
+                  'U',  'key', 'origin', 'section name')
+
+      a_processes = [{ :process_module => :cloud },
+                     { :process_module => :forj_core }]
+
+      # Loading CloudCore embedding provider controller + its process.
+      Lorj::Core.new(oConfig, a_processes)
 
       oConfig.meta_each do |section, found_key, hValue|
+        next if hValue.rh_get(:get) == false
         s_upd_msg = '+'
         s_upd_msg = ' ' if hValue.rh_get(:readonly)
         found_key = hValue.rh_get(:default) if hValue.rh_exist?(:default)
 
-        where = oConfig.where?(found_key)
+        where = oConfig.where?(found_key, :section => section)
         if where
           where = where[0]
           highlight = ''
@@ -351,7 +364,7 @@ module Forj
             where,
             ANSI.clear,
             section,
-            oConfig.get(found_key)
+            oConfig.get(section.to_s + '#' + found_key.to_s)
           )
         else
           puts format(
@@ -367,10 +380,9 @@ module Forj
     end
 
     def self.account_get(oConfig, account_name, key)
-      oConfig[:account_name] = account_name
-
       PrcLib.fatal(1, "Unable to load account '%s'. Not found.",
-                   account_name) unless oConfig.ac_load oConfig[:account_name]
+                   account_name) unless oConfig.ac_load account_name
+      Forj::CloudConnection.connect(oConfig)
 
       if oConfig.where?(key)
         puts format(

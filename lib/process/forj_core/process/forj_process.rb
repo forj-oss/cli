@@ -69,7 +69,11 @@ class ForjCoreProcess
     o_forge = process_get(sObjectType, config[:instance_name])
     if o_forge.empty? || o_forge[:servers].length == 0
       PrcLib.high_level_msg("\nBuilding your forge...\n")
-      process_create(:internet_server)
+      process_create(:internet_server,
+                     :image_name => hParams['maestro#image_name'],
+                     :flavor_name => hParams['maestro#flavor_name'],
+                     :network_name => hParams['maestro#network_name'],
+                     :security_group => hParams['maestro#security_group'])
       o_forge[:servers, 'maestro'] = hParams.refresh[:server]
     else
       o_forge = load_existing_forge(o_forge, hParams)
@@ -560,10 +564,10 @@ class ForjCoreProcess
   def load_hpcloud(hParams, os_key)
     hpcloud_priv = nil
     IO.popen('gzip -c', 'r+') do|pipe|
-      pipe.puts(format('HPCLOUD_OS_USER=%s', hParams[:os_user]))
+      pipe.puts(format('HPCLOUD_OS_USER=%s', hParams['credentials#os_user']))
       pipe.puts(format('HPCLOUD_OS_KEY=%s', os_key))
-      pipe.puts(format('DNS_KEY=%s', hParams[:account_id]))
-      pipe.puts(format('DNS_SECRET=%s', hParams[:account_key]))
+      pipe.puts(format('DNS_KEY=%s', hParams[:'credentials#account_id']))
+      pipe.puts(format('DNS_SECRET=%s', hParams['credentials#account_key']))
       pipe.close_write
       hpcloud_priv = pipe.read
     end
@@ -572,29 +576,29 @@ class ForjCoreProcess
 
   def load_h_meta(hParams, hpcloud_priv)
     h_meta = {
-      'flavor_name' => hParams[:bp_flavor],
+      'flavor_name' => hParams['maestro#bp_flavor'],
       'cdksite' => config.get(:server_name),
-      'cdkdomain' => hParams[:domain_name],
+      'cdkdomain' => hParams['dns#domain_name'],
       'eroip' => '127.0.0.1',
       'erosite' => config.get(:server_name),
-      'erodomain' => hParams[:domain_name],
-      'gitbranch' => hParams[:branch],
-      'security_groups' => hParams[:security_group],
-      'tenant_name' => hParams[:tenant_name],
-      'network_name' => hParams[:network_name],
-      'hpcloud_os_region' => hParams[:compute],
+      'erodomain' => hParams['dns#domain_name'],
+      'gitbranch' => hParams['maestro#branch'],
+      'security_groups' => hParams['maestro#security_group'],
+      'tenant_name' => hParams['maestro#tenant_name'],
+      'network_name' => hParams['maestro#network_name'],
+      'hpcloud_os_region' => hParams['services#compute'],
       'PUPPET_DEBUG' => 'True',
-      'image_name' => hParams[:image_name],
-      'key_name' => hParams[:keypair_name],
+      'image_name' => hParams['maestro#image_name'],
+      'key_name' => hParams['credentials#keypair_name'],
       # Remove pad
       'hpcloud_priv' => Base64.strict_encode64(hpcloud_priv).gsub('=', ''),
-      'compute_os_auth_url' => hParams[:auth_uri]
+      'compute_os_auth_url' => hParams['credentials#auth_uri']
     }
 
-    if hParams[:dns_service]
-      h_meta['dns_zone'] = hParams[:dns_service]
-      h_meta['dns_tenantid'] = hParams[:dns_tenant_id]
-      h_meta['dns_auth_url'] = hParams[:auth_uri]
+    if hParams['dns#dns_service']
+      h_meta['dns_zone'] = hParams[:'dns#dns_service']
+      h_meta['dns_tenantid'] = hParams['dns#dns_tenant_id']
+      h_meta['dns_auth_url'] = hParams['credentials#auth_uri']
     end
     # If requested by user, ask Maestro to instantiate a blueprint.
     h_meta['blueprint'] = hParams[:blueprint] if hParams[:blueprint]
@@ -617,7 +621,7 @@ class ForjCoreProcess
   def build_metadata(sObjectType, hParams)
     entr = load_encoded_key
 
-    os_enckey = hParams[:os_enckey]
+    os_enckey = hParams['credentials#os_enckey']
 
     os_key = decrypt_key(os_enckey, entr)
 
@@ -1280,11 +1284,11 @@ class ForjCoreProcess
     true
   end
 
-  def forj_dns_settings?(sKey)
+  def forj_dns_settings?(key)
     # Return true to ask the question. false otherwise
     unless config[:dns_settings]
-      section = Lorj.data.first_section(sKey)
-      config.del(sKey, :name => 'account', :section => section)
+      section, key = Lorj.data.first_section(key)
+      config.del(key, :name => 'account', :section => section)
       return false # Do not ask
     end
     true
@@ -1379,7 +1383,6 @@ class ForjCoreProcess
 
     Lorj.data.set(:sections, :credentials, :keypair_files,
                   { :desc => desc }, 'setup')
-
     true
   end
 end

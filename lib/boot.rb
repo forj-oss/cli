@@ -99,10 +99,12 @@ module Forj
                     @account[:instance_name], @account[:blueprint])
       end
     end
+  end
+  # rubocop: disable Metrics/CyclomaticComplexity
+  # rubocop: disable Metrics/MethodLength
 
-    # rubocop: disable Metrics/CyclomaticComplexity
-    # rubocop: disable Metrics/MethodLength
-
+  #
+  module Boot
     # Boot process
     def self.boot(blueprint, on_or_name, deprecated_name, options)
       @account = Lorj::Account.new(options[:config])

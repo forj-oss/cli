@@ -1,4 +1,3 @@
-#!/usr/bin/env ruby
 # encoding: UTF-8
 
 # (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
@@ -14,10 +13,6 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
-
-require File.join(FORJCORE_PATH, 'process', 'ForjProcess.rb')
 
 # Defines how to manage Maestro and forges
 # create a maestro box. Identify a forge instance, delete it,...
@@ -52,26 +47,26 @@ class Lorj::BaseDefinition
              :create_e => :build_metadata
 
   obj_needs :data,   :instance_name
-  obj_needs :data,   :network_name
-  obj_needs :data,   :security_group
-  obj_needs :data,   :keypair_name
-  obj_needs :data,   :image_name
-  obj_needs :data,   :bp_flavor
-  obj_needs :data,   :compute
-  obj_needs :data,   :branch
-  obj_needs :data,   :domain_name
-  obj_needs :data,   :tenant_name
+  obj_needs :data,   'maestro#network_name'
+  obj_needs :data,   'maestro#security_group'
+  obj_needs :data,   'credentials#keypair_name'
+  obj_needs :data,   'maestro#image_name'
+  obj_needs :data,   'maestro#bp_flavor'
+  obj_needs :data,   'services#compute'
+  obj_needs :data,   'maestro#branch'
+  obj_needs :data,   'dns#domain_name'
+  obj_needs :data,   'maestro#tenant_name'
   # sent in base64
-  obj_needs :data,   :os_user
-  obj_needs :data,   :os_enckey
-  obj_needs :data,   :account_id
-  obj_needs :data,   :account_key
-  obj_needs :data,   :auth_uri
+  obj_needs :data,   'credentials#os_user'
+  obj_needs :data,   'credentials#os_enckey'
+  obj_needs :data,   'credentials#account_id'
+  obj_needs :data,   'credentials#account_key'
+  obj_needs :data,   'credentials#auth_uri'
   obj_needs_optional
 
   # If requested by user, ask Maestro to manage the DNS.
-  obj_needs :data,   :dns_service
-  obj_needs :data,   :dns_tenant_id
+  obj_needs :data,   'dns#dns_service'
+  obj_needs :data,   'dns#dns_tenant_id'
 
   # If requested by user, ask Maestro to instantiate a blueprint.
   obj_needs :data,   :blueprint
@@ -93,15 +88,18 @@ class Lorj::BaseDefinition
 
   # ******************* forge object
   define_obj :forge,
-
              :create_e => :build_forge,
              :delete_e => :delete_forge,
              :get_e => :get_forge
 
-  obj_needs :CloudObject,  :compute_connection
-  obj_needs :CloudObject,  :metadata,         :for => [:create_e]
-  obj_needs :CloudObject,  :userdata,         :for => [:create_e]
-  obj_needs :data,         :instance_name,    :for => [:create_e]
+  obj_needs :CloudObject, :compute_connection
+  obj_needs :CloudObject, :metadata,                :for => [:create_e]
+  obj_needs :CloudObject, :userdata,                :for => [:create_e]
+  obj_needs :data,        :instance_name,           :for => [:create_e]
+  obj_needs :data,        'maestro#image_name',     :for => [:create_e]
+  obj_needs :data,        'maestro#flavor_name',    :for => [:create_e]
+  obj_needs :data,        'maestro#network_name',   :for => [:create_e]
+  obj_needs :data,        'maestro#security_group', :for => [:create_e]
 
   obj_needs_optional
   obj_needs :CloudObject,  :server
@@ -109,4 +107,23 @@ class Lorj::BaseDefinition
   obj_needs :CloudObject,  :keypairs,         :for => [:create_e]
   obj_needs :data,         :blueprint
   obj_needs :data,         :forge_server,     :for => [:delete_e]
+
+  # Defines how cli will control FORJ features
+  # boot/down/ssh/...
+
+  # Define framework object on BaseDefinition
+  # See lib/core/definition.rb for function details usage.
+  # ************************************ SSH Object
+  define_obj(:ssh,
+
+             :create_e => :ssh_connection
+            )
+  obj_needs :CloudObject,  :forge
+  obj_needs :data,         :instance_name
+  obj_needs :data,         'credentials#keypair_name'
+  obj_needs :data,         :keypair_path
+
+  obj_needs_optional
+  obj_needs :data,         :forge_server
+  obj_needs :data,         :ssh_user
 end

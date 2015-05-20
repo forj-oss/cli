@@ -1,0 +1,61 @@
+# (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+:default:
+  :maestro_url: https://github.com/forj-oss/maestro.git
+
+  # Default Infra repository to use. If missing, it will be proposed to be created.
+  :infra_repo: ~/.forj/infra
+
+  # You can set proto2b in your ~/.forj/config.yaml if you built it from maestro/build. Read the maestro/README.md to create it.
+  :image_name: Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)
+
+  # Flavor to use for Maestro
+  :flavor: medium
+  # Default flavor to use for all Blueprint nodes.
+  :bp_flavor: small
+
+  # Ports to open for Maestro, added to the security group
+  :security_group: forj
+  :ports: [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
+
+  # Network: If network doesn't exist, forj cli will try to create it, and attach it a router.
+  :network: forj
+
+  # Users: Default user for ssh connection, if user doesn't exits, forj cli will try to get the user from the server image on it's name attribute
+  :users: ['ubuntu', 'fedora', 'cloud-user', 'cirros', 'centos', 'cloud', 'root']
+
+  # build.sh internal variables.
+  :build_config: box
+  :branch: master
+  :box_name: maestro
+
+  :provider_name: hpcloud
+
+  :maestro_bootstrap_dir:  build/maestro/bootstrap
+:description:
+  # Description of build.sh environment variable defined by forj cli for build.sh. (~/.forj/infra/build/<Account>.build.env)
+  :FORJ_HPC:             "HPCloud cli Account used to build your Maestro box"
+  :FORJ_HPC_COMPUTE:     "HPCloud Compute service (like region-b.geo-1) used to run your Maestro Box"
+  :FORJ_TENANT_NAME:     "HPCloud Tenant name used build your <Blueprint> nodes"
+  :FORJ_HPC_NET:         "HPCloud Network name to use, while booting all boxes."
+  :FORJ_KEYPAIR:         "Keypair used to access boxes."
+  :FORJ_SECURITY_GROUP:  "Security group associated to each box"
+  :FORJ_HPC_NOVA_KEYPUB: "Public key used by build.sh to ensure his existence on HPCloud"
+  :FORJ_BASE_IMG:        "Base image used to build all boxes"
+  :FORJ_FLAVOR:          "Flavor used to build Maestro"
+  # DNS specific data
+  :FORJ_DNS_TENANTID:    "HPCloud Project ID to use to create DNS entries for each boxes."
+  :FORJ_DNS_ZONE:        "HPCloud Domain name service to use for each boxes DNS entries. (Ex: region-a.geo-1)"
+  :FORJ_DNS_DOMAIN:      "Domain used for DNS. Each server will be attached to a public IP. An 'A' record in the DNS service will need to be added to your HPCloud DOMAIN."

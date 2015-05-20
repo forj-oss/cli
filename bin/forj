@@ -21,6 +21,7 @@ require 'rubygems'
 require 'bundler/setup'
 require 'thor'
 require 'ansi'
+require 'forj'
 
 APP_PATH = File.dirname(File.dirname(__FILE__))
 LIB_PATH = File.expand_path(File.join(APP_PATH, 'lib'))

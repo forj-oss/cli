@@ -1,3 +1,6 @@
+#!/usr/bin/env ruby
+# encoding: UTF-8
+
 # (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,5 +15,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-:default:
-  :provider_name: hpcloud
+FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
+
+# Define model
+
+lorj_objects = %w(forj_process declare)
+
+lorj_objects.each do |name|
+  load File.join(FORJCORE_PATH, 'forj_core', 'process', name + '.rb')
+end

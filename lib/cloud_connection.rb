@@ -23,7 +23,7 @@ module Forj
     def self.connect(account)
       a_processes = []
 
-      provider = account[:provider]
+      provider = account['account#provider']
 
       # Defines how to manage Maestro and forges
       # Uses 'cloud' module process provided by 'lorj_cloud'
@@ -31,13 +31,7 @@ module Forj
                        :controller_name => provider }
 
       # create a maestro box. Identify a forge instance, delete it,...
-      a_processes << { :process_path => File.join(LIB_PATH, 'forj',
-                                                  'ForjCore.rb') }
-
-      # Defines how cli will control FORJ features
-      # boot/down/ssh/...
-      a_processes << { :process_path => File.join(LIB_PATH, 'forj',
-                                                  'ForjCli.rb') }
+      a_processes << { :process_module => :forj_core }
 
       # Loading CloudCore embedding provider controller + its process.
       o_cloud = Lorj::Core.new(account, a_processes)

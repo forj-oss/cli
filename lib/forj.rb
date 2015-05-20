@@ -1,4 +1,3 @@
-#!/usr/bin/env ruby
 # encoding: UTF-8
 
 # (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
@@ -15,23 +14,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-# Defines how cli will control FORJ features
-# boot/down/ssh/...
+require 'lorj'
 
-# Define framework object on BaseDefinition
-# See lib/core/definition.rb for function details usage.
-class Lorj::BaseDefinition
-  # ************************************ SSH Object
-  define_obj(:ssh,
-
-             :create_e => :ssh_connection
-            )
-  obj_needs :CloudObject,  :forge
-  obj_needs :data,         :instance_name
-  obj_needs :data,         :keypair_name
-  obj_needs :data,         :keypair_path
-
-  obj_needs_optional
-  obj_needs :data,         :forge_server
-  obj_needs :data,         :ssh_user
-end
+Lorj.declare_process('forj_core', File.dirname(__FILE__))

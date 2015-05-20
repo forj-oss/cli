@@ -1,0 +1,270 @@
+# (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+# Following declares specific 'forj' process data.
+# Those are combined with lorj_cloud data.
+#
+:setup:
+  :steps:
+    :provider_config:
+      :desc:    "Provider configuration:"
+    :maestro_config:
+    :maestro_img_config:
+      :desc:    "Maestro Cloud compute configuration:"
+      :add:
+        - :ssh_user
+    :gardener_config:
+      :desc:    "Maestro gardener Cloud configuration:"
+      :explanation:        |-
+        Maestro gardener is currently configured to access your cloud Compute service with fog openstack.
+        Fog openstack is compatible with hpcloud services
+
+        It requires the openstack project name, user and password.
+    :bp_config:
+      :desc:    "Maestro and blueprint configuration:"
+    :maestro_access_config:
+      :desc:     "Maestro server SSH access"
+      :add:
+        - :keypair_files
+    :dns_config:
+      :desc:    "DNS Configuration for Maestro:"
+:sections:
+  # This section define updatable data available from config.yaml. But will never be added in an account file.
+  # Used by forj set/get functions
+  :default:
+    :account_name:
+      :desc:              "Default account name used by forj cli"
+    :provider_name:
+      :desc:              "Default provider name while running forj setup. By default, hpcloud is selected."
+  # Defines account credentials data
+  :account:
+    :name:
+      :desc:              "Name of the Forj cli account. use forj account rename <oldName> <NewName> to update it."
+      :readonly:          true
+      :account_exclusive: true
+    :provider:
+      :desc:              "Provider name attached to the forj cli account. To update it, use forj setup."
+      :readonly:          true
+      :account_exclusive: true
+      :default:           :provider_name
+
+  # Defines ssh keys credentials
+  :credentials:
+    :keypair_files:
+      :explanation:        |-
+         A keypair is a combination of SSH public and private key files. Usually, generated in your '$HOME/.ssh/' directory.
+         The private key is used to identify yourself to access your box via ssh.
+         The public key is used to configure your server to authorize you to access the box with your private key.
+         This keypair files will be copied to '$HOME/.forj/keypairs/ under <keypair_name> files for 'forj' needs.
+
+         If the keypair doesn't exist locally, it will be created for you.
+      :desc:               "Base keypair file name"
+      :default_value:      "~/.ssh/<%= config[:keypair_name] %>-id_rsa"
+      :validate_function:  :forj_check_keypairs_files
+      :account:            true
+      :ask_step:           :maestro_access_config
+      :after:              :keypair_name
+      :pre_step_function:  :forj_cloud_keypair_coherent?
+      :post_step_function: :forj_setup_keypairs_files
+    :keypair_path:
+      :desc:               "Contains the full path to the :keypair_base."
+      :ask_step:           :maestro_access_config
+      :default_value:      "<%= Forj.keypairs_path %>"
+    :keypair_base:
+      :desc:               "Contains the key file base name without .pem/.pub."
+      :ask_step:           :maestro_access_config
+      :default_value:      "<%= config[:keypair_name] %>"
+    :keypair_name:
+      :desc:               "keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created."
+      :required:           true
+      :default_value:      "forj"
+      :account:            true
+      :ask_sort:           0
+      :ask_step:           :maestro_access_config
+      :pre_step_function:  :update_keypair_config
+      :post_step_function: :forj_check_cloud_keypair
+    :auth_uri:
+      :desc:               "Generic service auth url"
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :ask_sort:           0
+      :ask_step:           :provider_config
+    :account_id:
+      :desc:               "Generic Cloud Account name."
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :ask_step:           :provider_config
+    :account_key:
+      :desc:               "Generic cloud account key"
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :encrypted:          true
+      :ask_step:           :provider_config
+    :tenant:
+      :desc:               "Openstack Tenant Name (Project name)"
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :ask_step:           :provider_config
+    :os_user:
+      :desc:               "Openstack compute cloud User name"
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :validate:           !ruby/regexp /\w+/
+      :ask_step:           :gardener_config
+      :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#account_id']:nil %>"
+    :os_enckey:
+      :desc:               "Openstack compute cloud password"
+      :account_exclusive:  true
+      :encrypted:          true
+      :account:            true
+      :required:           true
+      :ask_step:           :gardener_config
+      :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#account_key']:nil %>"
+
+  # Defines DNS services for maestro
+  :dns:
+      :domain_name:
+         :desc:               "Domain name added to each hosts."
+         :account_exclusive:  true
+         :account:            true
+         :post_step_function: :forj_dns_settings
+         :ask_step:           :dns_config
+      :dns_service:
+         :desc:               "DNS service region name Maestro will use."
+         :account_exclusive:  true
+         :account:            true
+         :pre_step_function:  :forj_dns_settings?
+         :ask_step:           :dns_config
+      :dns_tenant_id:
+         :desc:               "DNS Tenant ID Maestro will use"
+         :account_exclusive:  true
+         :account:            true
+         :pre_step_function:  :forj_dns_settings?
+         :ask_step:           :dns_config
+
+  :maestro:
+    :tenant_name:
+      :desc:            "Tenant name required by fog/openstack on gardener"
+      :account:         true
+      :validate:        !ruby/regexp /^\w?[\w_:-]*$/
+      :ask_step:        :gardener_config
+      :ask_sort:        0
+      :default_value:   "<%= (config[:provider] == 'openstack')?config['credentials#tenant']:nil %>"
+    :network_name:
+      :desc:            "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
+      :default:         network
+      :account:         true
+      :required:        true
+      :default_value:   "forj"
+      :ask_step:        :maestro_config
+    :security_group:
+      :desc:            "Security group name to configure and attach to each forge boxes."
+      :account:         true
+      :validate:        !ruby/regexp /^\w?\w*$/
+      :default_value:   "forj"
+      :ask_step:        :maestro_config
+    :maestro_repo:
+      :desc:       "To use a different Maestro repository already cloned."
+    :infra_repo:
+      :desc:       "Defines your Infra directory to use while booting."
+    :box_name:
+      :desc:       "forj cli use 'build.sh' to create Maestro. See box_name option on build.sh to get more information. By default 'maestro'"
+    :build_config:
+      :desc:       "forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'"
+    :bp_flavor:
+      :desc:       "Blueprint nodes default flavor"
+      :explanation: |-
+        Blueprint usually defines the required flavor for their nodes. If not, it will use this flavor as default.
+        Usually, blueprint nodes are smaller than Maestro.
+      :account:    true
+      :list_values:
+         :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all.
+         :object:       :flavor
+         :value:        :name
+         :validate:     :list_strict
+      :ask_step:   :maestro_config
+      :after:      'maestro#flavor_name'
+    :flavor_name:
+      :explanation: 'This flavor is for Maestro only.'
+      :desc:       "Maestro Flavor name"
+      :default_value:    'medium'
+      :account:    true
+      :list_values:
+         :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all.
+         :object:       :flavor
+         :value:        :name
+         :validate:     :list_strict
+      :ask_step:   :maestro_config
+    :image_name:
+      :desc:       "Image name"
+      :explanation: |-
+        Ubuntu image used to create Maestro and all forge boxes. Originally, Maestro uses 'Ubuntu Precise 12.04.4 LTS Server 64-bit'.
+        You need to choose the appropriate image to make Maestro & boxes to boot normally.
+      :account:    true
+      :ask_step:   :maestro_img_config
+      :list_values:
+         :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all. No filter currently working.
+         :object:       :image
+         :value:        :name
+         :validate:     :list_strict
+      :after: :bp_flavor
+    :ssh_user:
+      :desc:        "User name for ssh connection of your selected image."
+      :explanation: |-
+        The image name you have selected has a unique SSH Account access.
+
+        Thanks to the name of the image, setup assume the account name to use.
+        If this name is incoherent with the image you choosed, please update it.
+
+        Checking image '<%= config['maestro#image_name'] %>'...
+      :account:     true
+      :ask_step:           :maestro_img_config
+      :ask_sort:           0
+      :after:              :image_name
+      :list_values:
+        :query_type:  :process_call # Will execute a process to query on image
+        :query_call:  :setup_ssh_user # and return the list of images and a default value.
+        :object:      :image          # The process will get the image object
+        :query_params: # Transmitted as hParams
+          :image_name: "<%= config['maestro#image_name'] %>"
+    :ports:
+      :desc:            "List of security group rules (1 port or range of ports) to open to the external network."
+    :branch:
+      :desc:            "Branch to use to build your forge"
+    :bootstrap_dirs:
+      :desc:            "Additional bootstrap directories (separated by space) to add in the bootstrap loop."
+    :bootstrap_extra_dir:
+      :desc:            "Additional bootstrap directory to add in the bootstrap loop, before :bootstrap_dirs and after maestro default bootstrap directory."
+
+# As forj_core is based on lorj_cloud, we have to disable Lorj_cloud data defaults.
+  :server:
+    :network_name:
+      :set:             false
+    :security_group:
+      :set:             false
+    :box_name:
+      :set:             false
+    :flavor_name:
+      :set:             false
+      :account:         false
+    :image_name:
+      :account:         false
+      :set:             false
+    :ports:
+      :set:             false

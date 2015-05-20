@@ -26,14 +26,11 @@ module Forj
     def self.destroy(name, options)
       account = Lorj::Account.new(options[:config])
 
-      # Setting account at runtime layer
-      account[:account_name] = options[:account_name] if options[:account_name]
-
       # Loading account at account layer
-      unless account.ac_load account[:account_name]
+      unless account.ac_load options[:account_name]
         PrcLib.fatal(1, "Invalid account '%s'. Use `forj show account` "\
                         'to get the list of valid accounts.',
-                     account[:account_name])
+                     options[:account_name])
       end
 
       o_cloud = Forj::CloudConnection.connect(account)
