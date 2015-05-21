@@ -36,15 +36,26 @@ class ForjCoreProcess
     tb_repos = hParams[:test_box]
     script = hParams[:test_box_path]
 
-    # the server must wait with 3 last lines:
-    # 2015-05-21 13:10:52 UTC - build.sh: test-box-repo=maestro
-    # 2015-05-21 13:10:52 UTC - Test-box: Waiting for ~ubuntu/git/maestro.[...]
-    # 2015-05-21 13:10:52 UTC - On your workstation, you can start test-b [...]
+    # the server must wait with 4 last lines in server log:
+    # [...] - forj-cli: tb-repo=maestro tb-dir=/opt/co[...] tb-root-repo=ma[...]
+    # [...] - build.sh: test-box-repo=maestro
+    # [...] - Test-box: Waiting for ~ubuntu/git/maestro.[...]
+    # [...] - On your workstation, you can start test-b [...]
 
-    res = log_output.split("\n")[-3].match(/build.sh: test-box-repo=(.*)/)
+    re = /forj-cli: tb-repo=(.*) tb-dir=(.*) tb-root-repo=(.*)/
+    res = log_output.split("\n")[-4].match(re)
+
+    if res
+      repo_dir = "--repo-dir #{res[2]} --root-repo #{res[3]}"
+    else
+      res = log_output.split("\n")[-3].match(/build.sh: test-box-repo=(.*)/)
+      repo_dir = ''
+    end
     return unless res && res[1] && tb_repos[res[1]]
 
-    test_box_dir = tb_repos[res[1]]
+    repo = res[1]
+
+    test_box_dir = tb_repos[repo]
 
     PrcLib.info('test-box: your box is waiting for a test-box repository. '\
                 'One moment.')
@@ -66,9 +77,9 @@ class ForjCoreProcess
 cd #{test_box_dir}
 if [ "$(git branch | grep 'testing-larsonsh-#{user}@#{pubip}')" != "" ]
 then
-   #{script} --remove-from #{user}@#{pubip}
+   #{script} --remove-from #{user}@#{pubip} --repo #{repo} #{repo_dir}
 fi
-#{script} --push-to #{user}@#{pubip} --repo #{res[1]}
+#{script} --push-to #{user}@#{pubip} --repo #{repo} #{repo_dir}
     CMD
     PrcLib.info "Running following shell instructions:\n#{cmd}"
 
