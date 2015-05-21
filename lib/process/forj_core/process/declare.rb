@@ -19,7 +19,7 @@
 
 # Define framework object on BaseDefinition
 # See lib/core/definition.rb for function details usage.
-class Lorj::BaseDefinition
+class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   process_default :use_controller => false
 
   # ******************* Maestro Repository object
@@ -67,6 +67,8 @@ class Lorj::BaseDefinition
   # If requested by user, ask Maestro to manage the DNS.
   obj_needs :data,   'dns#dns_service'
   obj_needs :data,   'dns#dns_tenant_id'
+  obj_needs :data,   :test_box
+  obj_needs :data,   :test_box_path
 
   # If requested by user, ask Maestro to instantiate a blueprint.
   obj_needs :data,   :blueprint
@@ -103,11 +105,15 @@ class Lorj::BaseDefinition
 
   obj_needs_optional
   obj_needs :CloudObject,  :server
+  obj_needs :CloudObject,  :image,            :for => [:create_e]
   obj_needs :CloudObject,  :public_ip,        :for => [:create_e]
   obj_needs :CloudObject,  :keypairs,         :for => [:create_e]
   obj_needs :data,         :blueprint
   obj_needs :data,         :forge_server,     :for => [:delete_e]
 
+  # Adding support of test-box script
+  obj_needs :data,        :test_box,          :for => [:create_e]
+  obj_needs :data,        :test_box_path,     :for => [:create_e]
   # Defines how cli will control FORJ features
   # boot/down/ssh/...
 

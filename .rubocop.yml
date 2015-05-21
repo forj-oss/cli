@@ -33,27 +33,24 @@ Style/HashSyntax:
 
 # lets start with 40, but 10 is way to small..
 Metrics/MethodLength:
-  Max: 40
+  Max: 50
+# If Method length is increased, class length need to be extended as well.
+Metrics/ClassLength:
+  Max: 150
+
 # allow arguments to be longer than 15
 Metrics/AbcSize:
-  Max: 40
-# allow nested methods and classes definition
-ClassAndModuleChildren:
-  # EnforcedStyle: compact
-  Enabled: false
+  Max: 50
+# Perceived Complexity
+Metrics/PerceivedComplexity:
+  Max: 9
+Metrics/CyclomaticComplexity:
+  Max: 8
 
-# some files names gets an exception
+# forj-docker binary name gets an exception
 Style/FileName:
   Exclude: ['Gemfile',
             'lib/forj/process/ForjProcess.rb',
             'lib/forj/ForjCore.rb',
             'lib/forj/ForjCli.rb',
             'lib/forj-settings.rb' ]
-
-# this project defines these globals
-Style/GlobalVars:
-  AllowedVariables: ['$RT_GEM_BIN',
-                     '$RT_VERSION_SPEC',
-                     '$FORJ_TEMP',
-                     '$RT_VERSION',
-                     '$RT_GEM_HOME']

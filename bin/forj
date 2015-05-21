@@ -149,21 +149,27 @@ If you want to check/updated them, use `forj get [-a account]`
     ' flavor        : Maestro flavor to use.'
   method_option :bp_flavor,        :aliases => '-b',   :desc => 'config:' \
     ' bp_flavor     : Blueprint nodes default flavor to use.'\
-    "\n\n Build system options:"
+    "\n\nBuild system options:"
   method_option :boothook,         :aliases => '-H',   :desc => 'By default, ' \
     ' boothook file used is build/bin/build-tools/boothook.sh. '         \
     ' Use this option to set another one.'
   method_option :build,            :aliases => '-B',   :desc => 'Replace' \
     ' the default build.sh'
   method_option :branch,           :aliases => '-R',   :desc => 'Branch' \
-    "name to clone for maestro.\n\nMaestro/infra bootstrap debugging:"
-  method_option :test_box,         :aliases => '-T',   :desc => 'Identify a' \
-    ' path to become your test-box repository.' \
-    "\n                                            " \
-    'Ex: if your maestro is in ~/src/forj-oss, --test_box' \
-    ' ~/src/forj-oss/maestro build.sh and' \
-    "\n                                            " \
-    'test-box will send your local maestro repo to your box, for boot.'
+    "name to clone for maestro.\n\n"\
+    "Remote box bootstrap debugging (test-box):\n"\
+    'test-box is a shell script used to connect one or more local repository'\
+    " to be connected to the new remote box. \n"\
+    'If your box support test-box feature, at boot time, the remote box may '\
+    'wait for your local repository to be sent out to the new box. '\
+    'For more details on test-box, call it to get help.'
+  method_option :tb_path,  :aliases => '-t',
+                           :desc => 'Define the path to the test-box script. '\
+                                    'This option superseeds the TEST_BOX '\
+                                   'environment variable.'
+  method_option :test_box, :aliases => '-T', :type => :array,
+                           :desc => "Use a local repository for test-box\n\n"\
+                                    'Other options:'
   method_option :extra_metadata,   :aliases => '-e',   :desc => 'Custom' \
     ' server metadata format key1=value1,key2=value2...,keyN=valueN'
 

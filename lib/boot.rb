@@ -53,9 +53,9 @@ module Forj
 
     def self.load_options(options, options_map)
       options_map.each do |opt_key, ac_key|
-        unless options[opt_key].nil?
-          value = yield(opt_key, options[opt_key])
-          @account.set(ac_key, options[opt_key]) unless value.nil?
+        if options.key?(opt_key.to_s)
+          value = yield(opt_key, options[opt_key.to_s])
+          @account.set(ac_key, value) unless value.nil?
         end
       end
     end
@@ -127,6 +127,9 @@ module Forj
                      @account[:account_name], @account[:account_name])
       end
 
+      options = options.to_h
+      options['tb_path'] = nil if options.key?('test_box') &&
+                                  !options.key?('tb_path')
       options_map = { :infra          => :infra_repo,
                       :key_name       => :keypair_name,
                       :key_path       => :keypair_path,
@@ -137,22 +140,10 @@ module Forj
                       :maestro_repo   => :maestro_repo,
                       :branch         => :branch,
                       :test_box       => :test_box,
+                      :tb_path        => :test_box_path,
                       :extra_metadata => :extra_metadata }
 
-      load_options(options, options_map) do |key, value|
-        case key
-        when :test_box
-          path = File.expand_path(value)
-          return path if File.directory?(path)
-          return nil
-        end
-        value
-      end
-
-      PrcLib.warning(
-        'test_box is currently disabled in this version.' \
-        'It will be re-activated in newer version.'
-      ) if options[:test_box]
+      load_options(options, options_map) { |k, v| complete_boot_options(k, v) }
 
       validate_keypath(options)
 
@@ -166,6 +157,93 @@ module Forj
                             PrcLib.log_file)
 
       o_cloud.create(:forge)
+    end
+  end
+  # rubocop: enable Metrics/CyclomaticComplexity
+  # rubocop: enable Metrics/MethodLength
+
+  #
+  module Boot
+    # Take care of special options cases for boot.
+    def self.complete_boot_options(key, value)
+      case key
+      when :test_box
+        value = tb_repo_detect(value)
+      when :tb_path
+        value = tb_bin_detect(value)
+      end
+      value
+    end
+
+    # Function to check the repository path passed.
+    def self.tb_repo_detect(paths)
+      res = {}
+      paths.each do |path|
+        cmd = <<-CMD
+cd "#{path}"
+git rev-parse --show-toplevel 2>/dev/null 1>&2
+if [ $? -ne 0 ]
+then
+   exit 1
+fi
+REPO_TO_ADD="$(LANG= git remote show origin -n |
+                     awk '$1 ~ /Fetch/ { print $3 }')"
+if [ "$REPO_TO_ADD" = "" ]
+then
+   exit 1
+fi
+echo $REPO_TO_ADD
+pwd
+        CMD
+        cmd_res = `#{cmd}`.split
+        # For any reason, $CHILD_STATUS is empty, while $? is not.
+        # Ruby bug. tested with:
+        # ruby 2.0.0p353 (2013-11-22 revision 43784) [x86_64-linux]
+        # rubocop: disable Style/SpecialGlobalVars
+        next unless $?.exitstatus == 0
+        # rubocop: enable Style/SpecialGlobalVars
+        repo_found = cmd_res[0].match(%r{.*/(.*)(.git)?})
+        next unless repo_found
+        res[repo_found[1]] = cmd_res[1]
+      end
+      res
+    end
+
+    # function to detect if test-box.sh is runnable
+    #
+    # It returns the script to execute.
+    def self.tb_bin_detect(tb_path)
+      tb_path = ENV['TEST_BOX'] if tb_path.nil?
+      tb_path = File.expand_path(tb_path) unless tb_path.nil?
+
+      script = 'test-box.sh'
+      if tb_path && File.directory?(tb_path)
+        script_found = tb_check_bin(tb_path)
+        script = File.expand_path(File.join(tb_path, script))
+        if script_found.nil?
+          PrcLib.error("Test-box: '%s' is not a valid runnable script. "\
+                       'test-box is disabled.', script)
+          return nil
+        end
+        return script_found
+      end
+
+      script_found = nil
+
+      ENV['PATH'].split(':').each do |path|
+        script_found = tb_check_bin(path)
+        break unless script_found.nil?
+      end
+
+      script_found
+    end
+
+    # Script to check the bin and path
+    def self.tb_check_bin(tb_path)
+      script = 'test-box.sh'
+      script = File.expand_path(File.join(tb_path, script))
+      return script if File.executable?(script)
+      nil
     end
   end
 end

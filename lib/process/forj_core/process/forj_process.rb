@@ -295,6 +295,9 @@ class ForjCoreProcess
         m_cloud_init_error = output_options[:error]
         o_old_log = output_options[:old_log]
         i_cur_act = output_options[:cur_act]
+
+        tb_detect(hParams, o_old_log)
+
         if pending_count == 60
           image = server_get_image o_server
           highlight = ANSI.yellow('-' * 40)
@@ -614,6 +617,8 @@ class ForjCoreProcess
         h_meta[k] = v
       end
     end
+
+    tb_metadata hParams, h_meta
 
     h_meta
   end
