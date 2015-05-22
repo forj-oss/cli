@@ -141,6 +141,7 @@ module Forj
                       :branch         => :branch,
                       :test_box       => :test_box,
                       :tb_path        => :test_box_path,
+                      :ca_root_cert   => :ca_root_cert,
                       :extra_metadata => :extra_metadata }
 
       load_options(options, options_map) { |k, v| complete_boot_options(k, v) }
@@ -171,6 +172,8 @@ module Forj
         value = tb_repo_detect(value)
       when :tb_path
         value = tb_bin_detect(value)
+      when :ca_root_cert
+        value = ca_root_file_detect(value)
       end
       value
     end
@@ -244,6 +247,22 @@ pwd
       script = File.expand_path(File.join(tb_path, script))
       return script if File.executable?(script)
       nil
+    end
+
+    def self.ca_root_file_detect(param)
+      res_found = param.match(/^(.*)#(.*)$/)
+
+      if res_found
+        cert_file = res_found[1]
+      else
+        cert_file = param
+      end
+
+      unless File.readable?(cert_file)
+        PrcLib.error("Unable to read the Root Certificate file '%s'", cert_file)
+        return nil
+      end
+      param
     end
   end
 end

@@ -173,6 +173,9 @@ If you want to check/updated them, use `forj get [-a account]`
   method_option :extra_metadata,   :aliases => '-e',   :desc => 'Custom' \
     ' server metadata format key1=value1,key2=value2...,keyN=valueN'
 
+  method_option :ca_root_cert,  :desc => 'Certificate Authorities file used by'\
+    ' your compagny to authenticate your intranet servers.'
+
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil,
            old_name = nil)
     Forj::Settings.common_options(options)

@@ -69,6 +69,7 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,   'dns#dns_tenant_id'
   obj_needs :data,   :test_box
   obj_needs :data,   :test_box_path
+  obj_needs :data,   'certs#ca_root_cert'
 
   # If requested by user, ask Maestro to instantiate a blueprint.
   obj_needs :data,   :blueprint
@@ -114,6 +115,10 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   # Adding support of test-box script
   obj_needs :data,        :test_box,          :for => [:create_e]
   obj_needs :data,        :test_box_path,     :for => [:create_e]
+
+  # Adding support of ca-root-cert file to send out.
+  obj_needs :data,      'certs#ca_root_cert', :for => [:create_e]
+
   # Defines how cli will control FORJ features
   # boot/down/ssh/...
 

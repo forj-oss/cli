@@ -158,6 +158,7 @@
          :pre_step_function:  :forj_dns_settings?
          :ask_step:           :dns_config
 
+  # Defines maestro environment.
   :maestro:
     :tenant_name:
       :desc:            "Tenant name required by fog/openstack on gardener"
@@ -252,7 +253,13 @@
     :bootstrap_extra_dir:
       :desc:            "Additional bootstrap directory to add in the bootstrap loop, before :bootstrap_dirs and after maestro default bootstrap directory."
 
-# As forj_core is based on lorj_cloud, we have to disable Lorj_cloud data defaults.
+
+  # Defines certificates
+
+  :certs:
+    :ca_root_cert:
+      :desc:            "Certificate Authority file to add to servers."
+  # As forj_core is based on lorj_cloud, we have to disable Lorj_cloud data defaults.
   :server:
     :network_name:
       :set:             false

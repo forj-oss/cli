@@ -297,6 +297,7 @@ class ForjCoreProcess
         i_cur_act = output_options[:cur_act]
 
         tb_detect(hParams, o_old_log)
+        ca_root_detect(hParams, o_old_log)
 
         if pending_count == 60
           image = server_get_image o_server
@@ -618,7 +619,8 @@ class ForjCoreProcess
       end
     end
 
-    tb_metadata hParams, h_meta
+    tb_metadata(hParams, h_meta)
+    ca_root_metadata(hParams, h_meta)
 
     h_meta
   end
@@ -1466,9 +1468,7 @@ class ForjCoreProcess
 
     begin
       PrcLib.state("creating ssh connection with '%s' box", o_server[:name])
-      session = Net::SSH.start(public_ip, user, ssh_options) do |_ssh|
-        ssh_login(ssh_options, user, public_ip)
-      end
+      ssh_login(ssh_options, user, public_ip)
       PrcLib.debug('Error closing ssh connection, box %s ',
                    o_server[:name]) unless session
    rescue => e
