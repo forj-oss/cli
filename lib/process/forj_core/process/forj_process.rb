@@ -1449,13 +1449,10 @@ end
 # Functions for ssh
 class ForjCoreProcess
   def ssh_connection(sObjectType, hParams)
-    o_forge = hParams[:forge]
-
     # Get server information
     PrcLib.state('Getting server information')
-    o_server = o_forge[:servers, hParams[:forge_server]]
+    o_server = hParams[:server, :ObjectData]
     register(o_server)
-
     public_ip = ssh_server_public_ip(o_server)
 
     ssh_options = ssh_keypair(o_server)

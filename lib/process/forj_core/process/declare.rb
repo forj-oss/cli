@@ -124,12 +124,8 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
 
              :create_e => :ssh_connection
             )
-  obj_needs :CloudObject,  :forge
-  obj_needs :data,         :instance_name
-  obj_needs :data,         'credentials#keypair_name'
-  obj_needs :data,         :keypair_path
+  obj_needs :data,  :server
 
   obj_needs_optional
-  obj_needs :data,         :forge_server
   obj_needs :data,         :ssh_user
 end

@@ -41,7 +41,7 @@ module Forj
           o_server = validate_server_name(name, account, o_forge)
 
           if !o_server.nil?
-            ssh_connection(account, o_cloud, name, o_server[:id])
+            ssh_connection(account, o_cloud, name, o_server)
           else
             PrcLib.debug("server '%s.%s' was not found",
                          account[:box_ssh], name)
@@ -49,14 +49,9 @@ module Forj
                                   account[:box_ssh], name)
           end
         else
-          o_server_number = select_forge_server(o_forge)
+          server = select_forge_server(o_forge)
 
-          ssh_connection(
-            account,
-            o_cloud,
-            name,
-            o_forge[:servers][o_server_number][:id]
-          )
+          ssh_connection(account, o_cloud, name, server)
         end
       else
         PrcLib.high_level_msg("No server(s) found for instance name '%s' \n",
@@ -67,37 +62,27 @@ module Forj
     def self.select_forge_server(o_forge)
       # Ask the user to get server(s) to create ssh connection
       server_list = []
-      index = 0
+      servers = []
       s_default = nil
-      o_forge[:servers].each do |server|
-        server_list[index] = server[:name]
-        s_default = server[:name] if server[:name].include? 'maestro'
-        index += 1
+
+      o_forge[:servers].each do |server_type, server|
+        server_list << server[:name]
+        servers << server
+        s_default = server[:name] if server_type == 'maestro'
       end
 
-      say(format(
-            'Select box for ssh connection %s',
-            ((s_default.nil?) ? '' : format(
-              'Default: ' + "|%s|\n", s_default
-            ))
-      )
-         )
+      say(format('Select box for ssh connection %s',
+                 ((s_default.nil?) ? '' : "Default: #{s_default}")))
       value = choose do |q|
         q.choices(*server_list)
         q.default = s_default unless s_default.nil?
       end
 
-      o_server_number = server_list.index(value)
-      o_server_number
+      servers[server_list.index(value)]
     end
 
-    def self.ssh_connection(account, o_cloud, name, server_id)
-      # Property for :forge
-      account.set(:instance_name, name)
-      # Property for :ssh
-      account.set(:forge_server, server_id)
-
-      o_cloud.create(:ssh)
+    def self.ssh_connection(_account, o_cloud, _name, server)
+      o_cloud.create(:ssh, :server => server)
     end
 
     def self.validate_server_name(name, account, o_forge)
