@@ -93,12 +93,7 @@ Quick steps: How to create a forj?
 
     Ex: `forj boot redstone myforge` - This command will start a Redstone forge named 'myforge' with the default FORJ account. Previous, we set it to be MyAccount.
 
-NOTE: If you are creating a Forge in a corporate network, a proxy may be required for Maestro to access internet.
-You can ask `forj` cli to send the proxy to use with -e
-
-Ex: Thanks to a CorporateAccount setup with forj setup, the following will use it and set the webproxy metadata.
-
-    `forj boot redstone myforge -a CorporateAccount -e webproxy=$http_proxy`
+NOTE: If you are creating a Forge in a corporate network, a proxy may be required. See section [Commmon issues]
 
 ###Forj options:
 
@@ -123,76 +118,96 @@ Commands:
 
 #### Configuration
 
-While building your forge, forj needs to load some data by default. Those are listed in the application.
+When you create a new forj (`forj boot`), forj cli will load data from several layers of configuration:
 
-You can show them with :
+1. Cloud account setting (`forj setup [account]` or `forj get -a <account>` list identified by 'account' origin)
+2. Local configuration (`forj get` list identified by 'local' origin)
+3. Application defaults and cloud model. (`forj get` list identified by 'forj_core' or 'default')
 
-    $ forj show defaults
+You can get a complete list of current values:
+
+    $ forj get
+or
+
+    $ forj get -a <account>
 
 If you need to change one of them:
 
-    $ forj set "keypair_name=MyKeypairName"
+    $ forj set "security_group=test"
+or
 
-ex:
-    forj set keypair_name=nova
+    $ forj set "security_group=mysec" -a <account>
 
-You can check what kind of value, forj will use to boot/access your forge:
-
-    $ forj get -a dev
-
-
-#### Your config.yaml
-
-The following list gives you some details about keys/values required to boot/access your forge.
-
-
-~/.forj/config.yaml:
-
-     default:
-       account_name: name       # Default forj account used to connect to your cloud. This setting is automatically set to the first account created with forj setup <CloudProvider>
-       maestro_url: url         # Maestro GIT repository for clone.
-       infra_repo: path         # Path to the default Infra repository used to store your specific bootstrap/build environment. By default: ~/.forj/infra
-       image: imageName         # Image used to create Maestro and all forge boxes. By default, it is 'Ubuntu Precise 12.04.4 LTS Server 64-bit 20140414 (Rescue Image)'
-                                # If you have created the generic proto2b image, you can set it here.
-       flavor: flavorName       # Maestro Flavor name. This flavor is for Maestro only. Your blueprint layout defines each node flavors on needs.
-                                # By default: standard.medium
-       bp_flavor: flavorName    # Blueprint nodes default flavor. Usually, blueprint node are smaller than Maestro.
-                                # By default: standard.small
-       ports: [Port1,Port2,...] # list of additional ports to add in your cloud security group.
-                                # This list is added to the default one in defaults.yaml
-       keypair_path: path       # Define the file path to your OpenSSH private key. Useful to access your box with ssh command line.
-                                # By default. ~/.ssh/forj-id_rsa
-       keypair_name: name       # keypair name defined in your cloud to access your server. By default we named it 'forj'. If it doesn't exist, it will be created.
-       router: name             # Router name used by your forge boxes will use to access internet.
-       security_group: name     # Security group name to configure and attach to each forge boxes.
-       network: name            # Network name to attach to each forge boxes. By default we use 'private'. If it doesn't exist, it will be created.
-       # Internal use.
-       build_config: name       # forj cli use 'build.sh' to create Maestro. See build_config option on build.sh to get more information. By default 'box'
-       branch: name             # forj cli use 'build.sh' to create Maestro. See gitbranch option on build.sh to get more information. By default 'master'
-       box_name: maestro        # forj cli use 'build.sh' to create Maestro. See box_name option on build.sh to get more information. By default 'maestro'
+#### Connect to servers
 
 To ssh into a server
 
-    forj ssh <name> <node>
-    e.g. forj ssh maestro_01 [maestro, ci, util, review] # the nodes from your blueprint
+    $ forj ssh <name> [node]
+e.g.
 
-Excon and SSL Issue
-===================
+    $ forj ssh myforge review # review is one node from redstone blueprint
 
-If you are connecting to a private cloud, you may need to provide some additional certificate data:
+Commmon issues
+==============
 
-Excon env variables:
-* SSL_CERT_DIR : path_to_certs
-* SSL_CERT_FILE: path_to_file
+Certificate Authorities
+-----------------------
 
-Ex: 
+If your company certify your server with a private certificate authorities service, you may need to do the following:
 
-    export SSL_CERT_FILE=~/ca.crt
-    forj setup myAccount openstack
+Either your workstation and your cloud may needs to be configured with this CA certificate.
 
-or 
+* From your workstation:
 
-    SSL_CERT_FILE=~/ca.crt forj setup myAccount openstack
+    You can instantly provide the CA certificate to forj cli, with SSL_CERT_FILE env variable<BR>
+    ex:
+
+        SSL_CERT_FILE=~/tmp/cacert.crt forj boot redstone [...]
+
+    OR<BR>
+
+    You can install this certificate in your workstation. This case depends on your OS.<BR>
+    typical case:
+
+    * debian like system:
+        - cp file to /usr/share/ca-certificates/
+        - Update /etc/ca-certificates.conf
+        - call update-ca-certificates
+    * rpm like system:
+        - cp file to /etc/pki/ca-trust/source/anchors/
+        - call update-ca-trust extract
+
+* In your cloud:
+
+    If your cloud is NOT preconfigured (images) with your Company CA certificate,
+    you can call forj cli with --ca-root-cert at boot time, to configure your boxes with this missing certificate.
+
+    ex:
+
+        forj boot redstone myforge --ca-root-cert ~/tmp/cacert.crt
+
+    You can ask server in your cloud to install it in specific path and file name
+
+        forj boot redstone myforge --ca-root-cert '~/tmp/cacert-2015-1.crt#mycompany/cacrt.crt'
+
+    You can also pre-configure your forj account with this certificate.
+
+        forj set ca-root-cert=~/tmp/cacert-2015-1.crt -a myaccount
+    or
+
+        forj set 'ca-root-cert=~/tmp/cacert-2015-1.crt#mycompany/cacrt.crt' -a myaccount
+
+HTTP/HTTPS proxy
+----------------
+
+If your cloud is NOT preconfigured (images) with your Company proxy setting,
+you can ask forj cli to configure your server with the Proxy setting needed.
+
+
+Ex: boot a redstone 'myforge' with a proxy setting.
+
+    $ forj boot redstone myforge -a CorporateAccount -e webproxy=$http_proxy
+
 
 Contributing to Forj
 =====================
