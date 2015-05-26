@@ -82,13 +82,11 @@ module Forj
       Lorj::Core.new(config, a_processes)
 
       puts 'List of available FORJ default settings:'
-      puts format(
-        "%-15s %-12s :\n------------------------------",
-        'key',
-        'section name'
-      )
+      puts format("%-15s %-12s :\n------------------------------",
+                  'key', 'section name')
+
       config.meta_each do |section, found_key, hValue|
-        next if hValue.rh_get(:readonly) || hValue.rh_get(:get) == fals
+        next if hValue.rh_get(:readonly) || hValue.rh_get(:get) == false
         s_desc = hValue.rh_get(:desc)
         puts format('%-15s %-12s : %s', found_key, section, s_desc)
       end
@@ -262,12 +260,19 @@ module Forj
       false
     end
 
+    # Function to highlight the data origin
+    # => yellow : account
+    # => white  : local config
+    # => normal : all other config
+    #
     def self.format_highlight(account_name, config_where, where_format)
-      return format(where_format, config_where) if config_where == 'default'
+      res = format(where_format, 'default')
+      return res unless config_where == 'local' || config_where == 'account'
 
-      return ANSI.bold(format(where_format,
-                              account_name)) if config_where == 'account'
-      ANSI.bold(ANSI.yellow(format(where_format, config_where)))
+      res = ANSI.bold(format(where_format, config_where))
+      return res if config_where == 'local'
+
+      ANSI.yellow(ANSI.bold(format(where_format, account_name)))
     end
 
     def self.get_account_values(account, account_name)
@@ -292,12 +297,8 @@ module Forj
                       s_upd_msg, mykey, where_highlight, section,
                       account.get(mykey, nil, :section => section), default_key)
         else
-          puts format(
-            '%s %-15s(         ) %-12s: unset',
-            s_upd_msg,
-            mykey,
-            section
-          )
+          puts format('%s %-15s(         ) %-12s: unset',
+                      s_upd_msg, mykey, section)
         end
       end
     end
