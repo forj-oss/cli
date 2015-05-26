@@ -57,8 +57,9 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,   'dns#domain_name'
   obj_needs :data,   'maestro#tenant_name'
   # sent in base64
-  obj_needs :data,   'credentials#os_user'
-  obj_needs :data,   'credentials#os_enckey'
+  obj_needs :data,   'gardener#os_user'
+  obj_needs :data,   'gardener#os_enckey'
+  obj_needs :data,   'gardener#os_auth_uri'
   obj_needs :data,   'credentials#account_id'
   obj_needs :data,   'credentials#account_key'
   obj_needs :data,   'credentials#auth_uri'

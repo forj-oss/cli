@@ -569,7 +569,7 @@ class ForjCoreProcess
     hpcloud_priv = nil
     IO.popen('gzip -c', 'r+') do|pipe|
       data = <<-END
-HPCLOUD_OS_USER='#{hParams['credentials#os_user']}'
+HPCLOUD_OS_USER='#{hParams['gardener#os_user']}'
 HPCLOUD_OS_KEY='#{os_key}'
 DNS_KEY='#{hParams[:'credentials#account_id']}'
 DNS_SECRET='#{hParams['credentials#account_key']}'
@@ -597,9 +597,10 @@ DNS_SECRET='#{hParams['credentials#account_key']}'
       'PUPPET_DEBUG' => 'True',
       'image_name' => hParams['maestro#image_name'],
       'key_name' => hParams['credentials#keypair_name'],
+      # The following is used by gardener
       # Remove pad
       'hpcloud_priv' => Base64.strict_encode64(hpcloud_priv).gsub('=', ''),
-      'compute_os_auth_url' => hParams['credentials#auth_uri']
+      'compute_os_auth_url' => hParams['gardener#os_auth_uri']
     }
 
     if hParams['dns#dns_service']
@@ -631,7 +632,7 @@ DNS_SECRET='#{hParams['credentials#account_key']}'
   def build_metadata(sObjectType, hParams)
     entr = load_encoded_key
 
-    os_enckey = hParams['credentials#os_enckey']
+    os_enckey = hParams['gardener#os_enckey']
 
     os_key = decrypt_key(os_enckey, entr)
 

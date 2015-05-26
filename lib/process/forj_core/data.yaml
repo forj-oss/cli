@@ -30,7 +30,7 @@
         Maestro gardener is currently configured to access your cloud Compute service with fog openstack.
         Fog openstack is compatible with hpcloud services
 
-        It requires the openstack project name, user and password.
+        It requires the openstack uri, project name, user and password.
     :bp_config:
       :desc:    "Maestro and blueprint configuration:"
     :maestro_access_config:
@@ -120,6 +120,7 @@
       :account:            true
       :required:           true
       :ask_step:           :provider_config
+  :gardener:
     :os_user:
       :desc:               "Openstack compute cloud User name"
       :account_exclusive:  true
@@ -128,6 +129,7 @@
       :validate:           !ruby/regexp /\w+/
       :ask_step:           :gardener_config
       :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#account_id']:nil %>"
+      :ask_sort:           2
     :os_enckey:
       :desc:               "Openstack compute cloud password"
       :account_exclusive:  true
@@ -136,6 +138,22 @@
       :required:           true
       :ask_step:           :gardener_config
       :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#account_key']:nil %>"
+      :ask_sort:           3
+    :os_auth_uri:
+      :desc:               "Openstack service auth url"
+      :explanation:        |-
+        If needed, you can set a different way for Maestro to authenticate itself to the cloud
+
+        Currently, Gardener supports only openstack cloud type, with authentication version 2.
+        Multiple provider support and Openstack authentication v3 will be implemented soon.
+      :account_exclusive:  true
+      :account:            true
+      :required:           true
+      :ask_sort:           0
+      :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#auth_uri']:nil %>"
+      :validate:           !ruby/regexp /v2.0\/tokens/
+      :ask_step:           :gardener_config
+
 
   # Defines DNS services for maestro
   :dns:
@@ -161,11 +179,11 @@
   # Defines maestro environment.
   :maestro:
     :tenant_name:
-      :desc:            "Tenant name required by fog/openstack on gardener"
+      :desc:            "Tenant name"
       :account:         true
       :validate:        !ruby/regexp /^\w?[\w_:-]*$/
       :ask_step:        :gardener_config
-      :ask_sort:        0
+      :ask_sort:        1
       :default_value:   "<%= (config[:provider] == 'openstack')?config['credentials#tenant']:nil %>"
     :network_name:
       :desc:            "Network name to attach to each forge boxes. By default we use 'forj'. If it doesn't exist, it will be created."
