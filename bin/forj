@@ -166,13 +166,16 @@ If you want to check/updated them, use `forj get [-a account]`
   method_option :tb_path,  :aliases => '-t',
                            :desc => 'Define the path to the test-box script. '\
                                     'This option superseeds the TEST_BOX '\
-                                   'environment variable.'
+                                    'environment variable.'
   method_option :test_box, :aliases => '-T', :type => :array,
                            :desc => "Use a local repository for test-box\n\n"\
                                     'Other options:'
   method_option :extra_metadata,   :aliases => '-e',   :desc => 'Custom' \
     ' server metadata format key1=value1,key2=value2...,keyN=valueN'
 
+  method_option :webproxy,      :aliases => '-x',
+                                :desc => 'Set HTTP/HTTPS proxy setting from'\
+                                         ' your cloud'
   method_option :ca_root_cert,  :desc => 'Certificate Authorities file used by'\
     ' your compagny to authenticate your intranet servers.'
 

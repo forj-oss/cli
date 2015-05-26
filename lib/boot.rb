@@ -142,7 +142,8 @@ module Forj
                       :test_box       => :test_box,
                       :tb_path        => :test_box_path,
                       :ca_root_cert   => :ca_root_cert,
-                      :extra_metadata => :extra_metadata }
+                      :extra_metadata => :extra_metadata,
+                      :webproxy       => :webproxy }
 
       load_options(options, options_map) { |k, v| complete_boot_options(k, v) }
 

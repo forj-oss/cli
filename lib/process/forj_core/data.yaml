@@ -176,6 +176,10 @@
          :pre_step_function:  :forj_dns_settings?
          :ask_step:           :dns_config
 
+  :network:
+    :webproxy:
+      :desc:            "HTTP/HTTPS proxy setting to access internet from your cloud"
+
   # Defines maestro environment.
   :maestro:
     :tenant_name:

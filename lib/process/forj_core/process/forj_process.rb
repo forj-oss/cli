@@ -625,6 +625,7 @@ DNS_SECRET='#{hParams['credentials#account_key']}'
 
     tb_metadata(hParams, h_meta)
     ca_root_metadata(hParams, h_meta)
+    proxy_metadata(hParams, h_meta)
 
     h_meta
   end

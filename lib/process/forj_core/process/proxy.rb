@@ -1,4 +1,3 @@
-#!/usr/bin/env ruby
 # encoding: UTF-8
 
 # (c) Copyright 2014 Hewlett-Packard Development Company, L.P.
@@ -15,12 +14,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
+# Functions for test-box
+class ForjCoreProcess
+  # This function configure the proxy metadata
+  def proxy_metadata(hParams, metadata)
+    return unless hParams.exist?('network#webproxy')
 
-# Define model
-
-lorj_objects = %w(forj_process test_box ca_root_cert proxy declare)
-
-lorj_objects.each do |name|
-  load File.join(FORJCORE_PATH, 'forj_core', 'process', name + '.rb')
+    metadata['webproxy'] = hParams['network#webproxy']
+  end
 end
