@@ -74,6 +74,13 @@ module Forj
 
     def self.config_show_all
       config = Lorj::Account.new
+
+      a_processes = [{ :process_module => :cloud },
+                     { :process_module => :forj_core }]
+
+      # Loading CloudCore embedding provider controller + its process.
+      Lorj::Core.new(config, a_processes)
+
       puts 'List of available FORJ default settings:'
       puts format(
         "%-15s %-12s :\n------------------------------",
