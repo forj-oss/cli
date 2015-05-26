@@ -253,9 +253,9 @@ pwd
       res_found = param.match(/^(.*)#(.*)$/)
 
       if res_found
-        cert_file = res_found[1]
+        cert_file = File.expand_path(res_found[1])
       else
-        cert_file = param
+        cert_file = File.expand_path(param)
       end
 
       unless File.readable?(cert_file)

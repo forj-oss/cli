@@ -30,9 +30,10 @@ class ForjCoreProcess
     res_found = cert_file.match(/^(.*)#(.*)$/)
 
     if res_found
-      cert_file = res_found[1]
+      cert_file =  File.expand_path(res_found[1])
       dest_file = "/tmp/#{File.basename(res_found[2])}"
     else
+      cert_file = File.expand_path(cert_file)
       dest_file = File.basename(cert_file)
     end
 
