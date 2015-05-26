@@ -568,10 +568,13 @@ class ForjCoreProcess
   def load_hpcloud(hParams, os_key)
     hpcloud_priv = nil
     IO.popen('gzip -c', 'r+') do|pipe|
-      pipe.puts(format('HPCLOUD_OS_USER=%s', hParams['credentials#os_user']))
-      pipe.puts(format('HPCLOUD_OS_KEY=%s', os_key))
-      pipe.puts(format('DNS_KEY=%s', hParams[:'credentials#account_id']))
-      pipe.puts(format('DNS_SECRET=%s', hParams['credentials#account_key']))
+      data = <<-END
+HPCLOUD_OS_USER='#{hParams['credentials#os_user']}'
+HPCLOUD_OS_KEY='#{os_key}'
+DNS_KEY='#{hParams[:'credentials#account_id']}'
+DNS_SECRET='#{hParams['credentials#account_key']}'
+      END
+      pipe.puts(data)
       pipe.close_write
       hpcloud_priv = pipe.read
     end
