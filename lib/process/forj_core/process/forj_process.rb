@@ -1474,8 +1474,6 @@ class ForjCoreProcess
     begin
       PrcLib.state("creating ssh connection with '%s' box", o_server[:name])
       ssh_login(ssh_options, user, public_ip)
-      PrcLib.debug('Error closing ssh connection, box %s ',
-                   o_server[:name]) unless session
    rescue => e
      PrcLib.fatal 1, <<-END
 #{e.message}

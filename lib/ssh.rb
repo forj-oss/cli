@@ -38,21 +38,13 @@ module Forj
 
       if o_forge[:servers].count > 0
         if account[:box_ssh]
-          o_server = validate_server_name(name, account, o_forge)
+          server = validate_server_name(name, account[:box_ssh], o_forge)
 
-          if !o_server.nil?
-            ssh_connection(account, o_cloud, name, o_server)
-          else
-            PrcLib.debug("server '%s.%s' was not found",
-                         account[:box_ssh], name)
-            PrcLib.high_level_msg("server '%s.%s' was not found.\n",
-                                  account[:box_ssh], name)
-          end
+          return if server.nil?
         else
           server = select_forge_server(o_forge)
-
-          ssh_connection(account, o_cloud, name, server)
         end
+        ssh_connection(account, o_cloud, name, server)
       else
         PrcLib.high_level_msg("No server(s) found for instance name '%s' \n",
                               name)
@@ -85,20 +77,14 @@ module Forj
       o_cloud.create(:ssh, :server => server)
     end
 
-    def self.validate_server_name(name, account, o_forge)
-      box_ssh = account[:box_ssh]
-
-      o_server = nil
-      regex =  Regexp.new(format('%s\.%s$', box_ssh, name))
-
-      o_forge[:servers].each do |server|
-        o_name = server[:name]
-        next if (regex =~ o_name).nil?
-        o_server = server
-        break
+    def self.validate_server_name(name, box_ssh, o_forge)
+      unless o_forge[:servers].key?(box_ssh)
+        PrcLib.debug("server '%s.%s' was not found", box_ssh, name)
+        PrcLib.high_level_msg("server '%s.%s' was not found.\n", box_ssh, name)
+        return
       end
 
-      o_server
+      o_forge[:servers][box_ssh]
     end
   end
 end
