@@ -93,7 +93,7 @@ class ForjCoreProcess
     if res_found
       dest_file = "#{res_found[2]}"
     else
-      dest_file = File.basename(cert_file)
+      dest_file = File.basename(hParams['certs#ca_root_cert'])
     end
 
     metadata['CA_ROOT_CERT'] = dest_file
