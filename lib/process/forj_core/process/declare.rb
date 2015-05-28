@@ -63,9 +63,9 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,   'credentials#account_id'
   obj_needs :data,   'credentials#account_key'
   obj_needs :data,   'credentials#auth_uri'
-  obj_needs :data,   'network#webproxy'
   obj_needs_optional
 
+  obj_needs :data,   'network#webproxy'
   # If requested by user, ask Maestro to manage the DNS.
   obj_needs :data,   'dns#dns_service'
   obj_needs :data,   'dns#dns_tenant_id'
