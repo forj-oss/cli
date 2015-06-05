@@ -151,7 +151,7 @@
       :required:           true
       :ask_sort:           0
       :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#auth_uri']:nil %>"
-      :validate:           !ruby/regexp /v2.0\/tokens/
+      :validate:           !ruby/regexp /^http.*v2.0\/tokens$/
       :ask_step:           :gardener_config
 
 
