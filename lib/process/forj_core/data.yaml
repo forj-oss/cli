@@ -284,16 +284,16 @@
   # As forj_core is based on lorj_cloud, we have to disable Lorj_cloud data defaults.
   :server:
     :network_name:
-      :set:             false
+      :get:             false
     :security_group:
-      :set:             false
+      :get:             false
     :box_name:
-      :set:             false
+      :get:             false
     :flavor_name:
-      :set:             false
+      :get:             false
       :account:         false
     :image_name:
       :account:         false
-      :set:             false
+      :get:             false
     :ports:
-      :set:             false
+      :get:             false
