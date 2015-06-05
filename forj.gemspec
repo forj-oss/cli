@@ -35,7 +35,7 @@ Gem::Specification.new do |s|
   s.homepage    = 'https://forj.io'
   s.license     = 'Apache License, Version 2.0.'
   s.post_install_message = 'Go to docs.forj.io for more information on how to use forj cli'
-  s.required_ruby_version = '>= 1.8.5'
+  s.required_ruby_version = '>= 1.9.3'
 
   s.bindir = 'bin'
 
