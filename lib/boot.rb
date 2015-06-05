@@ -38,7 +38,7 @@ module Forj
           blueprint, old_accountname, old_name, blueprint, old_name
         )
 
-        if account.get('account_name') == old_accountname
+        if account.get(:account_name) == old_accountname
           PrcLib.warning('%s` instead.', msg)
         else
           PrcLib.warning("%s -a '%s'` instead.", msg, old_accountname)
@@ -127,7 +127,6 @@ module Forj
                      @account[:account_name], @account[:account_name])
       end
 
-      options = options.to_h
       options['tb_path'] = nil if options.key?('test_box') &&
                                   !options.key?('tb_path')
       options_map = { :infra          => :infra_repo,

@@ -20,13 +20,20 @@ module Forj
   # This module helps you to setup your forge's account
   module Settings
     def self.common_options(options)
-      PrcLib.level = Logger::INFO if options[:verbose]
-      PrcLib.level = Logger::DEBUG if options[:debug]
-      unless options[:lorj_debug].nil?
-        PrcLib.core_level = options[:lorj_debug].to_i
+      opts = options.to_hash
+      if opts.rh_key_to_symbol?
+        opts = opts.rh_key_to_symbol
+        PrcLib.debug('Thor options converted to use Symbol instead of String '\
+                     'in keys')
+      end
+      PrcLib.level = Logger::INFO if opts[:verbose]
+      PrcLib.level = Logger::DEBUG if opts[:debug]
+      unless opts[:lorj_debug].nil?
+        PrcLib.core_level = opts[:lorj_debug].to_i
         PrcLib.level = Logger::DEBUG
       end
-      latest_version?(options[:account_name]) if options[:account_name]
+      latest_version?(opts[:account_name]) if opts[:account_name]
+      opts
     end
 
     def self.latest_version?(account_name)
@@ -265,6 +272,7 @@ module Forj
     # => white  : local config
     # => normal : all other config
     #
+    #
     def self.format_highlight(account_name, config_where, where_format)
       res = format(where_format, 'default')
       return res unless config_where == 'local' || config_where == 'account'
@@ -304,7 +312,6 @@ module Forj
     end
 
     def self.account_get_all(oConfig, account_name)
-      #  byebug
       PrcLib.fatal(1, "Unable to load account '%s'. Not found.",
                    account_name) unless oConfig.ac_load account_name
       Forj::CloudConnection.connect(oConfig)

@@ -16,8 +16,8 @@
 #    limitations under the License.
 
 require 'rubygems'
-# require 'debugger' # Use to debug with Ruby < 2.0
-# require 'byebug'   # Use to debug with Ruby >= 2.0
+#  require 'debugger' # Use to debug with Ruby < 2.0
+#  require 'byebug'   # Use to debug with Ruby >= 2.0
 require 'bundler/setup'
 require 'thor'
 require 'ansi'
@@ -181,12 +181,12 @@ If you want to check/updated them, use `forj get [-a account]`
 
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil,
            old_name = nil)
-    Forj::Settings.common_options(options)
+    opts = Forj::Settings.common_options(options)
     require 'boot.rb'
 
     deprecated_name = [old_accountname, as, old_name]
 
-    Forj::Boot.boot(blueprint, on_or_name, deprecated_name, options)
+    Forj::Boot.boot(blueprint, on_or_name, deprecated_name, opts)
   end
 
   ################################# Show defaults
@@ -204,7 +204,7 @@ queriable Objects:
   desc 'show <Object> [name]', 'Show Object (default valuesr, account data,' \
     ' etc...) values.'
   def show(object, name = nil)
-    Forj::Settings.common_options(options)
+    opts = Forj::Settings.common_options(options)
 
     case object
     when 'defaults'
@@ -243,7 +243,7 @@ queriable Objects:
       puts o_config.config_dump([%(account)]).to_yaml
       puts '---'
       puts format("To change those values, execute 'forj setup -a %s'.",
-                  options[:account_name])
+                  opts[:account_name])
 
     else
       PrcLib.error("object '%s' unknown.", name)
@@ -268,8 +268,8 @@ Warning! This action do not remove any network/security groups cloud object.
      ' Account, config file or forj defaults.'
   def destroy(name)
     require 'destroy.rb'
-    Forj::Settings.common_options(options)
-    Forj::Destroy.destroy(name, options)
+    opts = Forj::Settings.common_options(options)
+    Forj::Destroy.destroy(name, opts)
   end
 
   ################################# SET
@@ -313,13 +313,12 @@ you can set it as your default, with:
     ' local config file.'
 
   def set(*p)
-    PrcLib.level = Logger::INFO if options[:verbose]
-    PrcLib.level = Logger::DEBUG if options[:debug]
+    opts = Forj::Settings.common_options(options)
 
     if p.length == 0
-      Forj::Settings.show_settings(options)
+      Forj::Settings.show_settings(opts)
     else
-      Forj::Settings.set_settings(options, p)
+      Forj::Settings.set_settings(opts, p)
     end
   end
 
@@ -352,11 +351,9 @@ or from your ~/.forj/config.yaml, or if not found, from application defaults.
     ' local config file.'
 
   def get(key = nil)
-    PrcLib.level = Logger::INFO if options[:verbose]
-    PrcLib.level = Logger::DEBUG if options[:debug]
-
+    opts = Forj::Settings.common_options(options)
     require 'get.rb'
-    Forj::Get.get(options, key)
+    Forj::Get.get(opts, key)
   end
 
   ################################# SSH
@@ -376,13 +373,13 @@ ex: forj ssh myforge -n review
     ' local config file.'
 
   def ssh(oInstanceName)
-    Forj::Settings.common_options(options)
+    opts = Forj::Settings.common_options(options)
     require 'ssh.rb'
 
-    account = Lorj::Account.new(options[:config])
+    account = Lorj::Account.new(opts[:config])
 
     # Setting account at runtime layer
-    account[:account_name] = options[:account_name] if options[:account_name]
+    account[:account_name] = opts[:account_name] if opts[:account_name]
 
     # Setting account at account layer
     unless account.ac_load account[:account_name]
@@ -391,8 +388,8 @@ ex: forj ssh myforge -n review
                    account[:account_name])
     end
 
-    account.set(:box_ssh,   options[:box_name])  if options[:box_name]
-    account.set(:identity,  options[:identity]) if options[:identity]
+    account.set(:box_ssh,   opts[:box_name])  if opts[:box_name]
+    account.set(:identity,  opts[:identity]) if opts[:identity]
 
     Forj::Ssh.connect(oInstanceName, account)
   end
@@ -420,10 +417,10 @@ Several data will be requested like:
 \x5- domain name to add to each boxes hostname
   LONGDESC
   def setup(sAccountName = 'hpcloud', sProvider = 'hpcloud')
-    Forj::Settings.common_options(options)
+    opts = Forj::Settings.common_options(options)
     require 'cloud_connection.rb'
 
-    account = Lorj::Account.new(options[:config], Forj.file_version)
+    account = Lorj::Account.new(opts[:config], Forj.file_version)
     account.ac_new(sAccountName, sProvider) unless account.ac_load(sAccountName)
 
     o_cloud = Forj::CloudConnection.connect(account)
