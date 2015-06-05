@@ -5,6 +5,8 @@ Forj cli
 Installation
 ------------
 
+Forj cli supports Ruby 1.9.3 or higher.
+
 ###Fedora/CentOS/Redhat rpm like package system
 
 **For ruby 2.0**
@@ -17,19 +19,7 @@ Installation
 **For ruby 1.9**
 
     $ apt-get -y update
-    $ sudo apt-get install ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 build-essential libopenssl-ruby1.9.1 libssl-dev zlib1g-dev libxml2-dev libxslt-dev git -y
-    $ sudo gem install forj
-
-
-**For ruby 1.8**
-
-    $ sudo apt-get install ruby1.8-dev ruby1.8 ri1.8 rdoc1.8 irb1.8 rubygems -y
-    $ sudo apt-get install libreadline-ruby1.8 libruby1.8 libopenssl-ruby -y
-    $ sudo apt-get install libxslt-dev libxml2-dev -y
-    $ sudo gem install nokogiri
-    $ sudo apt-get install ruby-bundler -y
-    $ sudo gem install mime-types -v 1.25.1
-    $ sudo gem install hpcloud
+    $ sudo apt-get install ruby1.9.3 ruby1.9.3-dev rubygems1.9.3 build-essential libopenssl-ruby1.9.3 libssl-dev zlib1g-dev libxml2-dev libxslt-dev git -y
     $ sudo gem install forj
 
 **Installation from source**
