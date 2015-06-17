@@ -53,8 +53,8 @@ module Forj
 
     def self.load_options(options, options_map)
       options_map.each do |opt_key, ac_key|
-        if options.key?(opt_key.to_s)
-          value = yield(opt_key, options[opt_key.to_s])
+        if options.key?(opt_key)
+          value = yield(opt_key, options[opt_key])
           @account.set(ac_key, value) unless value.nil?
         end
       end
@@ -127,8 +127,8 @@ module Forj
                      @account[:account_name], @account[:account_name])
       end
 
-      options['tb_path'] = nil if options.key?('test_box') &&
-                                  !options.key?('tb_path')
+      options[:tb_path] = nil if options.key?(:test_box) &&
+                                 !options.key?(:tb_path)
       options_map = { :infra          => :infra_repo,
                       :key_name       => :keypair_name,
                       :key_path       => :keypair_path,
@@ -182,6 +182,7 @@ module Forj
     def self.tb_repo_detect(paths)
       res = {}
       paths.each do |path|
+        PrcLib.debug("tb_repo_detect: checking #{path}")
         cmd = <<-CMD
 cd "#{path}"
 git rev-parse --show-toplevel 2>/dev/null 1>&2
@@ -203,11 +204,22 @@ pwd
         # Ruby bug. tested with:
         # ruby 2.0.0p353 (2013-11-22 revision 43784) [x86_64-linux]
         # rubocop: disable Style/SpecialGlobalVars
-        next unless $?.exitstatus == 0
+        unless $?.exitstatus == 0
+          PrcLib.warning("tb_repo_detect: #{path} seems not to be a GIT "\
+                         "repo.\n"\
+                         "#{cmd_res.join("\n")}")
+          next
+        end
         # rubocop: enable Style/SpecialGlobalVars
         repo_found = cmd_res[0].match(%r{.*/(.*)(.git)?})
-        next unless repo_found
+        unless repo_found
+          PrcLib.warning("tb_repo_detect: Unable to find the repo path.\n"\
+                         "#{cmd_res.join("\n")}")
+
+          next
+        end
         res[repo_found[1]] = cmd_res[1]
+        PrcLib.debug("tb_repo_detect: FOUND #{cmd_res[1]}")
       end
       res
     end
@@ -228,6 +240,7 @@ pwd
                        'test-box is disabled.', script)
           return nil
         end
+        PrcLib.debug("tb_repo_detect: FOUND #{script_found}")
         return script_found
       end
 
@@ -237,6 +250,7 @@ pwd
         script_found = tb_check_bin(path)
         break unless script_found.nil?
       end
+      PrcLib.debug("tb_repo_detect: FOUND #{script_found}")
 
       script_found
     end
