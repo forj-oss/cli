@@ -43,3 +43,20 @@ module Forj
     @file_version = v unless @file_version
   end
 end
+
+if ENV['RUBY_DEBUG'] == 'true'
+  if /1\.8/ =~ RUBY_VERSION
+    require 'ruby-debug'
+    Debugger.start
+    alias stop debugger # rubocop: disable Style/Alias
+  elsif /1\.9/ =~ RUBY_VERSION
+    require 'debugger'
+    alias stop debugger # rubocop: disable Style/Alias
+  else
+    require 'byebug'
+    alias stop byebug # rubocop: disable Style/Alias
+  end
+else
+  def stop
+  end
+end

@@ -16,8 +16,6 @@
 #    limitations under the License.
 
 require 'rubygems'
-#  require 'debugger' # Use to debug with Ruby < 2.0
-#  require 'byebug'   # Use to debug with Ruby >= 2.0
 require 'bundler/setup'
 require 'thor'
 require 'ansi'
@@ -45,6 +43,8 @@ require 'forj-settings.rb' # Settings features
 class ForjThor < Thor
   class_option :debug,   :aliases => '-d', :desc => 'Set debug mode'
   class_option :verbose, :aliases => '-v', :desc => 'Set verbose mode'
+  class_option :quiet,   :aliases => '-q', :desc => 'Set quiet mode'
+  class_option :real_quiet, :desc => 'Set REAL quiet mode (errors/fatal only)'
   class_option :config,  :aliases => '-c', :desc => 'Path to a different forj'\
     ' config file. By default, use ~/.forj/config.yaml'
   class_option :lorj_debug, :desc => 'Set lorj debug level verbosity. 1 to 5.'\
@@ -178,6 +178,10 @@ If you want to check/updated them, use `forj get [-a account]`
                                          ' your cloud'
   method_option :ca_root_cert,  :desc => 'Certificate Authorities file used by'\
     ' your compagny to authenticate your intranet servers.'
+  method_option :disable_lorj, :type => :boolean,
+                               :desc => 'If set, Maestro - gardener (Cloud'\
+    ' management) will use internal FOG cloud implementation to build your '\
+    'forge. By default, Maestro gardener delegate this task to Lorj_cloud.'
 
   def boot(blueprint, on_or_name, old_accountname = nil, as = nil,
            old_name = nil)

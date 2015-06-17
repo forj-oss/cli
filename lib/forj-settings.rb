@@ -26,6 +26,9 @@ module Forj
         PrcLib.debug('Thor options converted to use Symbol instead of String '\
                      'in keys')
       end
+      PrcLib.level = Logger::INFO
+      PrcLib.level = Logger::ERROR if opts[:real_quiet]
+      PrcLib.level = Logger::WARN if opts[:quiet]
       PrcLib.level = Logger::INFO if opts[:verbose]
       PrcLib.level = Logger::DEBUG if opts[:debug]
       unless opts[:lorj_debug].nil?
@@ -33,6 +36,7 @@ module Forj
         PrcLib.level = Logger::DEBUG
       end
       latest_version?(opts[:account_name]) if opts[:account_name]
+
       opts
     end
 
@@ -47,7 +51,10 @@ module Forj
                    account_name) \
                    unless config.latest_version?('account')
     end
+  end
 
+  # This module helps you to setup your forge's account
+  module Settings
     def self.account_show_all(account_name)
       config = Lorj::Account.new
 

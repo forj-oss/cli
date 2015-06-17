@@ -100,8 +100,6 @@ module Forj
       end
     end
   end
-  # rubocop: disable Metrics/CyclomaticComplexity
-  # rubocop: disable Metrics/MethodLength
 
   #
   module Boot
@@ -142,7 +140,9 @@ module Forj
                       :tb_path        => :test_box_path,
                       :ca_root_cert   => :ca_root_cert,
                       :extra_metadata => :extra_metadata,
-                      :webproxy       => :webproxy }
+                      :webproxy       => :webproxy,
+                      :disable_lorj   => :lorj_disabled
+                    }
 
       load_options(options, options_map) { |k, v| complete_boot_options(k, v) }
 
@@ -157,7 +157,13 @@ module Forj
                             @account[:instance_name],
                             PrcLib.log_file)
 
-      o_cloud.create(:forge)
+      o_cloud.create(:forge,
+                     :server_name    => "maestro.#{@account[:instance_name]}",
+                     :image_name     => @account['maestro#image_name'],
+                     :flavor_name    => @account['maestro#flavor_name'],
+                     :network_name   => @account['maestro#network_name'],
+                     :security_group => @account['maestro#security_group'],
+                     :ports          => @account[:ports])
     end
   end
   # rubocop: enable Metrics/CyclomaticComplexity

@@ -53,6 +53,7 @@ class ForjCoreProcess
     maestro_create_status(s_status)
 
     o_address = hParams.refresh[:public_ip, :ObjectData]
+    o_address = Lorj::Data.new if o_address.nil?
 
     s_status = active_server?(server, o_address, boot_options[:keys],
                               boot_options[:coherent], s_status)
@@ -69,11 +70,7 @@ class ForjCoreProcess
     o_forge = process_get(sObjectType, config[:instance_name])
     if o_forge.empty? || o_forge[:servers].length == 0
       PrcLib.high_level_msg("\nBuilding your forge...\n")
-      process_create(:internet_server,
-                     :image_name => hParams['maestro#image_name'],
-                     :flavor_name => hParams['maestro#flavor_name'],
-                     :network_name => hParams['maestro#network_name'],
-                     :security_group => hParams['maestro#security_group'])
+      process_create(:internet_server)
       o_forge[:servers, 'maestro'] = hParams.refresh[:server]
     else
       o_forge = load_existing_forge(o_forge, hParams)
@@ -88,7 +85,8 @@ class ForjCoreProcess
     if o_server
       query = { :server_id => o_server[:id] }
       register(o_server)
-      o_ip = process_query(:public_ip, query)
+      o_ip = process_query(:public_ip, query,
+                           :network_name   => hParams['maestro#network_name'])
       register(o_ip[0]) if o_ip.length > 0
     else
       PrcLib.high_level_msg("\nYour forge exist, without maestro." \
@@ -160,6 +158,8 @@ class ForjCoreProcess
                      keypair_coherent, s_status
                     )
     if o_server[:attrs][:status] == :active
+      return :assign_ip if o_address[:public_ip].nil?
+
       image = server_get_image o_server
 
       s_msg = format('Your forj Maestro server is up and running and is '\
@@ -194,8 +194,6 @@ class ForjCoreProcess
     s_status
   end
 end
-
-# rubocop:disable Metrics/ClassLength
 
 # Functions for boot - build_forge
 class ForjCoreProcess
@@ -285,12 +283,13 @@ class ForjCoreProcess
       if s_status == :starting
         s_status = :assign_ip if o_server[:status] == :active
       elsif s_status == :assign_ip
-        s_status = assign_ip_boot(o_address, boot_options, s_status, o_server)
+        s_status = assign_ip_boot(o_address, boot_options, s_status, o_server,
+                                  hParams)
       else # analyze the log output
         output_options = { :status => s_status, :error => m_cloud_init_error,
                            :old_log => o_old_log, :cur_act => i_cur_act
         }
-        output_options = analyze_log_output(output_options, s_status)
+        output_options = analyze_log_output(output_options, s_status, hParams)
         s_status = output_options[:status]
         m_cloud_init_error = output_options[:error]
         o_old_log = output_options[:old_log]
@@ -298,6 +297,7 @@ class ForjCoreProcess
 
         tb_detect(hParams, o_old_log)
         ca_root_detect(hParams, o_old_log)
+        lorj_detect(hParams, o_old_log, boot_options)
 
         if pending_count == 60
           image = server_get_image o_server
@@ -356,7 +356,7 @@ end
 
 # Functions for boot - build_forge
 class ForjCoreProcess
-  def assign_ip_boot(o_address, boot_options, s_status, o_server)
+  def assign_ip_boot(o_address, boot_options, s_status, o_server, hParams)
     if o_address.empty?
       # To be able to ask for server IP assigned
       query_cache_cleanup(:public_ip)
@@ -368,8 +368,7 @@ class ForjCoreProcess
         o_address = o_addresses[0]
       end
     end
-
-    image = data_objects(:image, :ObjectData)
+    image = hParams.refresh[:image]
     s_msg = <<-END
 Public IP for server '%s' is assigned.
 Now, as soon as the server respond to the ssh port,
@@ -394,7 +393,7 @@ done
     s_status
   end
 
-  def analyze_log_output(output_options, s_status)
+  def analyze_log_output(output_options, s_status, hParams)
     o_log = process_get(:server_log, 25)
     return output_options if o_log.nil? || o_log.empty?
 
@@ -414,7 +413,8 @@ done
       )
     else
       # validate server status
-      output_options = analyze_server_status(s_status, log, output_options)
+      output_options = analyze_server_status(s_status, log,
+                                             output_options, hParams)
     end
     output_options
   end
@@ -446,7 +446,7 @@ end
 
 # Functions for boot - build_forge
 class ForjCoreProcess
-  def analyze_server_status(s_status, o_log, output_options)
+  def analyze_server_status(s_status, o_log, output_options, _hParams)
     if s_status == :cloud_init &&
        /cloud-init-nonet gave up waiting for a network device/ =~ o_log
       # Valid for ubuntu image 12.04
@@ -584,10 +584,10 @@ DNS_SECRET='#{hParams['credentials#account_key']}'
   def load_h_meta(hParams, hpcloud_priv)
     h_meta = {
       'flavor_name' => hParams['maestro#bp_flavor'],
-      'cdksite' => config.get(:server_name),
+      'cdksite' => hParams[:server_name],
       'cdkdomain' => hParams['dns#domain_name'],
       'eroip' => '127.0.0.1',
-      'erosite' => config.get(:server_name),
+      'erosite' => hParams[:server_name],
       'erodomain' => hParams['dns#domain_name'],
       'gitbranch' => hParams['maestro#branch'],
       'security_groups' => hParams['maestro#security_group'],
@@ -626,6 +626,7 @@ DNS_SECRET='#{hParams['credentials#account_key']}'
     tb_metadata(hParams, h_meta)
     ca_root_metadata(hParams, h_meta)
     proxy_metadata(hParams, h_meta)
+    lorj_metadata(hParams, h_meta)
 
     h_meta
   end
@@ -639,18 +640,20 @@ DNS_SECRET='#{hParams['credentials#account_key']}'
 
     hpcloud_priv = load_hpcloud(hParams, os_key)
 
-    config.set(
-      :server_name,
-      format('maestro.%s', hParams[:instance_name])
-    ) # Used by :server object
-
     h_meta = load_h_meta(hParams, hpcloud_priv)
 
     config.set(:meta_data, h_meta) # Used by :server object
 
     h_meta_printable = h_meta.clone
     h_meta_printable['hpcloud_priv'] = 'XXX - data hidden - XXX'
-    PrcLib.info("Metadata set:\n%s", h_meta_printable)
+    m_print = ''
+    max_key = 0
+    h_meta_printable.keys.each { |k| max_key = [max_key, k.length].max }
+    h_meta_printable.keys.sort.each do |k|
+      m_print += format("%-#{max_key}s : %s\n",
+                        k, ANSI.bold(h_meta_printable[k]))
+    end
+    PrcLib.info("Metadata set:\n%s", m_print)
 
     o_meta_data = register(h_meta, sObjectType)
     o_meta_data[:meta_data] = h_meta
@@ -945,7 +948,7 @@ class ForjCoreProcess
     ) unless File.exist?(mime)
   end
 
-  def build_userdata(sObjectType, hParams) # rubocop: disable Metrics/AbcSize
+  def build_userdata(sObjectType, hParams)
     # get the paths for maestro and infra repositories
     # maestro_path = hParams[:maestro_repository].values
     # infra_path = hParams[:infra_repository].values
@@ -1406,7 +1409,8 @@ class ForjCoreProcess
     servers = {}
     s_query[:name] = Regexp.new("\\.#{sForgeId}$")
 
-    o_servers = process_query(:server, s_query)
+    o_servers = process_query(:server, s_query,
+                              :search_for => "for instance #{sForgeId}")
 
     o_servers.each do |o_server|
       type = o_server[:name].clone

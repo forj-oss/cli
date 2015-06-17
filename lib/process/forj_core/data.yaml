@@ -27,10 +27,22 @@
     :gardener_config:
       :desc:    "Maestro gardener Cloud configuration:"
       :explanation:        |-
-        Maestro gardener is currently configured to access your cloud Compute service with fog openstack.
-        Fog openstack is compatible with hpcloud services
+        Maestro gardener is currently the layer used by Maestro to access your cloud.
 
-        It requires the openstack uri, project name, user and password.
+        First versions of gardener call directly the Openstack API from FOG for compute/network
+        and call directly hpcloud FOG API to manage DNS records.
+
+        The new gardener version, now implements an agnostic cloud library called 'Lorj_cloud'
+        and replace the Openstack FOG API with compute/network.
+
+        The DNS management will be replaced as well in next version of gardener.
+
+        'Lorj_cloud' is used as the default compute/network cloud management.
+        As those changes are in transition, the old gardener behavior has been kept and can be re-enabled.
+        See 'lorj_disabled' paramater in 'forj get/set' or --disable-lorj from cli.
+
+        In order to switch easily on Maestro between FOG <=> LORJ_CLOUD, setup
+        will still requires the openstack uri, project name, user and password.
     :bp_config:
       :desc:    "Maestro and blueprint configuration:"
     :maestro_access_config:
@@ -202,6 +214,9 @@
       :validate:        !ruby/regexp /^\w?\w*$/
       :default_value:   "forj"
       :ask_step:        :maestro_config
+    :ports:
+      :desc:            "Ports open in the security groups given."
+      :default_value:   [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
     :maestro_repo:
       :desc:       "To use a different Maestro repository already cloned."
     :infra_repo:
@@ -274,7 +289,9 @@
       :desc:            "Additional bootstrap directories (separated by space) to add in the bootstrap loop."
     :bootstrap_extra_dir:
       :desc:            "Additional bootstrap directory to add in the bootstrap loop, before :bootstrap_dirs and after maestro default bootstrap directory."
-
+    :lorj_disabled:
+      :desc:            "True if maestro gardener by default will use FOG to access the cloud. Otherwise, it will use LORJ_CLOUD."
+      :default_value:   false
 
   # Defines certificates
 

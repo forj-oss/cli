@@ -51,11 +51,19 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'json', '1.7.5'
   s.add_runtime_dependency 'bundler'
   s.add_runtime_dependency 'nokogiri','1.5.11'
-  s.add_runtime_dependency 'lorj_cloud', '>= 0.1.3'
+  s.add_runtime_dependency 'lorj_cloud', '>= 0.1.4'
 
   s.add_development_dependency "rake", "~> 10.0"
   s.add_development_dependency "rspec", "~> 3.1.0"
-  s.add_development_dependency "rubocop", ">=0.30.0"
+  if RUBY_VERSION.match(/1\.8/)
+    s.add_development_dependency "ruby-debug"
+  elsif RUBY_VERSION.match(/1\.9/)
+    s.add_development_dependency "debugger"
+    s.add_development_dependency "rubocop", ">= 0.30.0"
+  else
+    s.add_development_dependency "byebug"
+    s.add_development_dependency "rubocop", ">= 0.30.0"
+  end
   s.rdoc_options << '--title' << 'Lorj - The Process Controllers framework system' <<
   '--main' << 'README.md'
 end

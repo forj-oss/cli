@@ -41,9 +41,14 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,         :infra_repo
   obj_needs :data,         :branch
 
+  # ******************* Lorj_cloud account
+  define_obj :lorj_account,
+             :create_e => :build_lorj_account
+
+  obj_needs :data, 'maestro#lorj_disabled'
+
   # ******************* metadata object
   define_obj :metadata,
-
              :create_e => :build_metadata
 
   obj_needs :data,   :instance_name
@@ -63,6 +68,8 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,   'credentials#account_id'
   obj_needs :data,   'credentials#account_key'
   obj_needs :data,   'credentials#auth_uri'
+  obj_needs :data,   :server_name
+  obj_needs :CloudObject, :lorj_account
   obj_needs_optional
 
   obj_needs :data,   'network#webproxy'
@@ -105,6 +112,8 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,        'maestro#flavor_name',    :for => [:create_e]
   obj_needs :data,        'maestro#network_name',   :for => [:create_e]
   obj_needs :data,        'maestro#security_group', :for => [:create_e]
+  obj_needs :data,        :ports,                   :for => [:create_e]
+  obj_needs :CloudObject, :lorj_account,            :for => [:create_e]
 
   obj_needs_optional
   obj_needs :CloudObject,  :server
@@ -120,6 +129,9 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
 
   # Adding support of ca-root-cert file to send out.
   obj_needs :data,      'certs#ca_root_cert', :for => [:create_e]
+
+  # Lorj_disabled support
+  obj_needs :data,   'maestro#lorj_disabled', :for => [:create_e]
 
   # Defines how cli will control FORJ features
   # boot/down/ssh/...

@@ -19,7 +19,7 @@ FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
 
 # Define model
 
-lorj_objects = %w(forj_process test_box ca_root_cert proxy declare)
+lorj_objects = %w(lorj_account forj_process test_box ca_root_cert proxy declare)
 
 lorj_objects.each do |name|
   load File.join(FORJCORE_PATH, 'forj_core', 'process', name + '.rb')
