@@ -185,6 +185,10 @@ module Forj
         PrcLib.debug("tb_repo_detect: checking #{path}")
         cmd = <<-CMD
 cd "#{path}"
+if [ $? -ne 0 ]
+then
+  exit 1
+fi
 git rev-parse --show-toplevel 2>/dev/null 1>&2
 if [ $? -ne 0 ]
 then
