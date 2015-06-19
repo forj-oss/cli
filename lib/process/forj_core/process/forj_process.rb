@@ -1404,22 +1404,17 @@ class ForjCoreProcess
   def get_forge(sCloudObj, sForgeId, _hParams)
     s_query = {}
     servers = {}
-    s_query[:name] = sForgeId
+    s_query[:name] = Regexp.new("\\.#{sForgeId}$")
 
     o_servers = process_query(:server, s_query)
 
-    regex =  Regexp.new(format('\.%s$', sForgeId))
-
     o_servers.each do |o_server|
-      name = o_server[:name]
-      next unless regex =~ name
-
-      type = name.clone
+      type = o_server[:name].clone
       type['.' + sForgeId] = ''
       servers[type] = o_server
     end
     PrcLib.info('%s server(s) were found under instance name %s ',
-                servers.count, s_query[:name])
+                servers.count, sForgeId)
 
     o_forge = register({}, sCloudObj)
     o_forge[:servers] = servers
