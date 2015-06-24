@@ -37,7 +37,6 @@ class ForjCoreProcess
       'maestro#network_name'     => { :keys => [:server, :network_name] },
       'maestro#security_group'   => { :keys => [:server, :security_group] },
       'dns#domain_name'          => {},
-      'certs#ca_root_cert'       => {},
       'network#webproxy'         => {}
     }
 
