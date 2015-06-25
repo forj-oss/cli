@@ -495,7 +495,8 @@ class ForjCoreProcess
       else
         s_msg = 'No servers found except maestro'
         PrcLib.warning('Something went wrong, while creating nodes for '\
-                       "blueprint '%s'. check maestro logs.", blueprint)
+                       "blueprint '%s'. check maestro logs "\
+                       '(Usually /var/log/cloud-init.log).', blueprint)
       end
     else
       s_msg += "\nMaestro has NOT implemented any servers, because you did" \
