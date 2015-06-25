@@ -16,4 +16,4 @@
 
 require 'lorj'
 
-Lorj.declare_process('forj_core', File.dirname(__FILE__))
+Lorj.declare_process('forj_core', File.dirname(__FILE__), :lib_name => 'forj')
