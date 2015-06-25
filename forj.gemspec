@@ -51,7 +51,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'json', '1.7.5'
   s.add_runtime_dependency 'bundler'
   s.add_runtime_dependency 'nokogiri','1.5.11'
-  s.add_runtime_dependency 'lorj_cloud', '>= 0.1.5'
+  s.add_runtime_dependency 'lorj_cloud', '>= 0.1.6'
 
   s.add_development_dependency "rake", "~> 10.0"
   s.add_development_dependency "rspec", "~> 3.1.0"

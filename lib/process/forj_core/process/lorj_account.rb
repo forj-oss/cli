@@ -40,7 +40,8 @@ class ForjCoreProcess
       'network#webproxy'         => {}
     }
 
-    data[:key], data[:data] = account_export(map)
+    data[:key], data[:data] = account_export(map, true, true,
+                                             :exclude => ['forj_core'])
     data_registered = register(data, sObjectType)
     data_registered[:key] = Base64.strict_encode64(data[:key].to_yaml)
     data_registered[:data] = data[:data]
@@ -83,6 +84,7 @@ class ForjCoreProcess
     pubip = hParams[:public_ip, :public_ip]
     user = hParams[:image, :ssh_user]
     identity = File.join(keypair[:keypair_path], keypair[:private_key_name])
+
     if keypair[:coherent]
       ssh_options = '-o StrictHostKeyChecking=no -o ServerAliveInterval=180'
       ssh_options += " -i #{identity}"
