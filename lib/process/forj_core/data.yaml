@@ -290,8 +290,8 @@
     :bootstrap_extra_dir:
       :desc:            "Additional bootstrap directory to add in the bootstrap loop, before :bootstrap_dirs and after maestro default bootstrap directory."
     :lorj_disabled:
-      :desc:            "True if maestro gardener by default will use FOG to access the cloud. Otherwise, it will use LORJ_CLOUD. Lorj is under testing. Use it at your own risk."
-      :default_value:   true
+      :desc:            "True if maestro gardener by default will use FOG to access the cloud. Otherwise, it will use LORJ_CLOUD."
+      :default_value:   false
 
   # Defines certificates
 
