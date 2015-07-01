@@ -106,6 +106,7 @@
       :ask_step:           :maestro_access_config
       :pre_step_function:  :update_keypair_config
       :post_step_function: :forj_check_cloud_keypair
+      :export:             true
     :auth_uri:
       :desc:               "Generic service auth url"
       :account_exclusive:  true
@@ -113,12 +114,14 @@
       :required:           true
       :ask_sort:           0
       :ask_step:           :provider_config
+      :export:             true
     :account_id:
       :desc:               "Generic Cloud Account name."
       :account_exclusive:  true
       :account:            true
       :required:           true
       :ask_step:           :provider_config
+      :export:             true
     :account_key:
       :desc:               "Generic cloud account key"
       :account_exclusive:  true
@@ -126,12 +129,14 @@
       :required:           true
       :encrypted:          true
       :ask_step:           :provider_config
+      :export:             true
     :tenant:
       :desc:               "Openstack Tenant Name (Project name)"
       :account_exclusive:  true
       :account:            true
       :required:           true
       :ask_step:           :provider_config
+      :export:             true
   :gardener:
     :os_user:
       :desc:               "Openstack compute cloud User name for Fog Gardener"
@@ -172,6 +177,7 @@
          :account:            true
          :post_step_function: :forj_dns_settings
          :ask_step:           :dns_config
+         :export:             true
       :dns_service:
          :desc:               "DNS service region name Maestro will use."
          :account_exclusive:  true
@@ -188,7 +194,7 @@
   :network:
     :webproxy:
       :desc:            "HTTP/HTTPS proxy setting to access internet from your cloud"
-
+      :export:          true
   # Defines maestro environment.
   :maestro:
     :tenant_name:
@@ -205,12 +211,14 @@
       :required:        true
       :default_value:   "forj"
       :ask_step:        :maestro_config
+      :export:          "server#network_name"
     :security_group:
       :desc:            "Security group name to configure and attach to each forge boxes."
       :account:         true
       :validate:        !ruby/regexp /^\w?\w*$/
       :default_value:   "forj"
       :ask_step:        :maestro_config
+      :export:          "server#security_group"
     :ports:
       :desc:            "Ports open in the security groups given."
       :default_value:   [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
@@ -240,6 +248,7 @@
       :desc:       "Maestro Flavor name"
       :default_value:    'medium'
       :account:    true
+      :export:          "server#flavor_name"
       :list_values:
          :query_type:   :query_call # Will execute a query on flavor, query_params is empty for all.
          :object:       :flavor
@@ -269,6 +278,8 @@
 
         Checking image '<%= config['maestro#image_name'] %>'...
       :account:     true
+      :export:             "server#ssh_user"
+
       :ask_step:           :maestro_img_config
       :ask_sort:           0
       :after:              :image_name
@@ -299,15 +310,19 @@
   :server:
     :network_name:
       :get:             false
+      :export:          false
     :security_group:
       :get:             false
+      :export:          false
     :box_name:
       :get:             false
     :flavor_name:
       :get:             false
       :account:         false
+      :export:          false
     :image_name:
       :account:         false
       :get:             false
+      :export:          false
     :ports:
       :get:             false

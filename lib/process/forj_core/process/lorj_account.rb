@@ -21,25 +21,21 @@ require 'lorj'
 # lorj_account process functions
 class ForjCoreProcess
   def build_lorj_account(sObjectType, hParams)
+    map = {}
+
+    Lorj.data.meta_each do |section, key, data|
+      section_key = "#{section}##{key}"
+
+      next if data.nil? || data[:export].nil?
+
+      if data[:export].boolean?
+        map[section_key] = {} if data[:export]
+        next
+      end
+
+      map[section_key] = { :keys => data[:export] }
+    end
     data = {}
-
-    map = {
-      'credentials#auth_uri'     => {},
-      'credentials#account_id'   => {},
-      'credentials#account_key'  => {},
-      'credentials#tenant'       => {},
-      'credentials#keypair_name' => {},
-      'services#compute'         => {},
-      'services#network'         => {},
-      'maestro#image_name'       => { :keys => [:server, :image_name] },
-      'maestro#ssh_user'         => { :keys => [:server, :ssh_user] },
-      'maestro#flavor_name'      => { :keys => [:server, :flavor_name] },
-      'maestro#network_name'     => { :keys => [:server, :network_name] },
-      'maestro#security_group'   => { :keys => [:server, :security_group] },
-      'dns#domain_name'          => {},
-      'network#webproxy'         => {}
-    }
-
     data[:key], data[:data] = account_export(map, true, true,
                                              :exclude => ['forj_core'])
     data_registered = register(data, sObjectType)
