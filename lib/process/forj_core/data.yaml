@@ -25,7 +25,7 @@
       :add:
         - :ssh_user
     :gardener_config:
-      :desc:    "Maestro gardener Cloud configuration:"
+      :desc:    "Maestro FOG gardener Cloud configuration:"
       :explanation:        |-
         Maestro gardener is currently the layer used by Maestro to access your cloud.
 
@@ -41,8 +41,8 @@
         As those changes are in transition, the old gardener behavior has been kept and can be re-enabled.
         See 'lorj_disabled' paramater in 'forj get/set' or --disable-lorj from cli.
 
-        In order to switch easily on Maestro between FOG <=> LORJ_CLOUD, setup
-        will still requires the openstack uri, project name, user and password.
+        In order to switch easily and re-activate FOG on gardener, setup will still requires
+        the openstack uri (auth V2.0 only), project name, user and password.
     :bp_config:
       :desc:    "Maestro and blueprint configuration:"
     :maestro_access_config:
@@ -134,7 +134,7 @@
       :ask_step:           :provider_config
   :gardener:
     :os_user:
-      :desc:               "Openstack compute cloud User name"
+      :desc:               "Openstack compute cloud User name for Fog Gardener"
       :account_exclusive:  true
       :account:            true
       :required:           true
@@ -143,7 +143,7 @@
       :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#account_id']:nil %>"
       :ask_sort:           2
     :os_enckey:
-      :desc:               "Openstack compute cloud password"
+      :desc:               "Openstack compute cloud password for Fog Gardener"
       :account_exclusive:  true
       :encrypted:          true
       :account:            true
@@ -152,12 +152,9 @@
       :default_value:      "<%= (config[:provider] == 'openstack')?config['credentials#account_key']:nil %>"
       :ask_sort:           3
     :os_auth_uri:
-      :desc:               "Openstack service auth url"
+      :desc:               "Openstack service auth url for Fog Gardener"
       :explanation:        |-
-        If needed, you can set a different way for Maestro to authenticate itself to the cloud
-
-        Currently, Gardener supports only openstack cloud type, with authentication version 2.
-        Multiple provider support and Openstack authentication v3 will be implemented soon.
+        Only Openstack v2.0 authentication is supported by FOG gardener.
       :account_exclusive:  true
       :account:            true
       :required:           true

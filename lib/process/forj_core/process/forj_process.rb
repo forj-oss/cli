@@ -496,7 +496,10 @@ class ForjCoreProcess
         s_msg = 'No servers found except maestro'
         PrcLib.warning('Something went wrong, while creating nodes for '\
                        "blueprint '%s'. check maestro logs "\
-                       '(Usually /var/log/cloud-init.log).', blueprint)
+                       "(Usually /var/log/cloud-init.log).\n"\
+                       'Consider Lorj Gardener by setting :default/:lorj: '\
+                       '[true/false] in /opt/config/lorj/config.yaml if puppet'\
+                       ' returned some strange ruby error.', blueprint)
       end
     else
       s_msg += "\nMaestro has NOT implemented any servers, because you did" \
