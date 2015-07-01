@@ -731,11 +731,14 @@ class ForjCoreProcess
     if b_rebuild_infra
       PrcLib.state("Building your infra workspace in '%s'", infra)
 
-      PrcLib.debug("Copying recursively '%s' to '%s'", cloud_init, infra)
-      FileUtils.copy_entry(cloud_init, dest_cloud_init)
+      if File.directory?(cloud_init)
+        PrcLib.debug("Copying recursively '%s' to '%s'", cloud_init, infra)
+        FileUtils.copy_entry(cloud_init, dest_cloud_init)
+      end
 
       file_ver = File.join(infra, 'forj-cli.ver')
       File.write(file_ver, INFRA_VERSION)
+      infra_cleanup(infra, maestro_repo)
       PrcLib.info("The infra workspace '%s' has been built from maestro" \
                   ' predefined files.', infra)
     else
@@ -747,19 +750,57 @@ class ForjCoreProcess
     o_infra
   end
 
-  def load_infra(template, dest_cloud_init, h_result, b_result)
+  # check from the list of files under maestro control
+  # Do cleanup for files that disappeared.
+  #
+  # Then it update the hidden maestro controlled file.
+  #
+  def infra_cleanup(infra_dir, maestro_dir)
+    md5_list_file = File.join(infra_dir, '.maestro_original.yaml')
+
+    md5_list = {}
+    md5_list = YAML.load_file(md5_list_file) if File.exist?(md5_list_file)
+
+    cur_md5_list = {}
+
+    template_dir = File.join(maestro_dir, 'templates', 'infra')
+    cloud_init_dir = File.join(infra_dir, 'cloud-init')
+
+    load_infra(template_dir, cloud_init_dir, cur_md5_list)
+
+    md5_list.each do |path, _md5|
+      if cur_md5_list.key?(path)
+        md5_list[path] = cur_md5_list[path]
+      else
+        begin
+          File.delete(File.join(template_dir, path))
+        rescue
+          PrcLib.debug("'%s' infra file has already been removed.", path)
+        else
+          PrcLib.debug("'%s' infra file has been removed.", path)
+        end
+        md5_list.delete(path)
+      end
+    end
+    infra_save_md5(md5_list_file, md5_list)
+  end
+
+  def load_infra(template, dest_cloud_init, md5_list, is_original = false)
     # We are taking care on bootstrap files only.
-    Find.find(File.join(template, 'cloud-init')) do |path|
-      # unless File.directory?(path)
+    cloud_init_path = File.join(template, 'cloud-init')
+    return is_original unless File.directory?(cloud_init_path)
+
+    Find.find(cloud_init_path) do |path|
       next if File.directory?(path)
+      file_original = true # By default we consider it to be original
       s_maestro_rel_path = path.clone
-      s_maestro_rel_path[File.join(template, 'cloud-init/')] = ''
+      s_maestro_rel_path[cloud_init_path + '/'] = ''
       s_infra_path = File.join(dest_cloud_init, s_maestro_rel_path)
       if File.exist?(s_infra_path)
         md5_file = Digest::MD5.file(s_infra_path).hexdigest
-        if h_result.key?(s_maestro_rel_path) &&
-           h_result[s_maestro_rel_path] != md5_file
-          b_result = false
+        if md5_list.key?(s_maestro_rel_path) &&
+           md5_list.rh_get(s_maestro_rel_path, :md5) != md5_file
+          file_original = false
           PrcLib.info("'%s' infra file has changed from original template" \
                       ' in maestro.', s_infra_path)
         else
@@ -767,49 +808,51 @@ class ForjCoreProcess
         end
       end
       md5_file = Digest::MD5.file(path).hexdigest
-      h_result[s_maestro_rel_path] = md5_file
-      # end
+      md5_list[s_maestro_rel_path] = { :md5 => md5_file,
+                                       :original => file_original }
+      is_original &= false
     end
-    b_result
+    is_original
   end
 
-  def open_md5(s_md5_list, h_result)
-    # begin
-    File.open(s_md5_list, 'w') do |out|
-      YAML.dump(h_result, out)
-    end
-    rescue => e
-      PrcLib.error("%s\n%s", e.message, e.backtrace.join("\n"))
-    # end
+  def infra_save_md5(md5_list_file, data)
+    File.open(md5_list_file, 'w') { |out| YAML.dump(data, out) }
+  rescue => e
+    PrcLib.error("File '%s': %s\n%s", md5_list_file, e.message,
+                 e.backtrace.join("\n"))
   end
 end
 
 # Functions for boot - create_or_use_infra
 class ForjCoreProcess
   # Function which compare directories from maestro templates to infra.
+  #
+  # * *return*:
+  #   - true if the infra repository file contains some files managed by maestro
+  #     which has not been updated manually.
+  #   - false otherwise.
   def infra_is_original?(infra_dir, maestro_dir)
     dest_cloud_init = File.join(infra_dir, 'cloud-init')
     template = File.join(maestro_dir, 'templates', 'infra')
     return false unless File.exist?(template)
     s_md5_list = File.join(infra_dir, '.maestro_original.yaml')
     b_result = true
-    h_result = {}
+    md5_list = {}
     if File.exist?(s_md5_list)
       begin
-        h_result = YAML.load_file(s_md5_list)
+        md5_list = YAML.load_file(s_md5_list)
      rescue
        PrcLib.error("Unable to load valid Original files list '%s'. " \
                     "Your infra workspace won't be migrated, until fixed.",
                     s_md5_list)
        b_result = false
       end
-      unless h_result
-        h_result = {}
+      unless md5_list
+        md5_list = {}
         b_result = false
       end
     end
-    b_result = load_infra(template, dest_cloud_init, h_result, b_result)
-    open_md5(s_md5_list, h_result)
+    b_result = load_infra(template, dest_cloud_init, md5_list, b_result)
     if b_result
       PrcLib.debug(
         'No original files found has been updated. Infra workspace' \
