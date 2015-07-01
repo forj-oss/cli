@@ -379,9 +379,12 @@ do
  sleep 5
 done
     END
-    s_msg = format(s_msg, o_server[:name], image[:ssh_user],
-                   o_address[:public_ip], boot_options[:keys]
-                  )
+    server_name = o_server.nil? ? 'undefined' : o_server[:name]
+    image_user = image.nil? ? 'undefined' : image[:ssh_user]
+    public_ip = o_address.nil? ? 'undefined' : o_address[:public_ip]
+    keys = boot_options.nil? ? 'undefined' : boot_options[:keys]
+
+    s_msg = format(s_msg, server_name, image_user, public_ip, keys)
     unless boot_options[:coherent]
       s_msg += ANSI.bold("\nUnfortunatelly") + " your current keypair' \
             ' is not usable to connect to your server.\nYou need to fix'   \
