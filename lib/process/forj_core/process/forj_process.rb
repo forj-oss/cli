@@ -244,6 +244,7 @@ class ForjCoreProcess
     pending_count = 0
     server_error = 0
     o_server = hParams.refresh[:server, :ObjectData]
+    server_name = o_server[:attrs, :name]
 
     while s_status != :active
       if i_cur_act == 4
@@ -258,7 +259,7 @@ class ForjCoreProcess
       if s_status == :restart
         process_delete(:server)
         PrcLib.message("Bad server '%s' removed. Creating a new one...",
-                       o_server[:name])
+                       server_name)
         sleep(5)
         process_create(:internet_server)
         s_status = :starting
@@ -266,7 +267,10 @@ class ForjCoreProcess
         next
       end
 
-      o_server = load_server(o_server)
+      unless o_server.refresh
+        sleep(5)
+        next
+      end
 
       if o_server[:status] == :error
         if server_error == 1
@@ -275,7 +279,7 @@ class ForjCoreProcess
         server_error = 1
         PrcLib.warning("The creation of server '%s' has currently failed. "\
                        'Trying to rebuild it, once before give up.',
-                       o_server[:name])
+                       server_name)
         s_status = :restart
         next
       end
@@ -312,7 +316,7 @@ class ForjCoreProcess
                          "situation.\nYou can connect to the server if you "\
                          "want to.\nTo connect, use:\n"\
                          'ssh %s@%s -o StrictHostKeyChecking=no -i %s',
-                         o_old_log, o_server[:name], image[:ssh_user],
+                         o_old_log, server_name, image[:ssh_user],
                          o_address[:public_ip], boot_options[:keys])
         end
       end
@@ -336,22 +340,6 @@ class ForjCoreProcess
 
   # rubocop:enable CyclomaticComplexity
   # rubocop:enable PerceivedComplexity
-
-  # Function to get the server, tracking errors
-  #
-  # *return*
-  # - Server found.
-  #
-  def load_server(server)
-    begin
-      found_server = process_get(:server, server[:attrs][:id])
-    rescue => e
-      PrcLib.error(e.message)
-    else
-      return found_server
-    end
-    server
-  end
 end
 
 # Functions for boot - build_forge
