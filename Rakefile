@@ -21,7 +21,6 @@ require 'rubocop/rake_task'
 
 $stdout.sync = true
 $stderr.sync = true
-Bundler::GemHelper.install_tasks
 
 task :default => [:lint, :spec]
 
