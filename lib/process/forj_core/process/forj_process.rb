@@ -55,8 +55,7 @@ class ForjCoreProcess
     o_address = hParams.refresh[:public_ip, :ObjectData]
     o_address = Lorj::Data.new if o_address.nil?
 
-    s_status = active_server?(server, o_address, boot_options[:keys],
-                              boot_options[:coherent], s_status)
+    s_status = active_server?(server, o_address, boot_options, s_status)
 
     till_server_active(s_status, hParams, o_address, boot_options)
 
@@ -154,44 +153,32 @@ class ForjCoreProcess
     predef_keypair
   end
 
-  def active_server?(o_server, o_address, private_key_file,
-                     keypair_coherent, s_status
-                    )
+  def active_server?(o_server, o_address, ssh_key, status)
     if o_server[:attrs][:status] == :active
       return :assign_ip if o_address[:public_ip].nil?
 
       image = server_get_image o_server
 
-      s_msg = format('Your forj Maestro server is up and running and is '\
-                     "publically accessible through IP '%s'.\n\n"\
-                     "You can connect to '%s' with:\n"\
-                     'ssh %s@%s -o StrictHostKeyChecking=no -i ',
-                     o_address[:public_ip], o_server[:name],
-                     image[:ssh_user], o_address[:public_ip])
+      s_msg = 'Your forj Maestro server is up and running and is publically'\
+              " accessible through IP '#{o_address[:public_ip]}'."
 
-      if keypair_coherent
-        s_msg += private_key_file
-      else
-        s_msg += ANSI.red(ANSI.bold('<no valid private key found>')) + "\n\n" +
-                 ANSI.bold('Unfortunatelly') + ', Forj was not able to find a '\
-                 'valid keypair to connect to your server.' \
-                 "\nYou need to fix this issue to gain access to your server."
-      end
       PrcLib.info(s_msg)
+      PrcLib.high_level_msg("\n%s\n", s_msg)
 
       o_log = process_get(:server_log, 25)[:attrs][:output]
       if /cloud-init boot finished/ =~ o_log
-        s_status = :active
-        PrcLib.high_level_msg("\n%s\nThe forge is ready...\n", s_msg)
+        status = :active
       else
-        PrcLib.high_level_msg("\n%s\nThe forge is still building...\n", s_msg)
-        s_status = :cloud_init
+        PrcLib.info(server_connect_info(o_server, image, o_address,
+                                        ssh_key, status))
+        PrcLib.high_level_msg("The forge is still building...\n")
+        status = :cloud_init
       end
     else
       sleep 5
-      s_status = :starting
+      status = :starting
     end
-    s_status
+    status
   end
 end
 
@@ -245,6 +232,7 @@ class ForjCoreProcess
     server_error = 0
     o_server = hParams.refresh[:server, :ObjectData]
     server_name = o_server[:attrs, :name]
+    image = server_get_image o_server
 
     while s_status != :active
       if i_cur_act == 4
@@ -304,7 +292,6 @@ class ForjCoreProcess
         lorj_detect(hParams, o_old_log, boot_options)
 
         if pending_count == 60
-          image = server_get_image o_server
           highlight = ANSI.yellow('-' * 40)
           PrcLib.warning("No more server activity detected.\n"\
                          "#{highlight}\n"\
@@ -322,6 +309,11 @@ class ForjCoreProcess
       end
       sleep(5) if s_status != :active
     end
+    PrcLib.info('The Forge build is over!')
+    msg = server_connect_info(o_server, image, o_address, boot_options,
+                              s_status)
+    PrcLib.info(msg)
+    PrcLib.high_level_msg("\nThe forge is ready...\n#{msg}\n")
   end
 
   # Function to get the image data from the server
@@ -357,31 +349,72 @@ class ForjCoreProcess
       end
     end
     image = hParams.refresh[:image]
-    s_msg = <<-END
-Public IP for server '%s' is assigned.
-Now, as soon as the server respond to the ssh port,
-you will be able to get a tail of the build with:
-while [ 1 = 1 ]
-do
- ssh %s@%s -o StrictHostKeyChecking=no -i %s tail -f /var/log/cloud-init.log
- sleep 5
-done
-    END
-    server_name = o_server.nil? ? 'undefined' : o_server[:name]
-    image_user = image.nil? ? 'undefined' : image[:ssh_user]
-    public_ip = o_address.nil? ? 'undefined' : o_address[:public_ip]
-    keys = boot_options.nil? ? 'undefined' : boot_options[:keys]
+    s_msg = "Public IP for server '#{o_address[:public_ip]}' is assigned."
+    s_msg += server_connect_info(o_server, image, o_address,
+                                 boot_options, s_status)
 
-    s_msg = format(s_msg, server_name, image_user, public_ip, keys)
-    unless boot_options[:coherent]
-      s_msg += ANSI.bold("\nUnfortunatelly") + " your current keypair' \
-            ' is not usable to connect to your server.\nYou need to fix'   \
-            ' this issue to gain access to your server."
-    end
     PrcLib.info(s_msg)
     PrcLib.high_level_msg("\n%s\nThe forge is still building...\n", s_msg)
     s_status = :cloud_init
     s_status
+  end
+
+  # function to print out the ssh connection information to the user
+  #
+  # * *args*:
+  #   - server : Server object with :name
+  #   - image  : Image object with :ssh_user
+  #   - address: Server address with :public_ip
+  #   - ssh_key: Server ssh keys with :keys
+  #   - status : Boot status. If boot status is :active
+  #     the msg will simply display how to connect to.
+  #     otherwise, it display, how to show instant log.
+  #
+  # * *returns*:
+  #   - msg : A composite message to display
+  def server_connect_info(server, image, address, ssh_key, status)
+    server_name = server.nil? ? 'undefined' : server[:name]
+    image_user = image.nil? ? 'undefined' : image[:ssh_user]
+    public_ip = address.nil? ? 'undefined' : address[:public_ip]
+
+    if ssh_key[:coherent]
+      private_key = ssh_key[:keys]
+    else
+      private_key ANSI.red(ANSI.bold('<no valid private key found>'))
+      more = "\n\n" +
+             ANSI.bold('Unfortunatelly') + ', Forj was not able to find a '\
+             'valid keypair to connect to your server.' \
+             "\nYou need to fix this issue to gain access to your server."
+    end
+
+    if status == :active
+      "Maestro is accessible through http://#{public_ip}. This will provide"\
+      " you access to your complete forge implemented by your blueprint.\n\n"\
+      'If you want to access your server through ssh, you have several '\
+      "options:\n- using `forj ssh`\n- using ssh cli with:\n"\
+      "  ssh #{image_user}@#{public_ip} -o StrictHostKeyChecking=no -i "\
+      "#{private_key}\n\n"\
+      "  You can also create a new host in your ssh config with:\n"\
+      "  echo 'host c_#{server_name}\n"\
+      "      hostname #{public_ip}\n"\
+      "      identity_file #{private_key}\n"\
+      "      User #{image_user}\n"\
+      "      # If you need to set a proxy to access this server\n"\
+      "      # ProxyCommand corkscrew web-proxy 8080 %%h %%p' >> "\
+      "~/.ssh/config\n"\
+      "\n  So, you will be able to connect to your server with:\n"\
+      "  ssh c_#{server_name}#{more}\n"
+    else
+      "Your forge is still building...\n"\
+      "Now, as soon as the server respond to the ssh port,\n"\
+      "you will be able to get a tail of the build with:\n"\
+      "while [ 1 = 1 ]\n"\
+      "do\n"\
+      " ssh #{image_user}@#{public_ip} -o StrictHostKeyChecking=no -i "\
+      "#{private_key} tail -f /var/log/cloud-init.log\n"\
+      " sleep 5\n"\
+      "done#{more}"
+    end
   end
 
   def analyze_log_output(output_options, s_status, hParams)
@@ -465,33 +498,15 @@ class ForjCoreProcess
     o_address = params[:public_ip, :ObjectData]
     blueprint = params[:blueprint]
     instance_name = params[:instance_name]
-    s_msg = format(
-      "Your Forge '%s' is ready and accessible from" \
-      " IP #{o_address[:public_ip]}.",
-      instance_name
-    )
+    s_msg = "Your Forge '#{instance_name}' is ready and accessible from" \
+            " IP #{o_address[:public_ip]}."
+
     # TODO: read the blueprint/layout to identify which services
     # are implemented and can be accessible.
     if blueprint
-      s_msg += format(
-        "\n" + 'Maestro has implemented the following server(s) for your' \
-          " blueprint '%s':",
-        blueprint
-      )
-      server_options = display_servers_with_ip(o_forge, s_msg)
-      s_msg += server_options[:message]
-      i_count = server_options[:count]
-      if i_count > 0
-        s_msg += format("\n%d server(s) identified.\n", i_count)
-      else
-        s_msg = 'No servers found except maestro'
-        PrcLib.warning('Something went wrong, while creating nodes for '\
-                       "blueprint '%s'. check maestro logs "\
-                       "(Usually /var/log/cloud-init.log).\n"\
-                       'Consider Lorj Gardener by setting :default/:lorj: '\
-                       '[true/false] in /opt/config/lorj/config.yaml if puppet'\
-                       ' returned some strange ruby error.', blueprint)
-      end
+      s_msg += "\nMaestro has implemented the following server(s) for your"\
+               " blueprint '#{blueprint}':"
+      s_msg = display_servers_with_ip(o_forge, blueprint, s_msg)
     else
       s_msg += "\nMaestro has NOT implemented any servers, because you did" \
         ' not provided a blueprint. Connect to Maestro, and ask Maestro to' \
@@ -502,7 +517,7 @@ class ForjCoreProcess
     PrcLib.high_level_msg("\n%s\nEnjoy!\n", s_msg)
   end
 
-  def display_servers_with_ip(o_forge, s_msg)
+  def display_servers_with_ip(o_forge, blueprint, s_msg)
     i_count = 0
     o_forge[:servers].each do |_type, server|
       next if /^maestro\./ =~ server[:name]
@@ -515,8 +530,21 @@ class ForjCoreProcess
       end
       i_count += 1
     end
-    server_options = { :message => s_msg, :count => i_count }
-    server_options
+
+    if i_count > 0
+      s_msg += format("\n%d server(s) identified.\n", i_count)
+
+    else
+      s_msg = 'No servers found except maestro'
+      PrcLib.warning('Something went wrong, while creating nodes for blueprint'\
+                     " '#{blueprint}'. check maestro logs "\
+                     "(Usually /var/log/cloud-init.log).\n"\
+                     'Consider Lorj Gardener by setting :default/:lorj: '\
+                     'false in /opt/config/lorj/config.yaml if puppet'\
+                     ' returned some strange ruby error.')
+    end
+
+    s_msg
   end
 end
 
