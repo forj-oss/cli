@@ -44,7 +44,7 @@ module Forj
   end
 end
 
-if ENV['RUBY_DEBUG'] == 'true'
+if ENV['FORJ_DEBUG'] == 'true'
   if /1\.8/ =~ RUBY_VERSION
     require 'ruby-debug'
     Debugger.start

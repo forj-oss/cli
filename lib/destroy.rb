@@ -35,7 +35,7 @@ module Forj
 
       o_cloud = Forj::CloudConnection.connect(account)
 
-      o_forge = o_cloud.get(:forge, name)
+      o_forge = o_cloud.get(:forge, name, :info => false)
 
       if o_forge[:servers].count > 0
         destroy_server(o_cloud, o_forge, options)

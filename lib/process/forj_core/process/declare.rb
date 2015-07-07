@@ -114,6 +114,7 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,        'maestro#security_group', :for => [:create_e]
   obj_needs :data,        :ports,                   :for => [:create_e]
   obj_needs :CloudObject, :lorj_account,            :for => [:create_e]
+  obj_needs :data,        :info,                    :for => [:get_e]
 
   obj_needs_optional
   obj_needs :CloudObject,  :server

@@ -34,7 +34,7 @@ module Forj
 
       PrcLib.state(format("Getting information about forge '%s'", name))
 
-      o_forge = o_cloud.get(:forge, name)
+      o_forge = o_cloud.get(:forge, name, :info => false)
 
       if o_forge[:servers].count > 0
         if account[:box_ssh]

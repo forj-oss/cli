@@ -59,14 +59,14 @@ class ForjCoreProcess
 
     till_server_active(s_status, hParams, o_address, boot_options)
 
+    hParams[:info] = true
     o_forge = get_forge(sObjectType, config[:instance_name], hParams)
 
-    read_blueprint_implemented(o_forge, hParams)
     o_forge
   end
 
   def forge_get_or_create(sObjectType, hParams)
-    o_forge = process_get(sObjectType, config[:instance_name])
+    o_forge = process_get(sObjectType, config[:instance_name], :info => false)
     if o_forge.empty? || o_forge[:servers].length == 0
       PrcLib.high_level_msg("\nBuilding your forge...\n")
       process_create(:internet_server)
@@ -153,7 +153,7 @@ class ForjCoreProcess
     predef_keypair
   end
 
-  def active_server?(o_server, o_address, ssh_key, status)
+  def active_server?(o_server, o_address, _ssh_key, status)
     if o_server[:attrs][:status] == :active
       return :assign_ip if o_address[:public_ip].nil?
 
@@ -170,7 +170,7 @@ class ForjCoreProcess
         status = :active
       else
         PrcLib.info(server_connect_info(o_server, image, o_address,
-                                        ssh_key, status))
+                                        nil, status))
         PrcLib.high_level_msg("The forge is still building...\n")
         status = :cloud_init
       end
@@ -309,11 +309,9 @@ class ForjCoreProcess
       end
       sleep(5) if s_status != :active
     end
-    PrcLib.info('The Forge build is over!')
-    msg = server_connect_info(o_server, image, o_address, boot_options,
-                              s_status)
+    msg = 'The Forge build is over!'
     PrcLib.info(msg)
-    PrcLib.high_level_msg("\nThe forge is ready...\n#{msg}\n")
+    PrcLib.high_level_msg("\n#{msg}\n")
   end
 
   # Function to get the image data from the server
@@ -359,6 +357,26 @@ class ForjCoreProcess
     s_status
   end
 
+  def _server_info_params(server, image, address, ssh_key, status)
+    image = server_get_image(server) if image.nil?
+    image_user = image.nil? ? 'undefined' : image[:ssh_user]
+    public_ip = 'undefined'
+    server_name = 'undefined'
+    ssh_key = boot_keypairs(server) if ssh_key.nil?
+    unless server.nil?
+      server_name = server[:name]
+      network_used = server[:meta_data, 'network_name']
+      public_ip = server[:pub_ip_addresses, network_used]
+      status = server[:status] if status.nil?
+    end
+
+    if public_ip.nil?
+      public_ip = address.nil? ? 'undefined' : address[:public_ip]
+    end
+
+    [server_name, image_user, public_ip, ssh_key, status]
+  end
+
   # function to print out the ssh connection information to the user
   #
   # * *args*:
@@ -372,15 +390,15 @@ class ForjCoreProcess
   #
   # * *returns*:
   #   - msg : A composite message to display
-  def server_connect_info(server, image, address, ssh_key, status)
-    server_name = server.nil? ? 'undefined' : server[:name]
-    image_user = image.nil? ? 'undefined' : image[:ssh_user]
-    public_ip = address.nil? ? 'undefined' : address[:public_ip]
+  def server_connect_info(server, image, address, ssh_key, status = nil)
+    stop
+    server_name, image_user, public_ip, ssh_key,
+      status = _server_info_params(server, image, address, ssh_key, status)
 
     if ssh_key[:coherent]
       private_key = ssh_key[:keys]
     else
-      private_key ANSI.red(ANSI.bold('<no valid private key found>'))
+      private_key = ANSI.red(ANSI.bold('<no valid private key found>'))
       more = "\n\n" +
              ANSI.bold('Unfortunatelly') + ', Forj was not able to find a '\
              'valid keypair to connect to your server.' \
@@ -494,19 +512,22 @@ class ForjCoreProcess
     output_options
   end
 
-  def read_blueprint_implemented(o_forge, params)
-    o_address = params[:public_ip, :ObjectData]
-    blueprint = params[:blueprint]
-    instance_name = params[:instance_name]
+  def read_blueprint_implemented(o_forge, _params)
+    maestro = o_forge[:servers, 'maestro']
+    return if maestro.nil?
+    network_used = maestro[:meta_data, 'network_name']
+    public_ip = maestro[:pub_ip_addresses, network_used]
+    blueprint = maestro[:meta_data, 'blueprint']
+    instance_name = o_forge[:name]
     s_msg = "Your Forge '#{instance_name}' is ready and accessible from" \
-            " IP #{o_address[:public_ip]}."
+            " IP #{public_ip}."
 
     # TODO: read the blueprint/layout to identify which services
     # are implemented and can be accessible.
     if blueprint
       s_msg += "\nMaestro has implemented the following server(s) for your"\
                " blueprint '#{blueprint}':"
-      s_msg = display_servers_with_ip(o_forge, blueprint, s_msg)
+      s_msg = display_servers_with_ip(o_forge, blueprint, network_used, s_msg)
     else
       s_msg += "\nMaestro has NOT implemented any servers, because you did" \
         ' not provided a blueprint. Connect to Maestro, and ask Maestro to' \
@@ -517,25 +538,32 @@ class ForjCoreProcess
     PrcLib.high_level_msg("\n%s\nEnjoy!\n", s_msg)
   end
 
-  def display_servers_with_ip(o_forge, blueprint, s_msg)
+  def display_servers_with_ip(o_forge, blueprint, network_used, msg)
     i_count = 0
     o_forge[:servers].each do |_type, server|
       next if /^maestro\./ =~ server[:name]
-      register(server)
-      o_ip = process_query(:public_ip, :server_id => server[:id])
-      if o_ip.length == 0
-        s_msg += format("\n- %s (No public IP)", server[:name])
+
+      if server[:pub_ip_addresses, network_used].nil?
+        # Required as the server may not be refreshed.
+        register(server)
+        o_ip = process_query(:public_ip, :server_id => server[:id])
+        ip = o_ip[0][:public_ip] unless o_ip.length == 0
       else
-        s_msg += format("\n- %s (%s)", server[:name], o_ip[0][:public_ip])
+        ip = server[:pub_ip_addresses, network_used]
+      end
+      if ip.nil?
+        msg += format("\n- %s (No public IP)", server[:name])
+      else
+        msg += format("\n- %s (%s)", server[:name], ip)
       end
       i_count += 1
     end
 
     if i_count > 0
-      s_msg += format("\n%d server(s) identified.\n", i_count)
+      msg += format("\n%d server(s) identified.\n", i_count)
 
     else
-      s_msg = 'No servers found except maestro'
+      msg = 'No servers found except maestro'
       PrcLib.warning('Something went wrong, while creating nodes for blueprint'\
                      " '#{blueprint}'. check maestro logs "\
                      "(Usually /var/log/cloud-init.log).\n"\
@@ -544,7 +572,7 @@ class ForjCoreProcess
                      ' returned some strange ruby error.')
     end
 
-    s_msg
+    msg
   end
 end
 
@@ -1470,7 +1498,7 @@ end
 
 # Funtions for get
 class ForjCoreProcess
-  def get_forge(sCloudObj, sForgeId, _hParams)
+  def get_forge(sCloudObj, sForgeId, hParams)
     s_query = {}
     servers = {}
     s_query[:name] = Regexp.new("\\.#{sForgeId}$")
@@ -1489,6 +1517,15 @@ class ForjCoreProcess
     o_forge = register({}, sCloudObj)
     o_forge[:servers] = servers
     o_forge[:name] = sForgeId
+    if hParams[:info].is_a?(TrueClass)
+      maestro = servers['maestro']
+      unless maestro.nil?
+        msg = server_connect_info(maestro, nil, nil, nil)
+        PrcLib.info(msg)
+        PrcLib.high_level_msg(msg)
+      end
+      read_blueprint_implemented(o_forge, hParams)
+    end
     o_forge
   end
 end
@@ -1602,6 +1639,10 @@ To connect to this box, you need to provide the appropriate private
 
   def ssh_server_public_ip(o_server)
     # Get Public IP of the server. Needs the server to be loaded.
+    network_used = o_server[:meta_data, 'network_name']
+    unless o_server[:pub_ip_addresses, network_used].nil?
+      return o_server[:pub_ip_addresses, network_used]
+    end
     o_address = process_query(:public_ip, :server_id => o_server[:id])
 
     if o_address.length == 0

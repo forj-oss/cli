@@ -398,6 +398,40 @@ ex: forj ssh myforge -n review
     Forj::Ssh.connect(oInstanceName, account)
   end
 
+  ################################# INFO
+  desc 'info <Instance> [options]', 'Get information details about your forge'
+  long_desc <<-LONGDESC
+Provide some detailled information about the forge like:
+- ssh access
+- web access
+- list of servers and IPs
+
+ex: forj info myforge -a myaccount
+   LONGDESC
+
+  method_option :account_name,     :aliases => '-a',   :desc => 'forj' \
+    ' account to use. By default, it uses the default account set in your'   \
+    ' local config file. See forj get account.'
+
+  def info(oInstanceName)
+    opts = Forj::Settings.common_options(options)
+    require 'info.rb'
+
+    account = Lorj::Account.new(opts[:config])
+
+    # Setting account at runtime layer
+    account[:account_name] = opts[:account_name] if opts[:account_name]
+
+    # Setting account at account layer
+    unless account.ac_load account[:account_name]
+      PrcLib.fatal(1, "Invalid account '%s'. Use `forj show account` "\
+                      'to get the list of valid accounts.',
+                   account[:account_name])
+    end
+
+    Forj::Info.forge(oInstanceName, account)
+  end
+
   ################################# SETUP
 
   desc 'setup [AccountName [Provider]] [options]', 'Setup FORJ cloud account' \
