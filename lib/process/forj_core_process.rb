@@ -21,7 +21,7 @@ FORJCORE_PATH = File.expand_path(File.dirname(__FILE__))
 
 lorj_objects = %w(forj_setup forj_setup_keypairs
                   ssh
-                  forge_boot test_box ca_root_cert proxy
+                  forge_boot status test_box ca_root_cert proxy
                   forge_get forge_destroy
                   lorj_account maestro_repository infra_repository
                   metadata userdata

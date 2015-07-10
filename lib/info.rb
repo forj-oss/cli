@@ -33,7 +33,7 @@ module Forj
 
       PrcLib.state(format("Getting information about forge '%s'", name))
 
-      o_forge = o_cloud.get(:forge, name, :info => true)
+      o_forge = o_cloud.get(:forge, name, :info => true, :log_lines => 5)
 
       if o_forge[:servers].count == 0
         PrcLib.high_level_msg("No server(s) found for instance name '%s' \n",

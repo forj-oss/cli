@@ -102,7 +102,8 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   define_obj :forge,
              :create_e => :build_forge,
              :delete_e => :delete_forge,
-             :get_e => :get_forge
+             :get_e => :get_forge,
+             :refresh_e => :refresh_forge
 
   obj_needs :CloudObject, :compute_connection
   obj_needs :CloudObject, :metadata,                :for => [:create_e]
@@ -118,9 +119,9 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
 
   obj_needs_optional
   obj_needs :CloudObject,  :server
-  obj_needs :CloudObject,  :image,            :for => [:create_e]
-  obj_needs :CloudObject,  :public_ip,        :for => [:create_e]
-  obj_needs :CloudObject,  :keypairs,         :for => [:create_e]
+  obj_needs :CloudObject,  :image,            :for => [:create_e, :get_e]
+  obj_needs :CloudObject,  :public_ip,        :for => [:create_e, :get_e]
+  obj_needs :CloudObject,  :keypairs,         :for => [:create_e, :get_e]
   obj_needs :data,         :blueprint
   obj_needs :data,         :forge_server,     :for => [:delete_e]
 
@@ -136,11 +137,11 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
 
   # ************************************ SSH Object
   define_obj(:ssh,
-
              :create_e => :ssh_connection
             )
   obj_needs :data,  :server
+  obj_needs :data,  :network_used
 
   obj_needs_optional
-  obj_needs :data,         :ssh_user
+  obj_needs :data,  :ssh_user
 end

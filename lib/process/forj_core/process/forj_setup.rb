@@ -96,4 +96,14 @@ class ForjCoreProcess
     end
     @oConfig.set('tenants', tenants)
   end
+
+  # Setup query call
+  def setup_ssh_user(_sCloudObj, hParams)
+    images  = process_query(:image,  :name => hParams[:image_name])
+    result = { :list => config[:users] }
+    if images.length >= 1 && !images[0, :ssh_user].nil?
+      result[:default_value] = images[0, :ssh_user]
+    end
+    result
+  end
 end

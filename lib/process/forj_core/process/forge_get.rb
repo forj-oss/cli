@@ -17,7 +17,7 @@
 
 # Functions for :forge get
 class ForjCoreProcess
-  def get_forge(sCloudObj, sForgeId, hParams)
+  def get_forge(sCloudObj, sForgeId, hParams = Lorj::ObjectData.new(true))
     s_query = {}
     servers = {}
     s_query[:name] = Regexp.new("\\.#{sForgeId}$")
@@ -30,63 +30,127 @@ class ForjCoreProcess
       type['.' + sForgeId] = ''
       servers[type] = o_server
     end
-    PrcLib.info('%s server(s) were found under instance name %s ',
+    PrcLib.info('%s server(s) found under instance name %s ',
                 servers.count, sForgeId)
 
-    o_forge = register({}, sCloudObj)
-    o_forge[:servers] = servers
-    o_forge[:name] = sForgeId
-    if hParams[:info].is_a?(TrueClass)
-      maestro = servers['maestro']
-      unless maestro.nil?
-        msg = server_connect_info(maestro, nil, nil, nil)
-        PrcLib.info(msg)
-        PrcLib.high_level_msg(msg)
-      end
-      read_blueprint_implemented(o_forge, hParams)
+    forge = register({}, sCloudObj)
+    forge[:servers] = servers
+    forge[:name] = sForgeId
+
+    _server_show_info(forge, hParams) if hParams[:info].is_a?(TrueClass)
+
+    forge
+  end
+
+  def refresh_forge(object_type, forge)
+    query_cache_cleanup object_type
+    s_query = {}
+    servers = forge[:servers]
+    forgeid = forge[:name]
+    s_query[:name] = Regexp.new("\\.#{forgeid}$")
+
+    o_servers = process_query(:server, s_query,
+                              :search_for => "for instance #{forgeid}")
+
+    o_servers.each do |o_server|
+      type = o_server[:name].clone
+      type['.' + forgeid] = ''
+      servers[type] = o_server
     end
-    o_forge
+    PrcLib.info('%s server(s) found under instance name %s ',
+                servers.count, forgeid)
+
+    forge[:servers] = servers
   end
 end
 
 # Information Functions for boot - build_forge
 class ForjCoreProcess
-  def _server_info_params(server, image, address, ssh_key, status)
+  def _server_show_info(forge, hParams)
+    maestro = forge[:servers, 'maestro']
+    forge_info(maestro, hParams)
+    read_blueprint_implemented(forge, hParams)
+  end
+
+  def _server_info_params(server, params)
+    image = params[:image]
     image = server_get_image(server) if image.nil?
     image_user = image.nil? ? 'undefined' : image[:ssh_user]
-    public_ip = 'undefined'
+
+    public_ip = _server_info_ip(server, params)
+
+    ssh_key = params[:keypairs]
+    ssh_key = boot_keypairs(server) if ssh_key.nil? || ssh_key[:keys].nil?
+
     server_name = 'undefined'
-    ssh_key = boot_keypairs(server) if ssh_key.nil?
+    server_name = server[:name] unless server.nil?
+
+    [server_name, image_user, public_ip, ssh_key]
+  end
+
+  def _server_info_ip(server, params)
+    public_ip = nil
+    public_ip = _server_info_ip_from_server(server, params) unless server.nil?
+
+    return public_ip unless public_ip.nil?
+
+    public_ip = params[:public_ip, :public_ip] unless params[:public_ip].nil?
+    return public_ip unless public_ip.nil?
+
     unless server.nil?
-      server_name = server[:name]
-      network_used = server[:meta_data, 'network_name']
-      public_ip = server[:pub_ip_addresses, network_used]
-      status = server[:status] if status.nil?
+      query = { :server_id => server[:id] }
+      addresses = process_query(:public_ip, query, params)
+      register(addresses[0]) if addresses.length > 0
+      public_ip = addresses[0, :public_ip]
     end
+    public_ip.nil? ? 'undefined' : public_ip
+  end
 
-    if public_ip.nil?
-      public_ip = address.nil? ? 'undefined' : address[:public_ip]
+  def _network_used(server, params)
+    return params[:network_used] unless params[:network_used].nil?
+    return server[:meta_data, 'network_name'] if /maestro\./ =~ server[:name]
+    '//0'
+  end
+
+  def _server_info_ip_from_server(server, params)
+    public_ip = server[:pub_ip_addresses, _network_used(server, params)]
+
+    return public_ip unless public_ip.is_a?(Array)
+
+    if public_ip.length > 1
+      PrcLib.warning('Network name used not provided: So, multiple public IPs '\
+                     " was found '%s'. Selecting the first one.", public_ip)
+      return public_ip[0]
     end
-
-    [server_name, image_user, public_ip, ssh_key, status]
+    nil
   end
 
   # function to print out the ssh connection information to the user
+  # and return the forge status.
   #
   # * *args*:
   #   - server : Server object with :name
-  #   - image  : Image object with :ssh_user
-  #   - address: Server address with :public_ip
-  #   - ssh_key: Server ssh keys with :keys
-  #   - status : Boot status. If boot status is :active
-  #     the msg will simply display how to connect to.
-  #     otherwise, it display, how to show instant log.
+  #   - hParams: List of object to get data.
+  #     - image  : Image object with :ssh_user
+  #     - address: Server address with :public_ip
+  #     - ssh_key: Server ssh keys with :keys
+  #     - status : Boot status. If boot status is :active
+  #       the msg will simply display how to connect to.
+  #       otherwise, it display, how to show instant log.
+  #   - forge_status: Provide the forge status
   #
   # * *returns*:
-  #   - msg : A composite message to display
-  def server_connect_info(server, image, address, ssh_key, status = nil)
-    server_name, image_user, public_ip, ssh_key,
-      status = _server_info_params(server, image, address, ssh_key, status)
+  #   - status : Symbol. The Forge status.
+  def forge_info(server, params, status = nil)
+    if server.nil?
+      PrcLib.warning 'Maestro was not found in this forge!!!'
+      return :incomplete
+    end
+
+    server_name, image_user, public_ip,
+      ssh_key = _server_info_params(server, params)
+
+    status = forge_status(server).status if status.nil?
 
     if ssh_key[:coherent]
       private_key = ssh_key[:keys]
@@ -99,33 +163,42 @@ class ForjCoreProcess
     end
 
     if status == :active
-      "Maestro is accessible through http://#{public_ip}. This will provide"\
-      " you access to your complete forge implemented by your blueprint.\n\n"\
-      'If you want to access your server through ssh, you have several '\
-      "options:\n- using `forj ssh`\n- using ssh cli with:\n"\
-      "  ssh #{image_user}@#{public_ip} -o StrictHostKeyChecking=no -i "\
-      "#{private_key}\n\n"\
-      "  You can also create a new host in your ssh config with:\n"\
-      "  echo 'host c_#{server_name}\n"\
-      "      hostname #{public_ip}\n"\
-      "      identity_file #{private_key}\n"\
-      "      User #{image_user}\n"\
-      "      # If you need to set a proxy to access this server\n"\
-      "      # ProxyCommand corkscrew web-proxy 8080 %%h %%p' >> "\
-      "~/.ssh/config\n"\
-      "\n  So, you will be able to connect to your server with:\n"\
-      "  ssh c_#{server_name}#{more}\n"
+      msg = <<-END
+Maestro is accessible through http://#{public_ip}. This will provide
+you access to your complete forge implemented by your blueprint.
+
+If you want to access your server through ssh, you have several options:
+
+- using `forj ssh`\n- using ssh cli with:
+  ssh #{image_user}@#{public_ip} -o StrictHostKeyChecking=no -i #{private_key}
+
+  You can also create a new host in your ssh config with:
+  echo 'host c_#{server_name}
+      hostname #{public_ip}
+      identity_file #{private_key}
+      User #{image_user}
+      # If you need to set a proxy to access this server
+      # ProxyCommand corkscrew web-proxy 8080 %%h %%p' >> ~/.ssh/config
+
+  So, you will be able to connect to your server with:
+  ssh c_#{server_name}#{more}
+      END
     else
-      "Your forge is still building...\n"\
-      "Now, as soon as the server respond to the ssh port,\n"\
-      "you will be able to get a tail of the build with:\n"\
-      "while [ 1 = 1 ]\n"\
-      "do\n"\
-      " ssh #{image_user}@#{public_ip} -o StrictHostKeyChecking=no -i "\
-      "#{private_key} tail -f /var/log/cloud-init.log\n"\
-      " sleep 5\n"\
-      "done#{more}"
+      msg = <<-END
+Your forge is still building...
+Now, as soon as the server respond to the ssh port,
+you will be able to get a tail of the build with:
+while [ 1 = 1 ]
+do
+ ssh #{image_user}@#{public_ip} -o StrictHostKeyChecking=no -i #{private_key} \
+tail -f /var/log/cloud-init.log
+ sleep 5
+done#{more}
+      END
     end
+    PrcLib.info(msg)
+    PrcLib.high_level_msg(msg) if status == :active
+    status
   end
 
   def read_blueprint_implemented(o_forge, _params)

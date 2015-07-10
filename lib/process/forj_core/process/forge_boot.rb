@@ -17,7 +17,6 @@
 
 # Forj Process solution
 
-require 'git'
 require 'fileutils'
 require 'find'
 require 'digest'
@@ -26,173 +25,137 @@ require 'encryptor' # gem install encryptor
 require 'base64'
 require 'net/ssh'
 
-# Functions for boot - build_forge
+# Functions for :forge boot
 class ForjCoreProcess
   def build_forge(sObjectType, hParams)
     # TODO: To be replaced by a migration task at install phase.
     update_keypair_config
 
-    o_forge = forge_get_or_create(sObjectType, hParams)
+    forge = forge_get_or_create(sObjectType, hParams)
 
-    # Refresh full data on the server found or created.
-    server = controller_get(:server, o_forge[:servers, 'maestro'][:id])
-    o_forge[:servers, 'maestro'] = server
-
-    boot_options = boot_keypairs(server)
+    maestro = forge[:servers, 'maestro']
+    unless maestro.nil?
+      register(maestro)
+      register(boot_keypairs(maestro))
+      hParams.refresh
+    end
 
     # Define the log lines to get and test.
     config.set(:log_lines, 5)
 
-    PrcLib.info("Maestro server '%s' id is '%s'.",
-                server[:name], server[:id])
-    # Waiting for server to come online before assigning a public IP.
+    PrcLib.info("Maestro server '%s' id is '%s'.", maestro[:name], maestro[:id])
 
-    s_status = :checking
-    maestro_create_status(s_status)
+    till_server_active(forge, hParams)
 
-    o_address = hParams.refresh[:public_ip, :ObjectData]
-    o_address = Lorj::Data.new if o_address.nil?
+    forge.refresh
+    _server_show_info(forge, hParams)
 
-    s_status = active_server?(server, o_address, boot_options, s_status)
-
-    till_server_active(s_status, hParams, o_address, boot_options)
-
-    hParams[:info] = true
-    o_forge = get_forge(sObjectType, config[:instance_name], hParams)
-
-    o_forge
+    forge
   end
 
   def forge_get_or_create(sObjectType, hParams)
-    o_forge = process_get(sObjectType, config[:instance_name], :info => false)
-    if o_forge.empty? || o_forge[:servers].length == 0
+    forge = process_get(sObjectType, hParams[:instance_name], :info => false)
+    if forge.empty? || forge[:servers].length == 0 ||
+       forge[:servers, 'maestro'].nil?
       PrcLib.high_level_msg("\nBuilding your forge...\n")
       process_create(:internet_server)
-      o_forge[:servers, 'maestro'] = hParams.refresh[:server]
-    else
-      o_forge = load_existing_forge(o_forge, hParams)
+
+      forge[:servers, 'maestro'] = hParams.refresh[:server, :ObjectData]
     end
-    o_forge
-  end
-
-  # Funtions for destroy
-  def delete_forge(_sCloudObj, hParams)
-    PrcLib.state('Destroying server(s) of your forge')
-
-    forge_serverid = hParams[:forge_server]
-
-    o_forge = hParams[:forge]
-
-    o_forge[:servers].each do|_type, server|
-      next if forge_serverid && forge_serverid != server[:id]
-      register(server)
-      PrcLib.state("Destroying server '%s - %s'", server[:name], server[:id])
-      process_delete(:server)
-    end
-    if forge_serverid.nil?
-      PrcLib.high_level_msg("The forge '%s' has been destroyed. (all servers" \
-                            " linked to the forge)\n", o_forge[:name])
-    else
-      PrcLib.high_level_msg("Server(s) selected in the forge '%s' has been"\
-                            " removed.\n", o_forge[:name])
-    end
+    forge
   end
 end
 
 # Internal functions
 class ForjCoreProcess
-  def load_existing_forge(o_forge, hParams)
-    PrcLib.high_level_msg("\nChecking your forge...\n")
-
-    o_server = o_forge[:servers, 'maestro']
-    if o_server
-      query = { :server_id => o_server[:id] }
-      register(o_server)
-      o_ip = process_query(:public_ip, query,
-                           :network_name   => hParams['maestro#network_name'])
-      register(o_ip[0]) if o_ip.length > 0
-    else
-      PrcLib.high_level_msg("\nYour forge exist, without maestro." \
-        " Building Maestro...\n")
-      process_create(:internet_server)
-      o_forge[:servers, 'maestro'] = hParams.refresh[:server]
-
-      PrcLib.high_level_msg("\nBuilding your forge...\n")
+  def assign_ip_boot(maestro, status)
+    # To be able to ask for server IP assigned
+    query_cache_cleanup(:public_ip)
+    o_addresses = process_query(:public_ip, :server_id => maestro[:id])
+    if o_addresses.length == 0
+      # Assigning Public IP.
+      o_address = process_create(:public_ip)
+      s_msg = "Public IP for server '#{o_address[:public_ip]}' is assigned."
+      PrcLib.info(s_msg)
     end
-    o_forge
+    status.is :cloud_init
   end
 
-  def assign_ip_boot(o_address, boot_options, s_status, o_server, hParams)
-    if o_address.empty?
-      # To be able to ask for server IP assigned
-      query_cache_cleanup(:public_ip)
-      o_addresses = process_query(:public_ip, :server_id => o_server[:id])
-      if o_addresses.length == 0
-        # Assigning Public IP.
-        o_address = process_create(:public_ip)
-      else
-        o_address = o_addresses[0]
-      end
-    end
-    image = hParams.refresh[:image]
-    s_msg = "Public IP for server '#{o_address[:public_ip]}' is assigned."
-    s_msg += server_connect_info(o_server, image, o_address,
-                                 boot_options, s_status)
-
-    PrcLib.info(s_msg)
-    PrcLib.high_level_msg("\n%s\nThe forge is still building...\n", s_msg)
-    s_status = :cloud_init
-    s_status
-  end
-end
-
-# Log analyzes at boot time.
-class ForjProcess
-  def analyze_log_output(output_options, s_status, hParams)
+  # Log analyzes at boot time.
+  def analyze_log_output(server, status, hParams)
     o_log = process_get(:server_log, 25)
-    return output_options if o_log.nil? || o_log.empty?
+    return false if o_log.nil? || o_log.empty?
 
-    log = o_log[:attrs][:output]
-    output_options[:cur_act] = 4 if log == output_options[:old_log]
-    output_options[:old_log] = log
-    if /cloud-init boot finished/ =~ log
-      output_options[:status] = :active
-      output_options[:error] = display_boot_moving_error(
-        output_options[:error]
-      )
-    elsif /\[CRITICAL\]/ =~ log
-      m_critical = log.scan(/.*\[CRITICAL\].*\n/)
-      output_options[:error] = display_boot_critical_error(
-        output_options[:error],
-        m_critical
-      )
+    log = o_log[:output]
+
+    if log == status.prev_log
+      status.pending(true, server, hParams)
     else
-      # validate server status
-      output_options = analyze_server_status(s_status, log,
-                                             output_options, hParams)
+      status.pending(false, server, hParams)
+      status.prev_log = log
     end
-    output_options
+
+    detects = %w(done critical cloud_init nonet)
+    detects.each do |event|
+      break if method("detect_log_#{event}").call(status, log)
+    end
+    true
   end
 
-  def display_boot_critical_error(m_cloud_init_error, m_critical)
-    # unless (m_cloud_init_error == m_critical)
-    return if m_cloud_init_error == m_critical
-    s_reported = o_log.clone
+  def detect_log_done(status, log)
+    return false unless /cloud-init boot finished/ =~ log
+
+    status.is :active
+    status.error = display_boot_moving_error(status.error)
+    true
+  end
+
+  def detect_log_critical(status, log)
+    return false unless /\[CRITICAL\]/ =~ log
+
+    m_critical = log.scan(/.*\[CRITICAL\].*\n/)
+    display_boot_critical_error(log, status, m_critical)
+    true
+  end
+
+  def detect_log_cloud_init(status, log)
+    re = /cloud-init-nonet gave up waiting for a network device/
+    return false unless status.status == :cloud_init && re =~ log
+    # Valid for ubuntu image 12.04
+
+    PrcLib.warning('Cloud-init has gave up to configure the network. '\
+                   'waiting...')
+    status.is :nonet
+    true
+  end
+
+  def detect_log_nonet(status, log)
+    re = /Booting system without full network configuration/
+    return false unless status.status == :nonet && re =~ log
+    # Valid for ubuntu image 12.04
+
+    PrcLib.warning('forj has detected an issue to bring up your '\
+                   'maestro server. Removing it and re-creating a new one.'\
+                   ' please be patient...')
+    status.is :restart
+    true
+  end
+
+  def display_boot_critical_error(log, status, m_critical)
+    return if status.error == m_critical
+    s_reported = log.clone
     s_reported['CRITICAL'] = ANSI.bold('CRITICAL')
     PrcLib.error("cloud-init error detected:\n-----\n%s\n-----\n" \
                  'Please connect to the box to decide what you' \
                  ' need to do.', s_reported)
-    m_cloud_init_error = m_critical
-    m_cloud_init_error
-    # end
+    status.error = m_critical
   end
 
   def display_boot_moving_error(m_cloud_init_error)
     if m_cloud_init_error != []
-      PrcLib.high_level_msg(
-        'Critical error cleared. Cloud-init seems moving...'
-      )
-      PrcLib.info('Critical error cleared. Cloud-init seems moving...')
+      msg = 'Critical error cleared. Cloud-init seems moving...'
+      PrcLib.high_level_msg(msg)
+      PrcLib.info(msg)
       m_cloud_init_error = []
     end
     m_cloud_init_error
@@ -201,56 +164,23 @@ end
 
 # Functions for boot - build_forge
 class ForjCoreProcess
-  def active_server?(o_server, o_address, _ssh_key, status)
-    if o_server[:attrs][:status] == :active
-      return :assign_ip if o_address[:public_ip].nil?
+  def forge_status(maestro)
+    return ForgeStatus.new if maestro.nil?
 
-      image = server_get_image o_server
+    maestro.refresh
+    return ForgeStatus.new unless maestro[:status] == :active
 
-      s_msg = 'Your forj Maestro server is up and running and is publically'\
-              " accessible through IP '#{o_address[:public_ip]}'."
+    register(maestro)
+    log = process_get(:server_log, 25)
+    return ForgeStatus.new if log.nil? || log.empty?
+    return ForgeStatus.new :active if /cloud-init boot finished/ =~ log[:output]
 
-      PrcLib.info(s_msg)
-      PrcLib.high_level_msg("\n%s\n", s_msg)
-
-      o_log = process_get(:server_log, 25)[:attrs][:output]
-      if /cloud-init boot finished/ =~ o_log
-        status = :active
-      else
-        PrcLib.info(server_connect_info(o_server, image, o_address,
-                                        nil, status))
-        PrcLib.high_level_msg("The forge is still building...\n")
-        status = :cloud_init
-      end
-    else
-      sleep 5
-      status = :starting
+    network_used = maestro[:meta_data, 'network_name']
+    if network_used && maestro[:pub_ip_addresses, network_used].nil?
+      return ForgeStatus.new :assign_ip
     end
-    status
-  end
 
-  def analyze_server_status(s_status, o_log, output_options, _hParams)
-    if s_status == :cloud_init &&
-       /cloud-init-nonet gave up waiting for a network device/ =~ o_log
-      # Valid for ubuntu image 12.04
-      PrcLib.warning(
-        'Cloud-init has gave up to configure the network. waiting...'
-      )
-      output_options[:status] = :nonet
-    elsif s_status == :nonet &&
-          /Booting system without full network configuration/ =~ o_log
-      # Valid for ubuntu image 12.04
-      PrcLib.warning(
-        'forj has detected an issue to bring up your maestro server.' \
-                ' Removing it and re-creating a new one. please be patient...'
-      )
-      output_options[:status] = :restart
-    elsif s_status == :restart
-      process_delete(:server)
-      process_create(:internet_server)
-      output_options[:status] = :starting
-    end
-    output_options
+    ForgeStatus.new :cloud_init
   end
 end
 
@@ -311,131 +241,158 @@ end
 
 # Functions for boot - build_forge
 class ForjCoreProcess
-  # Function displaying the server status
-  def maestro_create_status(sStatus, iCurAct = 4, pending_count = 0)
-    s_activity = '/-\\|?'
-    if iCurAct < 4
-      s_cur_act = 'ACTIVE'
-    else
-      s_cur_act = format('%s - %d s', ANSI.bold('PENDING'),
-                         (pending_count + 1) * 5)
-    end
-
-    state = {
-      :checking   => 'Checking server status',
-      :starting   => 'STARTING',
-      :assign_ip  => '%s - %s - Assigning Public IP',
-      :cloud_init => '%s - %s - Currently running cloud-init. Be patient.',
-      :nonet      => '%s - %s - Currently running cloud-init. Be patient.',
-      :restart    => 'RESTARTING - Currently restarting maestro box. '\
-                     'Be patient.',
-      :active     => 'Server is active'
-    }
-    case sStatus
-    when :checking, :starting, :restart
-      PrcLib.state(state[sStatus])
-    when :assign_ip, :cloud_init, :nonet
-      PrcLib.state(state[sStatus], s_activity[iCurAct], s_cur_act)
-    when :active
-      PrcLib.info(state[sStatus])
-    end
-  end
-
-  # TODO: Rewrite this function to break it for rubocop.
-  # rubocop: disable CyclomaticComplexity
-  # rubocop: disable PerceivedComplexity
-  # rubocop: disable Metrics/MethodLength
-  # rubocop: disable Metrics/AbcSize
-
   # Loop until server is active
-  def till_server_active(s_status, hParams, o_address, boot_options)
-    m_cloud_init_error = []
-    i_cur_act = 0
-    o_old_log = ''
-    pending_count = 0
-    server_error = 0
-    o_server = hParams.refresh[:server, :ObjectData]
-    server_name = o_server[:attrs, :name]
-    image = server_get_image o_server
+  def till_server_active(forge, hParams)
+    ForgeStatus.new.display
+    maestro = forge[:servers, 'maestro']
+    status = forge_status(maestro)
 
-    while s_status != :active
-      if i_cur_act == 4
-        pending_count += 1
-      else
-        pending_count = 0
+    forge_info(maestro, hParams, status.status) unless status.status == :active
+
+    hParams.refresh
+
+    hParams[:server_id] = maestro[:id]
+    hParams[:server_name] = maestro[:name]
+
+    while status.running?
+      status.display
+
+      sleep(5) unless status.changed?
+
+      status.progress
+
+      maestro = hParams[:server, :ObjectData]
+      hParams[:server_id] = maestro[:id] unless maestro.nil?
+      status.is :disappeared unless maestro.refresh
+
+      task = %w(disappeared error restart restarted checking starting assign
+                analyze_log)
+      task.each do |t|
+        break if method("_run_#{t}").call(maestro, status, hParams)
       end
-      maestro_create_status(s_status, i_cur_act, pending_count)
-      i_cur_act += 1
-      i_cur_act = i_cur_act % 4
-
-      if s_status == :restart
-        process_delete(:server)
-        PrcLib.message("Bad server '%s' removed. Creating a new one...",
-                       server_name)
-        sleep(5)
-        process_create(:internet_server)
-        s_status = :starting
-        o_server = hParams.refresh[:server, :ObjectData]
-        next
-      end
-
-      unless o_server.refresh
-        sleep(5)
-        next
-      end
-
-      if o_server[:status] == :error
-        if server_error == 1
-          PrcLib.fatal(1, 'Server tried to be rebuilt but failed again.')
-        end
-        server_error = 1
-        PrcLib.warning("The creation of server '%s' has currently failed. "\
-                       'Trying to rebuild it, once before give up.',
-                       server_name)
-        s_status = :restart
-        next
-      end
-
-      if s_status == :starting
-        s_status = :assign_ip if o_server[:status] == :active
-      elsif s_status == :assign_ip
-        s_status = assign_ip_boot(o_address, boot_options, s_status, o_server,
-                                  hParams)
-      else # analyze the log output
-        output_options = { :status => s_status, :error => m_cloud_init_error,
-                           :old_log => o_old_log, :cur_act => i_cur_act
-        }
-        output_options = analyze_log_output(output_options, s_status, hParams)
-        s_status = output_options[:status]
-        m_cloud_init_error = output_options[:error]
-        o_old_log = output_options[:old_log]
-        i_cur_act = output_options[:cur_act]
-
-        tb_detect(hParams, o_old_log)
-        ca_root_detect(hParams, o_old_log)
-        lorj_detect(hParams, o_old_log, boot_options)
-
-        if pending_count == 60
-          highlight = ANSI.yellow('-' * 40)
-          PrcLib.warning("No more server activity detected.\n"\
-                         "#{highlight}\n"\
-                         "%s\n"\
-                         "#{highlight}\n"\
-                         "The server '%s' is not providing any output log for"\
-                         " more than 5 minutes.\nPlease review the current "\
-                         'output shown below to determine if this is a normal '\
-                         "situation.\nYou can connect to the server if you "\
-                         "want to.\nTo connect, use:\n"\
-                         'ssh %s@%s -o StrictHostKeyChecking=no -i %s',
-                         o_old_log, server_name, image[:ssh_user],
-                         o_address[:public_ip], boot_options[:keys])
-        end
-      end
-      sleep(5) if s_status != :active
     end
     msg = 'The Forge build is over!'
     PrcLib.info(msg)
     PrcLib.high_level_msg("\n#{msg}\n")
+  end
+
+  # Task run list ****************
+
+  # if the server has disappeared. try to get is back
+  def _run_disappeared(maestro, status, hParams)
+    return false unless status.status == :disappeared
+
+    maestro = process_get(:server, hParams[:server_id], hParams)
+    unless maestro.nil?
+      register(maestro)
+      return true
+    end
+    PrcLib.warning("Server '#{hParams[:server_name]}' is not found "\
+                   "with ID '#{hParams[:server_id]}'. Trying to get the server"\
+                   ' from his name.')
+    list = process_query(:server, { :name => hParams[:server_name] }, hParams)
+    return true if list.nil?
+    if list.empty?
+      PrcLib.fatal("No more maestro server '#{hParams[:server_name]}' has been"\
+                   " found. Did you remove it?.\nBoot aborted.")
+    end
+    if list.length > 1
+      found = []
+      list.each { |s| found << s[:id] }
+      PrcLib.fatal("Too many servers with name '#{hParams[:server_name]}'."\
+      ' You have to connect manually to your cloud and fix those duplicated'\
+      " servers.\nList of servers:\n%s", found.join(', '))
+    end
+    status.is :starting
+    maestro = list[0]
+    hParams[:server_id] = maestro[:id]
+    register(maestro)
+    true
+  end
+
+  # if the server is in error, state forge in error.
+  def _run_error(maestro, status, _hParams)
+    return false unless maestro[:status] == :error
+    PrcLib.warning("The creation of server '%s' has currently failed. "\
+                   'Trying to rebuild it, once before giving up.',
+                   server_name)
+    status.is :in_error
+    true
+  end
+
+  # if forge is in error, try to recreate Maestro. forge state move to restarted
+  #
+  # The server ID will change.
+  def _run_restart(maestro, status, hParams)
+    return false unless status.status == :in_error
+    process_delete(:server)
+    PrcLib.message("Bad server '%s' removed. Creating a new one...",
+                   server_name)
+    sleep(5)
+    process_create(:internet_server)
+    status.is :restarted
+    maestro = hParams.refresh[:server]
+    hParams[:server_id] = maestro[:id] unless maestro.nil?
+    PrcLib.info("NEW Maestro server '%s' id is '%s'.",
+                maestro[:name], maestro[:id])
+    true
+  end
+
+  # if the forge creation has been restarted (maestro creation error)
+  # and if the server is back in error, then forgive forge creation.
+  # if the server state moved to :active, move forge state to :cloud_init
+  def _run_restarted(maestro, status, _hParams)
+    return false unless status.status == :restarted
+
+    if maestro[:status] == :error
+      PrcLib.fatal(1, 'Server tried to be rebuilt but failed again.')
+    end
+    status.is :cloud_init
+    true
+  end
+
+  # if we check the forge and maestro is still not active
+  # Move status to :starting
+  def _run_checking(maestro, status, _hParams)
+    return false unless status.status == :checking &&
+                        maestro[:status] != :active
+    status.is :starting
+    true
+  end
+
+  # If forge creation is starting or checking and server is active
+  # move forge state to :assign_ip
+  def _run_starting(maestro, status, _hParams)
+    return false unless [:starting, :checking].include?(status.status) &&
+                        maestro[:status] == :active
+    status.is :assign_ip
+    true
+  end
+
+  # if forge is assign_ip, create the pub IP if missing.
+  # state move to :cloud_init when public IP is found.
+  def _run_assign(maestro, status, _hParams)
+    return false unless status.status == :assign_ip
+    assign_ip_boot(maestro, status)
+    true
+  end
+
+  # Default task
+  # Analyze the log and some additional log detection sent by maestro
+  # cloud_init.
+  #
+  # - tb_detect - Maestro Test-box request detection - See test_box.rb
+  # - ca_root_detect - Maestro CA Root request detection - See ca_root_cert.rb
+  # - lorj_detect - Maestro Lorj account request detection - See lorj_account.rb
+  #
+  def _run_analyze_log(maestro, status, hParams)
+    return false unless analyze_log_output(maestro, status, hParams)
+
+    tb_detect(hParams, status.prev_log)
+    ca_root_detect(hParams, status.prev_log)
+    lorj_detect(hParams, status.prev_log)
+
+    true
   end
 
   # Function to get the image data from the server

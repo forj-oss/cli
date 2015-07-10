@@ -50,7 +50,7 @@ class ForjCoreProcess
     h_meta['lorj_enabled'] = hParams[:lorj_account, :enabled].to_s
   end
 
-  def lorj_detect(hParams, log_output, keypair)
+  def lorj_detect(hParams, log_output)
     return unless hParams.exist?(:lorj_account, :data)
 
     # the server must wait with 4 last lines in server log:
@@ -73,56 +73,45 @@ class ForjCoreProcess
     #               "process is waiting for #{test_box_dir}")
     #   return
     # end
-    PrcLib.warning('lorj: ssh config is currently not managed. You may '\
-                   "need to configure it yourself, otherwise forj won't "\
-                   'connect and transfert the data to the box.')
 
-    pubip = hParams[:public_ip, :public_ip]
-    user = hParams[:image, :ssh_user]
-    identity = File.join(keypair[:keypair_path], keypair[:private_key_name])
+    ssh_cmd = "echo \"#{hParams[:lorj_account, :data]}\" > #{res[1]}; "\
+              "echo \"#{hParams[:lorj_account, :key]}\" > #{res[2]}; "\
+              "touch \"#{res[3]}\""
+    cmd = "ssh %s %s '#{ssh_cmd}'"
 
-    if keypair[:coherent]
-      ssh_options = '-o StrictHostKeyChecking=no -o ServerAliveInterval=180'
-      ssh_options += " -i #{identity}"
-      ssh_options += " #{user}@#{pubip}"
-      ssh_cmd = "echo \"#{hParams[:lorj_account, :data]}\" > #{res[1]}"
-      ssh_cmd += "; echo \"#{hParams[:lorj_account, :key]}\" > #{res[2]}"
-      ssh_cmd += "; touch \"#{res[3]}\""
+    server = hParams[:server, :ObjectData]
 
-      # TODO: Implement testing branch warning. See build.sh lines 618 -> 632
-      cmd = "ssh #{ssh_options} '#{ssh_cmd}'"
+    run_ssh(server, hParams,
+            cmd) do |server_name, user, pubip, _keypair, ssh_options|
+      msg <<-EOF
+  Unable to copy Lorj data to the server '#{server_name}' at IP '#{pubip}'.
+  You need to do it yourself manually, now. To do it, execute following
+  instructions:
+  1. Connect to server #{pubip} as #{user}.
+     You need to find the proper way to connect to '#{pubip}' as the cloud
+     keypair found is not coherent with some local SSH keys in
+     #{PrcLib.data_path}/keypairs
 
-      PrcLib.info "Running following shell instructions:\n#{cmd}"
+     Ex: ssh #{ssh_options}
 
-      return if system(cmd)
-    end
+  2. Create 2 files with the following data:
+     $ echo '#{hParams[:lorj_account, :data]}' > '#{res[1]}'
+     $ echo '#{hParams[:lorj_account, :key]}' > '#{res[2]}'
 
-    msg <<-EOF
-Unable to copy Lorj data to the server '#{pubip}'. You need to do it yourself
-manually, now. To do it, execute following instructions:
-1. Connect to server #{pubip} as #{user}.
-   You need to find the proper way to connect to '#{pubip}' as the cloud keypair
-   found is not coherent with some local SSH keys in
-   #{PrcLib.data_path}/keypairs
+  3. touch the flag file
+     $ touch '#{res[3]}'
 
-   Ex: ssh #{ssh_options}
+  4. Disconnect.
+     $ exit
 
-2. Create 2 files with the following data:
-   $ echo '#{hParams[:lorj_account, :data]}' > '#{res[1]}'
-   $ echo '#{hParams[:lorj_account, :key]}' > '#{res[2]}'
+  As soon as those instructions are done, Maestro should go on.
+      EOF
 
-3. touch the flag file
-   $ touch '#{res[3]}'
-
-4. Disconnect.
-   $ exit
-
-As soon as those instructions are done, Maestro should go on.
-    EOF
-
-    PrcLib.error msg
-    loop do
-      break if ask("When you are done, type 'DONE'") == 'DONE'
+      PrcLib.error msg
+      loop do
+        break if ask("When you are done, type 'DONE'") == 'DONE'
+      end
+      true
     end
   end
 end

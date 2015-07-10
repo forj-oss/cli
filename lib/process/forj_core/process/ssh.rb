@@ -20,27 +20,22 @@ class ForjCoreProcess
   def ssh_connection(sObjectType, hParams)
     # Get server information
     PrcLib.state('Getting server information')
-    o_server = hParams[:server, :ObjectData]
-    register(o_server)
-    public_ip = ssh_server_public_ip(o_server)
+    server = hParams[:server, :ObjectData]
+    register(server)
 
-    ssh_options = ssh_keypair(o_server)
-    # Get ssh user
-    image  = process_get(:image, o_server[:image_id])
-    user = hParams[:ssh_user]
-
-    user = image[:ssh_user] if user.nil?
-
-    PrcLib.debug("Using account '%s'.", user)
-
+    cmd = 'ssh %s %s'
+    msg = "creating ssh connection with '#{server[:name]}' box"
     begin
-      PrcLib.state("creating ssh connection with '%s' box", o_server[:name])
-      ssh_login(ssh_options, user, public_ip)
-   rescue => e
-     PrcLib.fatal 1, <<-END
+      run_ssh(server, hParams, cmd,
+              msg) do |_name, _user, _pubip, _keypair, ssh_options|
+        run = format(cmd, ssh_options)
+        PrcLib.error("Unable to connect to your box with '#{run}'")
+      end
+    rescue => e
+      PrcLib.fatal 1, <<-END
 #{e.message}
 You were not able to connect to this box. Please note that there is no
- garantuee that your local private key file '#{ssh_options[:keys]}' is the
+ garantuee that your local private key file is the
  one that was used while building this box.
 You have to check with the user who created that box.
          END
@@ -48,89 +43,37 @@ You have to check with the user who created that box.
     register({ :success => true }, sObjectType)
   end
 
-  def ssh_keypair(o_server)
-    if config[:identity].nil? || !config[:identity].is_a?(String)
-      h_keys = keypair_detect(
-        o_server[:key_name],
-        File.join(Forj.keypairs_path, o_server[:key_name])
-      )
-    else
-      h_keys = keypair_detect(
-        o_server[:key_name],
-        File.expand_path(config[:identity])
-      )
+  # Internal function to execute an SSH/SCP command
+  #
+  # * *args*:
+  #   - server : Lorj::Data. Server to connect to
+  #   - params : event parameters.
+  #   - cmd    : String. Ssh command to execute. The string must contains
+  #     one %s, which will be replaced by the ssh connections options.
+  #   - msg    : Optional String. Info message printed out.
+  def run_ssh(server, hParams, cmd, msg = nil)
+    server_name, user, pubip, keypair = _server_info_params(server, hParams)
+
+    identity = keypair[:keys]
+
+    ssh_options = '-o StrictHostKeyChecking=no -o ServerAliveInterval=180'\
+                  " -i #{identity} "
+    ssh_connect = "#{user}@#{pubip}"
+    if keypair[:coherent]
+      PrcLib.warning('ssh config is currently not managed. You may '\
+                     'need to configure it yourself, otherwise forj may not '\
+                     'connect and transfert data to the box, if some options'\
+                     ' are required for the connection.')
+      # TODO: Implement testing branch warning. See build.sh lines 618 -> 632
+      run_cmd = format cmd, ssh_options, ssh_connect
+
+      PrcLib.info(msg) unless msg.nil?
+      PrcLib.debug "Running following shell instructions:\n#{run_cmd}"
+
+      return true if system(run_cmd)
     end
 
-    private_key_file = File.join(
-      h_keys[:keypair_path],
-      h_keys[:private_key_name]
-    )
-    public_key_file = File.join(h_keys[:keypair_path], h_keys[:public_key_name])
-
-    PrcLib.info("Found openssh private key file '%s'.",
-                private_key_file) if h_keys[:private_key_exist?]
-
-    if h_keys[:public_key_exist?]
-      PrcLib.info("Found openssh public key file '%s'.", public_key_file)
-    else
-      PrcLib.warning("Openssh public key file '%s' not found. Unable to verify"\
-                     ' keys coherence with remote server.', public_key_file)
-    end
-    ssh_options = ssh_options(h_keys, private_key_file, o_server)
-    ssh_options
-  end
-
-  def ssh_options(h_keys, private_key_file, o_server)
-    if h_keys[:private_key_exist?]
-      ssh_options = { :keys => private_key_file }
-      PrcLib.debug("Using private key '%s'.", private_key_file)
-    else
-      PrcLib.fatal 1, <<-END
-The server '#{o_server[:name]}' has been configured with a keypair
- '#{o_server[:key_name]}' which is not found locally.
-You won't be able to connect to that server without
- '#{o_server[:key_name]}' private key.
-To connect to this box, you need to provide the appropriate private
- key file with option -i
-      END
-    end
-    ssh_options
-  end
-
-  def ssh_server_public_ip(o_server)
-    # Get Public IP of the server. Needs the server to be loaded.
-    network_used = o_server[:meta_data, 'network_name']
-    unless o_server[:pub_ip_addresses, network_used].nil?
-      return o_server[:pub_ip_addresses, network_used]
-    end
-    o_address = process_query(:public_ip, :server_id => o_server[:id])
-
-    if o_address.length == 0
-      PrcLib.fatal(1, 'ip address for %s server was not found', o_server[:name])
-    else
-      public_ip = o_address[0][:public_ip]
-    end
-    public_ip
-  end
-end
-
-# Functions for ssh
-class ForjCoreProcess
-  def setup_ssh_user(_sCloudObj, hParams)
-    images  = process_query(:image,  :name => hParams[:image_name])
-    result = { :list => config[:users] }
-    if images.length >= 1 && !images[0, :ssh_user].nil?
-      result[:default_value] = images[0, :ssh_user]
-    end
-    result
-  end
-
-  def ssh_login(options, user, public_ip)
-    s_opts = '-o StrictHostKeyChecking=no -o ServerAliveInterval=180'
-    s_opts += format(' -i %s', options[:keys]) if options[:keys]
-
-    command = format('ssh %s %s@%s', s_opts, user, public_ip)
-    PrcLib.debug("Running '%s'", command)
-    system(command)
+    return false unless block_given?
+    yield(server_name, user, pubip, keypair, ssh_options)
   end
 end

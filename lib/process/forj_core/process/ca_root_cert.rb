@@ -45,37 +45,34 @@ class ForjCoreProcess
       return
     end
 
-    server = hParams[:server, :name]
-    public_ip = hParams[:public_ip, :public_ip]
-    identity = File.join(hParams[:keypairs, :keypair_path],
-                         hParams[:keypairs, :private_key_name])
-    # Get ssh user
-    user = hParams[:image, :ssh_user]
+    server = hParams[:server, :ObjectData]
 
-    PrcLib.info("Copying local file '#{cert_file}' to #{server}:#{dest_file}")
+    cmd = "scp %s #{cert_file} %s:#{dest_file}"
+    msg = "Copying local file '#{cert_file}' to #{server[:name]}:#{dest_file}"
 
-    ssh_options = '-o StrictHostKeyChecking=no -o ServerAliveInterval=180'
-    ssh_options += " -i #{identity}"
+    ok = run_ssh(server, hParams, cmd, msg
+                ) do |_name, user, pubip, keypair, _ssh_options|
+      msg = "Maestro is waiting for the CA root certificate.\n"\
+            'But your local environment do not have the appropriate'\
+            " ssh private key (#{keypair[:keys]}) to make "\
+            "the connection.\nSo, manually, you have to send "\
+            "the '#{cert_file}' to '#{pubip}:#{dest_file}' as '#{user}'.\n"\
+            'Maestro will stay freezed until you copy this file'\
+            ' as suggested.'
+    end
 
-    cmd = "scp #{ssh_options} #{cert_file} #{user}@#{public_ip}:#{dest_file}"
-    PrcLib.debug("Running command '%s'", cmd)
-    res = `#{cmd}`
-
-    # For any reason, $CHILD_STATUS is empty, while $? is not.
-    # Ruby bug. tested with:
-    # ruby 2.0.0p353 (2013-11-22 revision 43784) [x86_64-linux]
-    # rubocop: disable Style/SpecialGlobalVars
-    unless $?.exitstatus == 0
-      # rubocop: enable Style/SpecialGlobalVars
-      PrcLib.error("Unable to send the Root Certificate file '%s' "\
-                   "You will need install it yourself in /tmp + '"\
-                   ".done' flag file\n%s", cert_file, res)
+    unless ok
+      PrcLib.error("Unable to send the Root Certificate file '#{cert_file}' "\
+                   "You will need install it yourself in #{server}:"\
+                   "#{dest_file}"\
+                   ".done' flag file\n#{res}")
       config[:cert_error] = true
       return
     end
 
-    PrcLib.debug('Flagging the server copy.')
-    `ssh #{ssh_options} #{user}@#{public_ip} touch #{dest_file}.done`
+    cmd = "ssh %s %s 'touch #{dest_file}.done'"
+    msg = 'Flagging the server copy.'
+    run_ssh(server, hParams, cmd, msg)
   end
 
   # function to add extra meta data to support ca_root_cert
