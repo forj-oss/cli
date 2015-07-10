@@ -134,11 +134,6 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   # Lorj_disabled support
   obj_needs :data,   'maestro#lorj_disabled', :for => [:create_e]
 
-  # Defines how cli will control FORJ features
-  # boot/down/ssh/...
-
-  # Define framework object on BaseDefinition
-  # See lib/core/definition.rb for function details usage.
   # ************************************ SSH Object
   define_obj(:ssh,
 
