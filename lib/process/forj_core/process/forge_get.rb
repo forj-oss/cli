@@ -64,12 +64,17 @@ class ForjCoreProcess
   end
 end
 
-# Information Functions for boot - build_forge
-class ForjCoreProcess
+# Information Functions for boot/info - build_forge
+class ForjCoreProcess # rubocop: disable Metrics/ClassLength
   def _server_show_info(forge, hParams)
     maestro = forge[:servers, 'maestro']
-    forge_info(maestro, hParams)
-    read_blueprint_implemented(forge, hParams)
+    unless forge_info(maestro, hParams) == :incomplete
+      read_blueprint_implemented(forge, hParams)
+      return
+    end
+    PrcLib.info(display_servers_with_ip(forge, 'undefined', '{//}',
+                                        'Servers found in this unknown'\
+                                        ' forge:'))
   end
 
   def _server_info_params(server, params)
