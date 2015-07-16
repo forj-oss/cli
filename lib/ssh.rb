@@ -48,7 +48,8 @@ module Forj
         params = {}
         params[:server] = server
         params[:network_used] = select_network_used(forge, server,
-                                                    account[:network_name])
+                                                    account['maestro#'\
+                                                            'network_name'])
         cloud.create(:ssh, params)
         return
       end
@@ -71,19 +72,9 @@ module Forj
         return server[:meta_data, 'network_name']
       end
       Lorj.debug(1, "'#{server[:name]}': No 'network_name' meta_data found")
-      networks = server[:pub_ip_addresses].keys
 
-      return networks[0] if networks.length == 1
-
-      if networks.length > 1
-        puts 'Multiple network detected on this node. '\
-             'Please choose the one to use.'
-        network_used = choose do |q|
-          q.choices(*list)
-          q.default = account[:network_name] if account[:network_name]
-        end
-        return network_used
-      end
+      network_used = _select_network_used_from_pubip(server, default)
+      return network_used unless network_used.nil?
 
       Lorj.debug(1, "'#{server[:name]}': No public network found")
       return default unless default.nil?
@@ -93,12 +84,29 @@ module Forj
               'You may need to setup your account to find one.')
       end
 
+      return default if forge[:servers, 'maestro'].nil?
+
       PrcLib.warning('Unable to determine the network hosting a public IP for'\
                      " your server '#{server[:name]}'. Trying to get it from "\
                      "'maestro'")
 
       maestro = forge[:servers, 'maestro']
       select_network_used(forge, maestro)
+    end
+
+    def self._select_network_used_from_pubip(server, default)
+      return nil if server[:pub_ip_addresses].nil?
+
+      networks = server[:pub_ip_addresses].keys
+      return networks[0] if networks.length == 1
+      return nil if networks.length == 0
+
+      puts 'Multiple network detected on this node. '\
+           'Please choose the one to use.'
+      choose do |q|
+        q.choices(*list)
+        q.default = default if default
+      end
     end
 
     def self.select_forge_server(o_forge)
