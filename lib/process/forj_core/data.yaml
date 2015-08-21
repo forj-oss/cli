@@ -221,7 +221,7 @@
       :export:          "server#security_group"
     :ports:
       :desc:            "Ports open in the security groups given."
-      :default_value:   [22, 80, 443, 3000, 3131-3135, 4505-4506, 5000, 5666, 8000, 8080-8081, 8083, 8125, 8139-8140, 8773-8776, 9292, 29418, 35357]
+      :default_value:   [22, 80, 389, 443, 636, 3000, 3010, 3131-3135, 4505, 4506, 4567, 5000, 5666, 5672, 6379, 8000, 8080, 8081, 8083, 8087, 8125, 8139-8140, 8773-8776, 9292, 15672, 29418, 35357]
     :maestro_repo:
       :desc:       "To use a different Maestro repository already cloned."
     :infra_repo:
