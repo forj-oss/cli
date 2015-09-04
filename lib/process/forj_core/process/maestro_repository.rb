@@ -47,12 +47,12 @@ class ForjCoreProcess
         h_result[:maestro_repo] = File.join(path_maestro, 'maestro')
         clone_maestro_repo(maestro_url, path_maestro, config)
       end
-   rescue => e
-     PrcLib.error("Error while cloning the repo from %s\n%s\n%s"\
-                  "\nIf this error persist you could clone the repo manually"\
-                  " in '%s'",
-                  maestro_url, e.message, e.backtrace.join("\n"),
-                  h_result[:maestro_repo])
+    rescue => e
+      PrcLib.error("Error while cloning the repo from %s\n%s\n%s"\
+                   "\nIf this error persist you could clone the repo manually"\
+                   " in '%s'",
+                   maestro_url, e.message, e.backtrace.join("\n"),
+                   h_result[:maestro_repo])
     end
     o_maestro = register(h_result, sObjectType)
     o_maestro[:maestro_repo] = h_result[:maestro_repo]

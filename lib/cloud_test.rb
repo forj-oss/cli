@@ -55,10 +55,7 @@ Otherwise, we will build a new one with some predefined data,
  you can review and update later.
    END
                  )
-  s_ask = format(
-    'Do you want to create a new one from Maestro (yes/no)?',
-    infra_dir
-  )
+  s_ask = format('Do you want to create a new one from Maestro (yes/no)?')
   b_build_infra = agree(s_ask)
   unless b_build_infra
     puts 'Process aborted on your demand.'

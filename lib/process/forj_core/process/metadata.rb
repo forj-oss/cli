@@ -35,7 +35,7 @@ class ForjCoreProcess
       'key_name' => hParams['credentials#keypair_name'],
       # The following is used by gardener
       # Remove pad
-      'hpcloud_priv' => Base64.strict_encode64(hpcloud_priv).gsub('=', ''),
+      'hpcloud_priv' => Base64.strict_encode64(hpcloud_priv).delete('='),
       'compute_os_auth_url' => hParams['gardener#os_auth_uri']
     }
 

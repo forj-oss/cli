@@ -27,10 +27,10 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
 
              :create_e => :clone_or_use_maestro_repo
 
-  obj_needs :data,   :maestro_url
+  obj_needs :data, :maestro_url
 
   obj_needs_optional
-  obj_needs :data,   :maestro_repo
+  obj_needs :data, :maestro_repo
 
   # ******************* Infra Repository object
   define_obj :infra_repository,
@@ -130,10 +130,10 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,        :test_box_path,     :for => [:create_e]
 
   # Adding support of ca-root-cert file to send out.
-  obj_needs :data,      'certs#ca_root_cert', :for => [:create_e]
+  obj_needs :data, 'certs#ca_root_cert', :for => [:create_e]
 
   # Lorj_disabled support
-  obj_needs :data,   'maestro#lorj_disabled', :for => [:create_e]
+  obj_needs :data, 'maestro#lorj_disabled', :for => [:create_e]
 
   # ************************************ SSH Object
   define_obj(:ssh,
@@ -143,5 +143,5 @@ class Lorj::BaseDefinition # rubocop: disable Style/ClassAndModuleChildren
   obj_needs :data,  :network_used
 
   obj_needs_optional
-  obj_needs :data,  :ssh_user
+  obj_needs :data, :ssh_user
 end

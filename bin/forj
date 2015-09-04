@@ -126,36 +126,36 @@ If you want to check/updated them, use `forj get [-a account]`
 
   LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+  method_option :account_name, :aliases => '-a', :desc => 'Set the forj' \
      ' account name to use. By default, uses the default account set in'      \
      ' your local config file.' + "\n\n" + 'Following options superseed your' \
      ' Account, config file or forj defaults.'
-  method_option :maestro_repo,     :aliases => '-m',   :desc => 'config: '    \
+  method_option :maestro_repo, :aliases => '-m', :desc => 'config: '    \
     ' maestro_repo  : To use a different Maestro repository already'    \
     ' cloned.' + "\n" + 'By default, Maestro is systematically cloned ' \
     ' to ~/.forj/maestro from github.'
-  method_option :infra,            :aliases => '-r',   :desc => 'config:' \
+  method_option :infra,            :aliases => '-r', :desc => 'config:' \
     ' infra_repo    : Defines your Infra directory to use while'    \
     ' booting. You can also set FORJ_INFRA_DIR.'
-  method_option :key_name,         :aliases => '-k',   :desc => 'config:' \
+  method_option :key_name,         :aliases => '-k', :desc => 'config:' \
     ' keypair_name  : Keypair name to use.'
-  method_option :key_path,         :aliases => '-p',   :desc => 'config:' \
+  method_option :key_path,         :aliases => '-p', :desc => 'config:' \
     ' keypair_path  : Private or Public key file to use.'
-  method_option :security_group,   :aliases => '-s',   :desc => 'config:' \
+  method_option :security_group, :aliases => '-s', :desc => 'config:' \
     ' security_group: Security group name to use and configure.'
-  method_option :image_name,       :aliases => '-i',   :desc => 'config:' \
+  method_option :image_name, :aliases => '-i', :desc => 'config:' \
     ' image_name    : Image name to use to build Maestro and blueprint nodes.'
-  method_option :maestro_flavor,   :aliases => '-f',   :desc => 'config:' \
+  method_option :maestro_flavor, :aliases => '-f', :desc => 'config:' \
     ' flavor        : Maestro flavor to use.'
-  method_option :bp_flavor,        :aliases => '-b',   :desc => 'config:' \
+  method_option :bp_flavor, :aliases => '-b', :desc => 'config:' \
     ' bp_flavor     : Blueprint nodes default flavor to use.'\
     "\n\nBuild system options:"
-  method_option :boothook,         :aliases => '-H',   :desc => 'By default, ' \
+  method_option :boothook, :aliases => '-H', :desc => 'By default, ' \
     ' boothook file used is build/bin/build-tools/boothook.sh. '         \
     ' Use this option to set another one.'
-  method_option :build,            :aliases => '-B',   :desc => 'Replace' \
+  method_option :build, :aliases => '-B', :desc => 'Replace' \
     ' the default build.sh'
-  method_option :branch,           :aliases => '-R',   :desc => 'Branch' \
+  method_option :branch, :aliases => '-R', :desc => 'Branch' \
     "name to clone for maestro.\n\n"\
     "Remote box bootstrap debugging (test-box):\n"\
     'test-box is a shell script used to connect one or more local repository'\
@@ -170,13 +170,13 @@ If you want to check/updated them, use `forj get [-a account]`
   method_option :test_box, :aliases => '-T', :type => :array,
                            :desc => "Use a local repository for test-box\n\n"\
                                     'Other options:'
-  method_option :extra_metadata,   :aliases => '-e',   :desc => 'Custom' \
+  method_option :extra_metadata,   :aliases => '-e', :desc => 'Custom' \
     ' server metadata format key1=value1,key2=value2...,keyN=valueN'
 
   method_option :webproxy,      :aliases => '-x',
                                 :desc => 'Set HTTP/HTTPS proxy setting from'\
                                          ' your cloud'
-  method_option :ca_root_cert,  :desc => 'Certificate Authorities file used by'\
+  method_option :ca_root_cert, :desc => 'Certificate Authorities file used by'\
     ' your compagny to authenticate your intranet servers.'
   method_option :disable_lorj, :type => :boolean,
                                :desc => 'If set, Maestro - gardener (Cloud'\
@@ -266,7 +266,7 @@ Warning! This action do not remove any network/security groups cloud object.
 
   method_option :force, :aliases => '-f', :desc => 'force deletion of all' \
     ' servers for the given InstanceName'
-  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+  method_option :account_name, :aliases => '-a', :desc => 'Set the forj' \
      ' account name to use. By default, uses the default account set in'      \
      ' your local config file.' + "\n\n" + 'Following options superseed your' \
      ' Account, config file or forj defaults.'
@@ -312,7 +312,7 @@ you can set it as your default, with:
 
   LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+  method_option :account_name, :aliases => '-a', :desc => 'Set the forj' \
     ' account name to use. By default, uses the default account set in your'   \
     ' local config file.'
 
@@ -350,7 +350,7 @@ or from your ~/.forj/config.yaml, or if not found, from application defaults.
 
    LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+  method_option :account_name, :aliases => '-a', :desc => 'Set the forj' \
     ' account name to use. By default, uses the default account set in your'   \
     ' local config file.'
 
@@ -368,11 +368,11 @@ Connect through ssh to a node attached to an instance
 ex: forj ssh myforge -n review
    LONGDESC
 
-  method_option :box_name,       :aliases => '-n',   :desc => 'box name to' \
+  method_option :box_name, :aliases => '-n', :desc => 'box name to' \
     ' create ssh connection'
-  method_option :identity,       :aliases => '-i',   :desc => 'Private key' \
+  method_option :identity, :aliases => '-i', :desc => 'Private key' \
     ' file name.'
-  method_option :account_name,     :aliases => '-a',   :desc => 'Set the forj' \
+  method_option :account_name, :aliases => '-a', :desc => 'Set the forj' \
     ' account name to use. By default, uses the default account set in your'   \
     ' local config file.'
 
@@ -392,7 +392,7 @@ ex: forj ssh myforge -n review
                    account[:account_name])
     end
 
-    account.set(:box_ssh,   opts[:box_name])  if opts[:box_name]
+    account.set(:box_ssh,   opts[:box_name]) if opts[:box_name]
     account.set(:identity,  opts[:identity]) if opts[:identity]
 
     Forj::Ssh.connect(oInstanceName, account)
@@ -409,7 +409,7 @@ Provide some detailled information about the forge like:
 ex: forj info myforge -a myaccount
    LONGDESC
 
-  method_option :account_name,     :aliases => '-a',   :desc => 'forj' \
+  method_option :account_name, :aliases => '-a', :desc => 'forj' \
     ' account to use. By default, it uses the default account set in your'   \
     ' local config file. See forj get account.'
 

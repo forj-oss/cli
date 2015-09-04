@@ -359,7 +359,7 @@ module Forj
            " config\n\n"
       puts format("%s %-19s(%-7s) %-12s:\n"\
                   '----------------------------------------',
-                  'U',  'key', 'origin', 'section name')
+                  'U', 'key', 'origin', 'section name')
 
       a_processes = [{ :process_module => :cloud },
                      { :process_module => :forj_core }]

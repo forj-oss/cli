@@ -60,10 +60,10 @@ Gem::Specification.new do |s|
     s.add_development_dependency "ruby-debug"
   elsif RUBY_VERSION.match(/1\.9/)
     s.add_development_dependency "debugger"
-    s.add_development_dependency "rubocop", ">= 0.30.0"
+    s.add_development_dependency "rubocop", ">= 0.33.0"
   else
     s.add_development_dependency "byebug"
-    s.add_development_dependency "rubocop", ">= 0.30.0"
+    s.add_development_dependency "rubocop", ">= 0.33.0"
   end
   s.rdoc_options << '--title' << 'Lorj - The Process Controllers framework system' <<
   '--main' << 'README.md'

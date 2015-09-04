@@ -78,9 +78,9 @@ class ForjCoreProcess
     PrcLib.debug('Getting tenants from hpcloud cli libraries')
     begin
       tenants = Connection.instance.tenants(@sAccountName)
-   rescue => e
-     retry unless o_ssl_error.ErrorDetected(e.message, e.backtrace, e)
-     PrcLib.fatal(1, 'Network: Unable to connect.')
+    rescue => e
+      retry unless o_ssl_error.ErrorDetected(e.message, e.backtrace, e)
+      PrcLib.fatal(1, 'Network: Unable to connect.')
     end
     tenant_id = @oConfig.ExtraGet(:hpc_accounts, @sAccountName,
                                   :credentials).rh_get(:tenant_id)
@@ -99,7 +99,7 @@ class ForjCoreProcess
 
   # Setup query call
   def setup_ssh_user(_sCloudObj, hParams)
-    images  = process_query(:image,  :name => hParams[:image_name])
+    images = process_query(:image, :name => hParams[:image_name])
     result = { :list => config[:users] }
     if images.length >= 1 && !images[0, :ssh_user].nil?
       result[:default_value] = images[0, :ssh_user]

@@ -194,11 +194,11 @@ class ForjCoreProcess
     if File.exist?(s_md5_list)
       begin
         md5_list = YAML.load_file(s_md5_list)
-     rescue
-       PrcLib.error("Unable to load valid Original files list '%s'. " \
-                    "Your infra workspace won't be migrated, until fixed.",
-                    s_md5_list)
-       b_result = false
+      rescue
+        PrcLib.error("Unable to load valid Original files list '%s'. " \
+                     "Your infra workspace won't be migrated, until fixed.",
+                     s_md5_list)
+        b_result = false
       end
       unless md5_list
         md5_list = {}
