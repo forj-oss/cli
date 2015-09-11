@@ -198,6 +198,16 @@ Ex: boot a redstone 'myforge' with a proxy setting.
 
     $ forj boot redstone myforge -a CorporateAccount -e webproxy=$http_proxy
 
+Received disconnect from X.X.X.X 2: Too many authentication failures for XXX
+----------------------------------------------------------------------------
+
+When forj cli want to send out the cloud authentication data, you may be in trouble
+if you are running Fedora 22 or ubuntu.
+
+To avoid this error, update (or create) your ~/.ssh/config and add the following
+in the general section of this file:
+
+	IdentitiesOnly  true
 
 Contributing to Forj
 =====================
