@@ -83,7 +83,7 @@ class ForjCoreProcess
 
     run_ssh(server, hParams,
             cmd) do |server_name, user, pubip, _keypair, ssh_options|
-      msg <<-EOF
+      msg = <<-EOF
   Unable to copy Lorj data to the server '#{server_name}' at IP '#{pubip}'.
   You need to do it yourself manually, now. To do it, execute following
   instructions:
