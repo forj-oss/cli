@@ -40,7 +40,7 @@ class ForjCoreProcess
     }
 
     if hParams['dns#dns_service']
-      h_meta['dns_zone'] = hParams[:'dns#dns_service']
+      h_meta['dns_zone'] = hParams['dns#dns_service']
       h_meta['dns_tenantid'] = hParams['dns#dns_tenant_id']
       h_meta['dns_auth_url'] = hParams['credentials#auth_uri']
     end
