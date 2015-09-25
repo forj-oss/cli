@@ -287,6 +287,10 @@ module Forj
       res = ANSI.bold(format(where_format, config_where))
       return res if config_where == 'local'
 
+      if account_name.size > 9
+        account_name = account_name[0..3] + '..' + account_name[-3..-1]
+      end
+
       ANSI.yellow(ANSI.bold(format(where_format, account_name)))
     end
 
