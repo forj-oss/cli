@@ -105,7 +105,7 @@ module Forj
   module Boot
     # Boot process
     def self.boot(blueprint, on_or_name, deprecated_name, options)
-      @account = Lorj::Account.new(options[:config])
+      @account = Lorj::Account.new(options[:config], Forj.file_version)
 
       name = deprecated_name?(blueprint, on_or_name, deprecated_name[0],
                               deprecated_name[1], deprecated_name[2])

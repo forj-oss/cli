@@ -56,7 +56,7 @@ module Forj
   # This module helps you to setup your forge's account
   module Settings
     def self.account_show_all(account_name)
-      config = Lorj::Account.new
+      config = Lorj::Account.new(nil, Forj.file_version)
 
       config.ac_load account_name
       Forj::CloudConnection.connect(config)
@@ -87,7 +87,7 @@ module Forj
     end
 
     def self.config_show_all
-      config = Lorj::Account.new
+      config = Lorj::Account.new(nil, Forj.file_version)
 
       a_processes = [{ :process_module => :cloud },
                      { :process_module => :forj_core }]
@@ -149,7 +149,7 @@ module Forj
     end
 
     def self.account_set(account_name, *p)
-      config = Lorj::Account.new
+      config = Lorj::Account.new(nil, Forj.file_version)
 
       b_dirty = false
 
@@ -223,7 +223,7 @@ module Forj
   # This module helps you to setup your forge's account
   module Settings
     def self.config_set(*p)
-      config = Lorj::Account.new
+      config = Lorj::Account.new(nil, Forj.file_version)
       b_dirty = false
 
       p.flatten!

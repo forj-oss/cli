@@ -24,7 +24,7 @@ module Forj
   #  This module provides the behavior to destroy your forge's server(s)
   module Destroy
     def self.destroy(name, options)
-      account = Lorj::Account.new(options[:config])
+      account = Lorj::Account.new(options[:config], Forj.file_version)
 
       # Loading account at account layer
       unless account.ac_load options[:account_name]

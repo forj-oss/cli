@@ -212,7 +212,7 @@ queriable Objects:
 
     case object
     when 'defaults'
-      o_config = Lorj::Account.new
+      o_config = Lorj::Account.new(nil, Forj.file_version)
 
       puts 'List of default values: (local refer to your config file.' \
         ' hash refer to your FORJ account data)'
@@ -237,7 +237,7 @@ queriable Objects:
         puts accounts.to_yaml
         return
       end
-      o_config = Lorj::Account.new
+      o_config = Lorj::Account.new(nil, Forj.file_version)
       o_config[:account_name] = name
 
       PrcLib.fatal(1, "Unable to load the account '%s'",
@@ -380,7 +380,7 @@ ex: forj ssh myforge -n review
     opts = Forj::Settings.common_options(options)
     require 'ssh.rb'
 
-    account = Lorj::Account.new(opts[:config])
+    account = Lorj::Account.new(opts[:config], Forj.file_version)
 
     # Setting account at runtime layer
     account[:account_name] = opts[:account_name] if opts[:account_name]
@@ -417,7 +417,7 @@ ex: forj info myforge -a myaccount
     opts = Forj::Settings.common_options(options)
     require 'info.rb'
 
-    account = Lorj::Account.new(opts[:config])
+    account = Lorj::Account.new(opts[:config], Forj.file_version)
 
     # Setting account at runtime layer
     account[:account_name] = opts[:account_name] if opts[:account_name]

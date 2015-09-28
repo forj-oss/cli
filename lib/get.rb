@@ -24,7 +24,7 @@ module Forj
   # This module gets your account/default configuration
   module Get
     def self.get(options, key)
-      @account = Lorj::Account.new
+      @account = Lorj::Account.new(nil, Forj.file_version)
       if options[:account_name]
         get_account(options, key)
       else

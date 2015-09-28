@@ -144,6 +144,8 @@ class ForjCoreProcess
         options.merge!(:section => :default) if config_name == 'local'
         config.set(:keypair_base, File.basename(keypair_path), options)
         config.set(:keypair_path, File.dirname(keypair_path), options)
+        PrcLib.debug("keypair_base/keypair_path fix. file '%s' converted.",
+                     config_name)
       end
       config.version_set(config_name, Forj.file_version)
     end
