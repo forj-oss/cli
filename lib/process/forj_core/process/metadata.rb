@@ -144,7 +144,7 @@ class ForjCoreProcess
       data = <<-END
 HPCLOUD_OS_USER='#{hParams['gardener#os_user']}'
 HPCLOUD_OS_KEY='#{os_key}'
-DNS_KEY='#{hParams[:'credentials#account_id']}'
+DNS_KEY='#{hParams['credentials#account_id']}'
 DNS_SECRET='#{hParams['credentials#account_key']}'
       END
       pipe.puts(data)
